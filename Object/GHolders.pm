@@ -288,7 +288,7 @@ sub new_named_ctx {
 		return 1;	
 	}
 
-	my $prefix = ($ctx =~ m!^\.?/!) ? '' : "./";
+	my $prefix = ($ctx =~ m!^(?:\.?/|\$)!) ? '' : "./";
 
 	if (my $ref = $class->exists($prefix . $ctx)) {
 		$class->{named}{ $name } = $ref;

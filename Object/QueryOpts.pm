@@ -366,7 +366,8 @@ sub load_qkeys_to_input {
 
 	foreach my $k (@{ $class->{_}->template->qkeys }) {
 		my $v = shift @parts;
-		next if (!$v);
+		warn "k: $k\tv: $v\n";
+		next if (!$v || $v eq "-");
 		$class->{input}{ $k } = $v;
 	}
 

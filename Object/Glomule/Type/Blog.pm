@@ -85,6 +85,15 @@ sub activate_functions {
 			},
 		},
 		{
+			name	=> "archive",
+			sub		=> sub {$class->f_archive(@_)},
+			qopts	=> $class->qopts_archive,
+			modes	=> {
+				Normal	=> 1,
+				Auth	=> 1,
+			},
+		},
+		{
 			name	=> "management",
 			sub		=> sub {$class->f_management(@_)},
 			qopts	=> $class->qopts_management,
@@ -144,7 +153,7 @@ sub f_main {
 
 	my $category	= $fobj->bucket->get("category");
 
-	foreach my $qo ('start','limit','sortby','sortdir') {
+	foreach my $qo ('start','limit','sortby','sortdir','month','year','day') {
 		my $v = $fobj->bucket->get("nav/".$qo);
 		$class->pref($qo)->set($v) if ($v);
 	}
@@ -271,6 +280,95 @@ sub f_view {
 	);
 
 	return 1;
+}
+
+#----------
+
+sub f_archive {
+	my $class = shift;
+	my $fobj = shift;
+
+	my $category = $fobj->bucket->get("category");
+
+	my $get;
+	if ($category) {
+
+	} else {
+		$get = $class->{_}->core->get_dbh->prepare("
+			select 
+				timestamp 
+			from 
+				" . $class->{headers} . "
+			where 
+				status = 1 
+		");
+
+		$class->gholders->register(['category','-']);
+	}
+
+	$get->execute;
+
+	# -- now buzz through and separate them -- #
+
+	my @mons = (
+		'','January','February','March','April','May','June','July',
+		'August','September','October','November','December'
+	);
+
+	my ($ts);
+	$get->bind_columns(\$ts);
+
+	my %dates;
+	while ( $get->fetch ) {
+		my $tmp = Date::Format::time2str("%Y/%m/%d",$ts);
+		$tmp =~ m!^(\d\d\d\d)/(\d\d)/(\d\d)$!;
+		$dates{$1}{$2}{$3}++;
+		$dates{$1}{$2}{TOTAL}++;
+		$dates{$1}{TOTAL}++;
+	}
+
+	my @years;
+	foreach my $y (sort {$b <=> $a} keys %dates) {
+		next if ($y eq "TOTAL");
+
+		my @data;
+		my @months;
+		foreach my $m (sort {$b <=> $a} keys %{$dates{$y}}) {
+			next if ($m eq "TOTAL");
+
+			$class->gholders->register([ 'year.'.$y.'.month.'.$m , {
+				mon		=> $m,
+				month	=> $mons[$m],
+				year	=> $y,
+				count	=> $dates{$y}{$m}{TOTAL},
+				link	=> 
+					$class->{_}->queryopts->link("",{
+						class		=> "nav",
+						year		=> $y,
+						month		=> $m,
+					}),
+			} ]);
+
+			push @months, $m;
+		}
+
+		$class->gholders->register(
+			['year.'.$y , {
+				year	=> $y,
+				count	=> $dates{$y}{TOTAL},
+				link	=> 
+					$class->{_}->queryopts->link("",{
+						class	=> "nav",
+						year	=> $y,
+					}),
+				month	=> \@months,
+			} ]
+		);
+
+		push @years, $y;
+	}
+
+	$class->gholders->register(['year',\@years]);
 }
 
 #----------
@@ -629,6 +727,8 @@ sub get_posts_by_status {
 		$headers = $class->cache_glomheaders;
 	}
 
+	my $datelimit = $class->set_up_datelimit;
+
 	# what ids do we want?
 	my $get = $class->{_}->core->get_dbh->prepare("
 		select 
@@ -637,6 +737,7 @@ sub get_posts_by_status {
 			" . $class->{headers} . "
 		where 
 			status = ?
+			$datelimit->{sql}
 		order by id
 	");
 
@@ -676,6 +777,10 @@ sub get_data_by_parent {
 		$status = "and status = $a{status}";
 	}
 
+	# -- datelimit? -- #
+
+	my $datelimit = $class->set_up_datelimit;
+
 	# -- what ids do we want? -- #
 
 	my $db = $class->{_}->core->get_dbh;
@@ -691,6 +796,7 @@ sub get_data_by_parent {
 		where 
 			parent = ?
 			$status
+			$datelimit->{sql}
 		order by 
 			".$class->pref("sortby")->get." ".$class->pref("sortdir")->get."
 	");
@@ -710,6 +816,7 @@ sub get_data_by_parent {
 		where 
 			parent = ?
 			$status
+			$datelimit->{sql}
 		order by 
 			".$class->pref("sortby")->get." ".$class->pref("sortdir")->get."
 		limit
@@ -723,7 +830,7 @@ sub get_data_by_parent {
 	$select->bind_columns(\$id);
 
 	my $results = [];
-	my @ids;
+	my @ids = (0);
 	my $posts = {};
 	while ($select->fetch) {
 		my $post = {};
@@ -754,6 +861,57 @@ sub get_data_by_parent {
 	return ($results,$num_posts);
 }
 
+#----------
+
+sub set_up_datelimit {
+	my $class = shift;
+
+	my $datelimit = {
+		year	=> undef,
+		month	=> undef,
+		day		=> undef,
+		active	=> 0,
+	};
+
+	if (my $year = $class->pref("year")->get) {
+		$datelimit->{active}++;
+		$datelimit->{year} = $year;
+	}
+
+	if (my $val = $class->pref("month")->get) {
+		next if (!$datelimit->{year});
+		$datelimit->{month} = $val;
+	}
+
+	if (my $val = $class->pref("day")->get) {
+		next if (!$datelimit->{year} && !$datelimit->{day});
+		$datelimit->{day} = $val;
+	}
+
+	if ($datelimit->{active}) {
+			my $year	= $datelimit->{year};
+			my $mon		= $datelimit->{month} 	|| "01";
+			my $day		= $datelimit->{day} 	|| "01";
+			
+			my $start = Time::ParseDate::parsedate("$year/$mon/$day");
+
+			my $end;
+			if ($datelimit->{day}) {
+				$end = Time::ParseDate::parsedate("+1 day",NOW=>$start);
+			} elsif ($datelimit->{month}) {
+				$end = Time::ParseDate::parsedate("+1 month",NOW=>$start);
+			} else {
+				$end = Time::ParseDate::parsedate("+1 year",NOW=>$start);
+			}
+
+			$datelimit->{sql} 
+				= "and (timestamp >= $start and timestamp < $end)";
+	}
+
+	return $datelimit;
+}
+
+
 #---------------#
 # query options #
 #---------------#
@@ -770,7 +928,6 @@ sub qopts_main {
 		desc	=> "Selects a category for viewing.",
 		persist	=> 1,
 	},
-
 	{
 		opt		=> "start",
 		class	=> "nav",
@@ -779,7 +936,6 @@ sub qopts_main {
 		desc	=> "Starting result number.",
 		persist	=> 1,
 	},
-
 	{
 		opt		=> "limit",
 		class	=> "nav",
@@ -788,7 +944,6 @@ sub qopts_main {
 		desc	=> "How many results to return",
 		persist	=> 1,
 	},
-
 	{
 		opt		=> "sortby",
 		class	=> "nav",
@@ -797,7 +952,6 @@ sub qopts_main {
 		desc	=> "Field by which results will be sorted.",
 		persist	=> 1,
 	},
-
 	{
 		opt		=> "sortdir",
 		class	=> "nav",
@@ -805,6 +959,72 @@ sub qopts_main {
 		d_value	=> $class->pref("sortdir")->get,
 		toggle	=> ['asc','desc'],
 		desc	=> "Direction of sorting",
+		persist	=> 1,
+	},
+	{
+		opt		=> "year",
+		class	=> "nav",
+		allowed	=> '\d+',
+		d_value	=> $class->pref("year")->get,
+		desc	=> "Year Limit",
+		persist	=> 1,
+	},
+	{
+		opt		=> "month",
+		class	=> "nav",
+		allowed	=> '\d+',
+		d_value	=> $class->pref("month")->get,
+		desc	=> "Month Limit",
+		persist	=> 1,
+	},
+	{
+		opt		=> "day",
+		class	=> "nav",
+		allowed	=> '\d+',
+		d_value	=> $class->pref("day")->get,
+		desc	=> "Day Limit",
+		persist	=> 1,
+	},
+
+	];
+}
+
+#----------
+
+sub qopts_archive {
+	my $class = shift;
+
+	return [
+
+	{
+		opt		=> "category",
+		allowed	=> '\w+',
+		d_value	=> undef,
+		desc	=> "Selects a category for viewing.",
+		persist	=> 1,
+	},
+	{
+		opt		=> "year",
+		class	=> "nav",
+		allowed	=> '\d+',
+		d_value	=> $class->pref("year")->get,
+		desc	=> "Year Limit",
+		persist	=> 1,
+	},
+	{
+		opt		=> "month",
+		class	=> "nav",
+		allowed	=> '\d+',
+		d_value	=> $class->pref("month")->get,
+		desc	=> "Month Limit",
+		persist	=> 1,
+	},
+	{
+		opt		=> "day",
+		class	=> "nav",
+		allowed	=> '\d+',
+		d_value	=> $class->pref("day")->get,
+		desc	=> "Day Limit",
 		persist	=> 1,
 	},
 
@@ -997,6 +1217,24 @@ sub _prefs {return [
 	},
 	{
 		name		=> "start",
+		d_value		=> "0",
+		allowed		=> '\d+',
+		hidden		=> 1,
+	},
+	{
+		name		=> "year",
+		d_value		=> "0",
+		allowed		=> '\d+',
+		hidden		=> 1,
+	},
+	{
+		name		=> "month",
+		d_value		=> "0",
+		allowed		=> '\d+',
+		hidden		=> 1,
+	},
+	{
+		name		=> "day",
 		d_value		=> "0",
 		allowed		=> '\d+',
 		hidden		=> 1,

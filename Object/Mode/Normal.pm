@@ -89,8 +89,10 @@ sub handle_glomule {
 	my $type = shift;
 	my $i = shift;
 
+	my $glomule = $i->args->{name} || $i->args->{glomule};
+
 	my $ctx = $class->{_}->gholders->get_context;
-	$class->{_}->gholders->set_context($type.".".$i->args->{glomule});
+	$class->{_}->gholders->set_context($type.".".$glomule);
 
 	$class->{_}->gholders->handle_template_tree($i,$_[0]);
 

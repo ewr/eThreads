@@ -24,7 +24,11 @@ sub new {
 
 #----------
 
-sub 
+sub ping_all {
+	my $class = shift;
+
+
+}
 
 #----------
 

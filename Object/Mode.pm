@@ -75,7 +75,9 @@ sub walk_glomule {
 
 	my $core = $class->{_}->core;
 
-	$class->{_}->instance->check_rights_for_glomule($i->args->{glomule});
+	my $glomule = $i->args->{name} || $i->args->{glomule};
+
+	$class->{_}->instance->check_rights_for_glomule($glomule);
 
 	my $objname = $class->{_}->core->get_object_for_type($type);
 
@@ -85,11 +87,11 @@ sub walk_glomule {
 
 	my $rctx = $class->{_}->instance->new_object(
 		"GHolders::RegisterContext"
-	)->set($type.".".$i->args->{glomule});
+	)->set($type.".".$glomule);
 
 	my $g = $class->{_}->instance->new_object(
 		"Glomule::Type::".$objname,
-		$i->args->{glomule}
+		$glomule
 	)->activate;
 
 	$g->connect_to_gholders($rctx);
@@ -99,7 +101,7 @@ sub walk_glomule {
 	} else {
 		$class->{_}->core->bail(
 			"Unknown glomule function: "
-			. $i->args->{glomule}
+			. $glomule
 			. "/"
 			. $i->args->{function}
 		);
