@@ -435,10 +435,7 @@ sub f_post {
 		}
 	}
 
-	$class->flesh_out_post(
-		post	=> $post,
-		data	=> $class->fields,
-	);
+	$class->flesh_out_post($post);
 
 	if ($fobj->bucket->get("post/post")) {
 		$class->gholders->register(["post",1]);

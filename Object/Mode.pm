@@ -4,6 +4,8 @@ use strict;
 
 #----------
 
+sub IS_ADMIN { 0; }
+
 sub new {
 	die "Cannot directly load Mode object\n";
 }
@@ -91,6 +93,7 @@ sub walk_glomule {
 	my $core = $class->{_}->core;
 
 	my $glomule = $i->args->{name} || $i->args->{glomule};
+	my $named = $i->args->{ctx};
 
 	$class->{_}->instance->check_rights_for_glomule($glomule);
 
@@ -100,18 +103,27 @@ sub walk_glomule {
 		$class->{_}->bail->("Couldn't find object name for $type");
 	}
 
+	my $ctx = $type.".".$glomule;
+
 	my $rctx = $class->{_}->instance->new_object(
 		"GHolders::RegisterContext"
-	)->set($type.".".$glomule);
+	)->set($ctx);
+
+	$class->{_}->gholders->register([$ctx,1]);
+
+	if ($named) {
+		$class->{_}->gholders->new_named_ctx($named,$ctx);
+	}
 
 	my $g = $class->{_}->instance->new_object(
 		"Glomule::Type::".$objname,
-		$glomule
+		$glomule,
+		$i
 	)->activate;
 
 	$g->connect_to_gholders($rctx);
 
-	if ( my $ref = $g->is_function( $i->args->{function} ) ) {
+	if ( my $ref = $g->functions->knows( $i->args->{function} ) ) {
 		$ref->activate->execute( $i->args );
 	} else {
 		$class->{_}->bail->(

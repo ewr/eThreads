@@ -13,7 +13,33 @@ sub new {
 
 sub id {
 	my $class = shift;
-	return $class->{id};
+
+	if ($class->{id}) {
+		return $class->{id};
+	} else {
+		# -- load glomule headers -- #
+
+		my $gh = $class->{_}->cache->get(
+			tbl		=> "glomule_headers",
+		);
+
+		if (!$gh) {
+			$gh = $class->{_}->instance->cache_glomule_headers();
+		}
+
+		if (
+			my $r = 
+				$gh
+					->{name}
+					->{ $class->{_}->container->id }
+					->{ $class->{name} }
+		) {
+			$class->{id} = $r->{id};
+			return wantarray ? ($r->{id},$r) : $r->{id};
+		} else {
+			return undef;
+		}
+	}
 }
 
 #----------
@@ -21,48 +47,94 @@ sub id {
 sub load_info {
 	my $class = shift;
 
-	# -- load glomule headers -- #
-
-	my $gh = $class->{_}->cache->get(
-		tbl		=> "glomule_headers",
-	);
-
-	if (!$gh) {
-		$gh = $class->{_}->instance->cache_glomule_headers();
+	if (!$class->{name}) {
+		# if we don't have a name we're going to skip all of this
+		return 1;
 	}
+
 
 	# -- figure out our id -- #
 
-	my $ghobj;
-	if (!$class->{id}) {
-		if (my $r = $gh->{name}{$class->{_}->container->id}{$class->{name}}) {
-			$ghobj = $r;
-		} else {
-			$class->{_}->bail->("Invalid Glomule: $class->{name}");
-		}
+	my ($id,$gh) = $class->id;
+
+	if (!$id) {
+		# we need to create our glomule
+		$class->initialize;
+
+		# now we get this again, since we're too lazy to get the 
+		# object elsewise
+		($id,$gh) = $class->id;
 	}
 
 	# -- load glomule data -- #
 
 	my $gd = $class->{_}->cache->get(
 		tbl		=> "glomule_data",
-		first	=> $ghobj->{id},
+		first	=> $id,
 	);
 
 	if (!$gd) {
 		$gd = $class->{_}->instance->cache_glomule_data(
-			$ghobj->{id}
+			$id
 		);
 	}
 		
 	# -- load these values into our object -- #
 
-	foreach my $h ($ghobj,$gd) {
+	foreach my $h ($gh,$gd) {
 		while ( my ($k,$v) = each %$h ) {
 			next if ($class->{$k});
 			$class->{$k} = $v;
 		}
 	}
+
+	return 1;
+}
+
+#----------
+
+sub initialize {
+	my $class = shift;
+
+	# ok, we need to create an entry in glomule_headers and get an id 
+	# for our efforts
+
+	my $ins = $class->{_}->core->get_dbh->prepare("
+		insert into 
+			" . $class->{_}->core->tbl_name("glomule_headers") . "
+		(id,container,name,natural_type,parent) 
+		values(0,?,?,?,?)
+	");
+
+	$ins->execute(
+		$class->{_}->container->id,
+		$class->{name},
+		$class->TYPE,
+		0
+	) or $class->{_}->bail->("couldn't init glomule: " . $ins->errstr);
+
+	$class->{_}->cache->update_times->set(
+		tbl	=> "glomule_headers",
+		ts	=> time,
+	);
+
+	# -- now create headers tbl -- #
+
+	my $headers = $class->{_}->utils->create_table(
+		$class->{_}->utils->get_unused_tbl_name("glomheaders"),
+		$class->header_fields
+	);
+
+	$class->register_data("headers",$headers);
+
+	# -- now create data tbl -- #
+
+	my $data = $class->{_}->utils->create_table(
+		$class->{_}->utils->get_unused_tbl_name("glomdata"),
+		$class->_data_tbl_fields,
+	);
+
+	$class->register_data("data",$data);
 
 	return 1;
 }
@@ -77,15 +149,15 @@ sub register_data {
 	$class->{_}->utils->set_value(
 		tbl		=> "glomule_data",
 		keys	=> {
-			ident	=> "comments",
-			id		=> $class->id,
+			ident	=> $name,
+			id		=> scalar $class->id,
 		},
 		value	=> $value,
 	);
 
 	$class->{_}->cache->update_times->set(
 		tbl		=> "glomule_data",
-		first	=> $class->id,
+		first	=> scalar $class->id,
 		ts		=> time,
 	);
 
@@ -242,6 +314,8 @@ sub get_from_glomheaders {
 	$get->execute(@_) 
 		or $class->{_}->bail->("get_from_gh failed: " . $get->errstr);
 
+	my $count = $get->rows;
+
 	my ($id,$tit,$tim,$p,$s,$u);
 	$get->bind_columns( \($id,$tit,$tim,$p,$s,$u) );
 
@@ -259,7 +333,7 @@ sub get_from_glomheaders {
 		push @$posts, $post;
 	}
 
-	return $posts;
+	return ($posts,$count);
 }
 
 #----------
@@ -278,27 +352,91 @@ sub cache_look_prefs {
 
 sub flesh_out_post {
 	my $class = shift;
-	my %a = @_;
-
-	my $post = $a{post};
-	my $data = $a{data};
+	my $post = shift;
 
 	# fill in and check header fields
-	foreach my $f (@{$class->header_fields}) {
-		if ($f->{require} && !$post->{ $f->{name} }) {
-			$class->{_}->bail->("missing required field: $f->{name}");
-		}
+	foreach my $h ($class->header_fields,$class->fields) {
+		foreach my $f (@{ $h }) {
+			if ($f->{require} && $post->{ $f->{name} } !~ /\S/) {
+				return (0,"Missing required field: $f->{name}");
+			}
 
-		if (!$post->{ $f->{name} }) {
-			$post->{ $f->{name} } = $f->{d_value};
+			if (!$post->{ $f->{name} }) {
+				$post->{ $f->{name} } = $f->{d_value};
+			}
 		}
 	}
 
-	# fill in data fields
-	foreach my $f (@{$data}) {
-		if (!$post->{ $f->{name} }) {
-			$post->{ $f->{name} } = $f->{d_value};
-		}
+	return 1;
+}
+
+#----------
+
+sub post {
+	my $class = shift;
+	my $ipost = shift;
+	my %args = @_;
+
+	my $post = {};
+	%$post = %$ipost;
+
+	while ( my ($k,$v) = each %args ) {
+		$post->{ $k } = $v;
+	}
+
+	my $db = $class->{_}->core->get_dbh;
+
+	# now we need to insert (or update) our headers entry.
+
+	my (@hfields,@hvalues);
+	foreach my $f (@{$class->header_fields}) {
+		next if ($f->{name} eq "id");
+		
+		push @hfields, $f->{name};
+		push @hvalues, $post->{ $f->{name} };
+	}
+	
+	if ($post->{id}) {
+		# update
+
+		my $update = $db->prepare("
+			update 
+				" . $class->{headers} . " 
+			set 
+				" . join("=\?,",@hfields) . "=? 
+			where 
+				id = ?
+		");
+
+		$update->execute(@hvalues,$post->{id}) 
+			or $class->{_}->bail->("update post failure: " . $db->errstr);
+	} else {
+		# insert 
+
+		my $insert = $db->prepare("
+			insert into 
+				" . $class->{headers} . "
+			(" . join(",",@hfields) . ") 
+			values(" . join(",",split("","?"x@hfields)) . ")
+		");
+
+		$insert->execute(@hvalues) 
+			or $class->{_}->bail->("insert post failed: " . $db->errstr);
+
+		# FIXME - this is a MySQL specific hack
+		$post->{id} = $db->{'mysql_insertid'};
+	}
+
+	# now do data
+	foreach my $f (@{ $class->fields }) {
+		$class->{_}->utils->set_value(
+			tbl		=> $class->{data},
+			keys	=> {
+				id		=> $post->{id},
+				ident	=> $f->{name},
+			},
+			value	=> $post->{ $f->{name} },
+		);
 	}
 
 	return $post;
@@ -337,6 +475,24 @@ sub delete {
 
 #----------
 
+sub edit_fields {
+	my $class = shift;
+
+	my $fields = [];
+
+	foreach my $f (@{ $class->header_fields }) {
+		push @$fields, $f if ($f->{edit});
+	}
+
+	foreach my $f (@{ $class->fields }) {
+		push @$fields, $f if ($f->{edit});
+	}
+
+	return $fields;
+}
+
+#----------
+
 sub header_fields {
 	my $class = shift;
 
@@ -344,35 +500,70 @@ sub header_fields {
 
 	{
 		name	=> "id",
+		def		=> "int(11) not null auto_increment",
+		primary	=> 1,
 		allowed	=> '\d+',
 		d_value	=> 0,
 	},
 	{
 		name	=> "title",
+		def		=> "varchar(100) not null",
 		allowed	=> '.*',
 		require	=> 1,
+		edit	=> 1,
 	},
 	{
 		name	=> "parent",
+		def		=> "int(11) not null",
 		allowed	=> '\d+',
 		d_value	=> 0,
 	},
 	{
 		name	=> "timestamp",
+		def		=> "int(11) not null",
 		allowed	=> '\d+',
 		d_value	=> time,
 	},
 	{
 		name	=> "user",
+		def		=> "int(11)",
 		allowed	=> '\d+',
-		d_value	=> $class->{_}->user->id,
+		d_value	=> 
+			$class->{_}->switchboard->knows("user") 
+				? $class->{_}->user->id
+				: 0,
 		require	=> 0,
 	},
 	{
 		name	=> "status",
+		def		=> "tinyint not null",
 		allowed	=> '\d+',
 		d_value	=> 0,
 	},
+
+	];
+}
+
+#----------
+
+sub _data_tbl_fields {
+	my $class = shift;
+	return [
+
+	{
+		name	=> "id",
+		def		=> "int(11) not null",
+		primary	=> 1,
+	},
+	{
+		name	=> "ident",
+		def		=> "varchar(20) not null",
+		primary	=> 1,
+	},
+	{
+		name	=> "value",
+		def		=> "text"
+	}
 
 	];
 }

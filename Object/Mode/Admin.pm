@@ -6,6 +6,8 @@ use strict;
 
 #----------
 
+sub IS_ADMIN { 1; }
+
 sub new {
 	my $class = shift;
 	my $data = shift;

@@ -39,6 +39,16 @@ sub set {
 
 #----------
 
+sub expire {
+	my $class = shift;
+	my %a = @_;
+
+	my $name = $class->{_}->cache->file_name(%a);
+	$class->{_}->core->memcache->remove($name);
+}
+
+#----------
+
 sub get {
 	my $class = shift;
 	my %a = @_;

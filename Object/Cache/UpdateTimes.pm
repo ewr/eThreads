@@ -58,6 +58,8 @@ sub set {
 		value		=> time
 	);
 
+	$class->{_}->cache->expire(%a);
+
 	$class->_load_times;
 
 	return 1;

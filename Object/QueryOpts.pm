@@ -62,7 +62,7 @@ sub bind_to_name {
 	} else {
 		# hmmm...  conflict resolution time
 		# FIXME: not sure how to handle this case
-		warn "multiple binds to $name -- IGNORING\n";
+		#warn "multiple binds to $name -- IGNORING\n";
 	}
 }
 

@@ -40,6 +40,15 @@ sub set {
 
 #----------
 
+sub remove {
+	my $class = shift;
+	my $name = shift;
+
+	$class->{cache}->remove( $name );
+}
+
+#----------
+
 sub set_raw {
 	my $class = shift;
 	my $type = shift;

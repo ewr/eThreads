@@ -126,6 +126,20 @@ sub get {
 
 #----------
 
+sub expire {
+	my $class = shift;
+	my %a = @_;
+
+	# expire from mem
+	$class->memory->expire(%a);
+
+	# and delete off disk
+	my $name = $class->file_name(%a);
+	$class->delete_cache_file($name);
+}
+
+#----------
+
 sub set {
 	my $class = shift;
 	my %a = @_;

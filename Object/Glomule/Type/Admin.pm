@@ -804,11 +804,11 @@ sub _walk_glomule {
 		my $q = $ref->qopts;
 
 		foreach my $q (@{ $ref->qopts }) {
-			$qopts->{ '--' }{ $g->id }{ $q->{opt} } = 1;
+			$qopts->{ $g->id }{ $q->{opt} } = 1;
 		}
 	} else {
 		$class->{_}->bail->(
-			"Unknown glomule function: "
+			"Unknown admin glomule function: "
 			. $glomule
 			. "/"
 			. $i->args->{function}

@@ -31,7 +31,8 @@ dir		=> {
 },
 
 glomule_types	=> {
-	blog	=> "Blog",
+	blog		=> "Blog",
+	comments	=> "Comments",
 },
 
 modes		=> {

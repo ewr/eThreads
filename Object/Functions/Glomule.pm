@@ -11,7 +11,10 @@ sub knows {
     my $func = shift;
     
     if (my $ref = $class->SUPER::knows($func)) {
-        if ( $ref->mode( $class->{_}->mode->mode ) ) {
+        if ( 
+			$class->{_}->mode->IS_ADMIN 
+			|| $ref->mode( $class->{_}->mode->mode ) 
+		) {
             return $ref;
         } else {
             return undef;

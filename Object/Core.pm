@@ -35,6 +35,7 @@ use eThreads::Object::Glomule::Function;
 use eThreads::Object::Glomule::Pref;
 use eThreads::Object::Glomule::Type::Admin;
 use eThreads::Object::Glomule::Type::Blog;
+use eThreads::Object::Glomule::Type::Comments;
 
 use eThreads::Object::Functions;
 use eThreads::Object::Functions::Glomule;
@@ -62,8 +63,6 @@ use eThreads::Object::RequestURI;
 
 use eThreads::Object::Switchboard;
 use eThreads::Object::Switchboard::Custom;
-
-use eThreads::Object::System::Comments;
 
 use eThreads::Object::System::Ping;
 use eThreads::Object::System::Ping::BaseMethod;

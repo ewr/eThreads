@@ -99,6 +99,8 @@ sub g_load_tbl {
 	my @values;
 	if ($args{get_all}) {
 		# $where stays null
+	} elsif ( @{ $args{ids} } == 0 ) {
+		return undef;
 	} elsif ( @{ $args{ids} } == 1 ) {
 		$where = 
 			"where $args{ident} = ?";
@@ -192,7 +194,7 @@ sub create_table {
 		my $c = $class->{_}->core->get_dbh->prepare("
 			create table $name (
 				$sql
-				primary key($primary)
+				" . ( $primary ? "primary key($primary)" : "" ). "
 			)
 		");
 
@@ -201,7 +203,7 @@ sub create_table {
 		) unless ($c->execute);
 	}
 
-	return 1;
+	return $name;
 }
 
 #----------
