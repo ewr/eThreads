@@ -441,13 +441,21 @@ sub f_post {
 	if ($fobj->bucket->get("post/post")) {
 		$class->gholders->register(["post",1]);
 
+		# figure out our ping situation first
+		my $ping;
+		if (!$post->{id} || !$post->{status}) {
+			$ping = 1;
+		}
+
 		my $post = $class->post(
 			$post,
 			status => 1,
 		);
 
-		my $pings = $class->load_pings;
-		$pings->ping_all;
+		if ($ping) {
+			my $pings = $class->load_pings;
+			$pings->ping_all;
+		}
 
 		$class->gholders->register(["post",$post]);
 	} elsif ($fobj->bucket->get("post/preview")) {
