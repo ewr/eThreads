@@ -217,6 +217,8 @@ sub f_view {
 
 	my $post = $class->load_and_format_post($id);
 
+	$class->{_}->last_modified->nominate($post->{timestamp});
+
 	$class->{gholders}->register(
 		['post',$post]
 	);
@@ -263,6 +265,7 @@ sub f_archive {
 
 	my %dates;
 	while ( $get->fetch ) {
+		$class->{_}->last_modified->nominate($ts);
 		my $tmp = Date::Format::time2str("%Y/%m/%d",$ts);
 		$tmp =~ m!^(\d\d\d\d)/(\d\d)/(\d\d)$!;
 		$dates{$1}{$2}{$3}++;

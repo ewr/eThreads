@@ -360,7 +360,12 @@ sub fields {
 			format	=> 1,
 			require	=> 1,
 			edit	=> 1,
-		}
+		},
+		{
+			name	=> "ip",
+			def		=> "varchar(20)",
+			d_value	=> $ENV{REMOTE_ADDR},
+		},
 	];
 }
 
