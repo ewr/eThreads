@@ -23,11 +23,11 @@ sub register {
 	my $class = shift;
 	my $obj = shift;
 
-	if ( ref($obj) ) {
-		push @{$class->{o}} , $obj;
-	} else {
-		$class->{_}->bail->("Invalid object register: $obj\t".ref($obj));
-	}
+	if ( !ref($obj) ) {
+		$class->{_}->bail->("Invalid object register: $obj");
+	} 
+
+	push @{$class->{o}} , $obj;
 }
 
 #----------
@@ -41,11 +41,11 @@ sub DESTROY {
 
 	@{$class->{o}} = ();
 
-	my @counts = 
-		map { $_ } 
-		sort { $a->[1] <=> $b->[1] } 
-		map { [$_,$class->{counts}{$_}] } 
-		keys %{$class->{counts}};
+#	my @counts = 
+#		map { $_ } 
+#		sort { $a->[1] <=> $b->[1] } 
+#		map { [$_,$class->{counts}{$_}] } 
+#		keys %{$class->{counts}};
 
 #	foreach my $c (@counts) {
 #		warn "created $c->[1] objects of type $c->[0]\n";
@@ -61,7 +61,7 @@ sub create {
 	my $type = shift;
 	my $data = shift;
 
-	$class->{counts}{$type}++;
+#	$class->{counts}{$type}++;
 
 	my $module = "eThreads::Object::$type";
 	my $obj = $module->new($data,@_);

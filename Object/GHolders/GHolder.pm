@@ -56,14 +56,7 @@ sub children {
 #----------
 
 sub has_child {
-	my $class = shift;
-	my $name = shift;
-
-	if ($class->{children}{$name}) {
-		return $class->{children}{$name};
-	} else {
-		return undef;
-	}
+	return $_[0]->{children}{ $_[1] } || undef;
 }
 
 #----------
@@ -99,15 +92,13 @@ sub sub {
 #----------
 
 sub parent {
-	my $class = shift;
-	return $class->{parent};
+	return shift->{parent};
 }
 
 #----------
 
 sub key {
-	my $class = shift;
-	return $class->{key};
+	return shift->{key};
 }
 
 #----------

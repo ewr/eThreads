@@ -6,7 +6,7 @@ use strict;
 
 #----------
 
-sub activate {
+sub activate_walk {
 	my $class = shift;
 
 	my $blog = $class->{i}->args->{blog};

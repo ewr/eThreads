@@ -2,6 +2,11 @@ package eThreads::Object::Template;
 
 use strict;
 
+use eThreads::Object::Template::Item;
+use eThreads::Object::Template::ShadowItem;
+use eThreads::Object::Template::Subtemplate;
+use eThreads::Object::Template::Walker;
+
 sub new {
 	my $class = shift;
 	my $data = shift;
@@ -58,16 +63,12 @@ sub path {
 sub type {
 	my $class = shift;
 
-	if (!$class->{type_obj}) {
-		$class->{type_obj} 
+	return 
+		$class->{type_obj}
+		|| ($class->{type_obj} 
 			= $class->{_}->instance->new_object( 
-				"ContentType::" . $class->{type}
-			);
-
-		$class->{_}->objects->activate($class->{type_obj});
-	}
-
-	return $class->{type_obj};
+				'ContentType::' . $class->{type}
+			)->activate);
 }
 
 #----------
@@ -208,14 +209,20 @@ sub cache_qopts {
 
 #----------
 
-sub get_tree {
+sub shadow_tree {
 	my $class = shift;
 
-	if ($class->{tree}) {
-		return $class->{tree};
-	} else {
-		return $class->generate_tree;
-	}
+	return $class->{_}->switchboard->new_object(
+		'Template::ShadowItem',
+		item => $class->get_tree
+	);
+}
+
+#----------
+
+sub get_tree {
+	my $class = shift;
+	return $class->{tree} || $class->generate_tree;
 }
 
 #-----------
@@ -326,7 +333,7 @@ sub parse_into_tree {
 				}
 			}
 
-			my $lt = $class->{_}->instance->new_object("Template::Item");
+			my $lt = $class->{_}->instance->new_object('Template::Item');
 
 			$lt->type(		lc($m[1])	);
 			$lt->args(		$args		);
@@ -338,7 +345,7 @@ sub parse_into_tree {
 			# current context.  otherwise context is unchanged.
 			if ($m[4] && $m[0]) {
 				# rooted single tag
-				$lt->{type} = "/".$lt->{type};
+				$lt->{type} = '/'.$lt->{type};
 			} elsif (!$m[4]) {
 				# opening tag
 				$cx = $lt;
@@ -354,9 +361,9 @@ sub parse_into_tree {
 			# if we matched only whitespace, just replace with a single space
 			$m[5] =~ s/^\s+$/ /;
 		
-			my $lt = $class->{_}->instance->new_object("Template::Item");
+			my $lt = $class->{_}->instance->new_object('Template::Item');
 
-			$lt->type(		"raw"	);
+			$lt->type(		'raw'	);
 			$lt->parent(	$cx		);
 			$lt->content(	$m[5]	);	
 

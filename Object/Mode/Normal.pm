@@ -26,7 +26,6 @@ sub new {
 
 sub go {
 	my $class = shift;
-	my $r = shift;
 
 	# figure out container, look, and then template
 	$class->{_}->switchboard->register("container",
@@ -46,31 +45,68 @@ sub go {
 		$class->{_}->template->type
 	);
 
-	# -- walk the template to see what glomules we're using -- #
+	# the walker phase of operation here has to be broken up into two steps.  
+	# in step one you initialize the modules for glomules and plugins that 
+	# are going to need to run.  we load them and activate them, but don't 
+	# handle running the glomule functions.  we do this so that the plugins 
+	# can sink their teeth into the appropriate places before the glomules 
+	# have a chance to run.  
 
-	my $walker = $class->{_}->instance->new_object("Template::Walker");
+	# then we walk back through and run functions for both glomules and 
+	# plugins.
 
-	foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
-		# -- register the walker -- #
+	# first, though, we need a clone of our template tree so that we can 
+	# store information like objects in their proper places
+
+	my $shadow = $class->{_}->template->shadow_tree;
+
+	# -- walk the template to see what we're using -- #
+
+	{
+		my $walker = $class->{_}->instance->new_object("Template::Walker");
+
+		foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
+			# -- register the walker -- #
+			$walker->register(
+				[ $t , sub { return $class->prewalk_glomule($t,@_); } ]
+			);
+		}
+
+		# register plugin walker
 		$walker->register(
-			[ $t , sub { return $class->walk_glomule($t,@_); } ]
+			['plugin', sub { return $class->prewalk_plugin(@_); } ]
 		);
 
-		# -- and also register the handler -- #
-		$class->{_}->gholders->register(
-			[ $t , sub { return $class->handle_glomule($t,@_); } ]
+		$walker->walk_template_tree(
+			$shadow
 		);
 	}
 
-	# register plugin walker
-	$walker->register(['plugin', sub { return $class->walk_plugin(@_); } ]);
-	$class->{_}->gholders->register(
-		['plugin',sub { return undef; }]
-	);
+	{
+		my $walker = $class->{_}->instance->new_object("Template::Walker");
 
-	$walker->walk_template_tree(
-		$class->{_}->template->get_tree
-	);
+		foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
+			# -- register the walker -- #
+			$walker->register(
+				[ $t , sub { return $class->walk_glomule($t,@_); } ]
+			);
+
+			# -- and also register the handler -- #
+			$class->{_}->gholders->register(
+				[ $t , sub { return $class->handle_glomule($t,@_); } ]
+			);
+		}
+
+		# register plugin walker
+		$walker->register(['plugin', sub { return $class->walk_plugin(@_); } ]);
+		$class->{_}->gholders->register(
+			['plugin',sub { return undef; }]
+		);
+
+		$walker->walk_template_tree(
+			$shadow
+		);
+	}
 
 	# -- now actually process the template -- #
 
@@ -87,7 +123,7 @@ sub go {
 	$r->content_type( $class->{_}->content_type->type );
 	$r->print($content);
 
-	return Apache::OK;
+	return $class->{_}->core->code('OK');
 }
 
 #----------

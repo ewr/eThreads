@@ -16,7 +16,7 @@ sub new {
 	$class->{accessors}->{parent} = $class->{paccessors};
 
 	# register ourselves
-	$class->register("switchboard",$class);
+	$class->register('switchboard',$class);
 
 	return $class;
 }
@@ -24,7 +24,7 @@ sub new {
 #----------
 
 sub _ac_pkg {
-	return "eThreads::Object::Switchboard::Custom::Accessors";
+	return 'eThreads::Object::Switchboard::Custom::Accessors';
 }
 
 #----------
@@ -52,12 +52,11 @@ sub _create_accessor {
 		if (!\$self->{$name}) {
 			return \$self->{parent}->$name;
 		}
-		if (ref(\$self->{$name}) eq "CODE") {
-			\$self->{$name} = \$self->{$name}->();
-			return \$self->{$name};
-		} else {
-			return \$self->{$name};
-		}
+
+		return 
+			(ref(\$self->{$name}) eq 'CODE')
+				? ( \$self->{$name} = \$self->{$name}->() )
+				: \$self->{$name};
 	} );
 
 	return 1;
@@ -74,11 +73,10 @@ sub knows {
 	if ( my $a = $class->{$name} ) {
 		return $a;
 	} else {
-		if ($class->{parent}) {
-			return $class->{parent}->knows($name);
-		} else {
-			return undef;
-		}
+		return 
+			($class->{parent}) 
+				? $class->{parent}->knows($name)
+				: undef;
 	}
 }
 

@@ -2,6 +2,8 @@ package eThreads::Object::Functions;
 
 use strict;
 
+use eThreads::Object::Functions::Glomule;
+
 #----------
 
 sub new {
@@ -31,14 +33,7 @@ sub register {
 #----------
 
 sub knows {
-	my $class = shift;
-	my $func = shift;
-
-	if (my $ref = $class->{f}{ $func }) {
-		return $ref;
-	} else {
-		return undef;
-	}
+	return $_[0]->{f}{ $_[1] } || undef;
 }
 
 #----------

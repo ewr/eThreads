@@ -1,9 +1,9 @@
-package eThreads::Object::Auth::Internal;
+package eThreads::Object::Auth::External;
 
 @ISA = qw( eThreads::Object::Auth );
 
 use Apache::Access ();
-#use Apache::Const -compile => qw(OK DECLINED HTTP_UNAUTHORIZED);
+use Apache::Const -compile => qw(OK DECLINED HTTP_UNAUTHORIZED);
 use strict;
 
 #----------
@@ -25,35 +25,6 @@ sub new {
 sub authenticate {
 	my $class = shift;
 	
-	my $r = $class->{_}->ap_request;
-
-	# -- set up our authentication -- #
-
-	$r->auth_type("Basic");
-	$r->auth_name($class->{_}->core->settings->{auth_name});
-
-	# -- try and get user/pass -- #
-
-	my ($status,$password) = $r->get_basic_auth_pw;
-	my $user = $r->user;
-
-	# -- if we get a status (most likely 401), send that to the browser -- #
-
-	if ($status) {
-		return undef;
-	}
-
-	# -- now check that the user is valid -- #
-
-	if (my $u = $class->is_valid_login($user,$password)) {
-		return $u;
-	} else {
-		return undef;
-	}
-
-	# every possibility returns before this point, so this code will never 
-	# be reached
-	return undef;
 }
 
 #----------
@@ -61,12 +32,6 @@ sub authenticate {
 sub unauthorized {
 	my $class = shift;
 
-	my $r = $class->{_}->ap_request;
-
-	# note that we failed
-	$r->note_basic_auth_failure;
-
-	return $class->{_}->core->code('HTTP_UNAUTHORIZED');
 }
 
 #----------
@@ -79,11 +44,11 @@ sub user {
 
 =head1 NAME
 
-eThreads::Object::Auth::Internal
+eThreads::Object::Auth::External
 
 =head1 SYNOPSIS
 
-	my $auth = $inst->new_object("Auth::Internal");
+	my $auth = $inst->new_object("Auth::External");
 
 	my $user = $auth->authenticate 
 		or return $auth->unauthorized;

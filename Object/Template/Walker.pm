@@ -32,7 +32,7 @@ sub register {
 	my $class = shift;
 
 	foreach my $gh (@_) {
-		if (ref($gh->[1]) eq "CODE") {
+		if (ref($gh->[1]) eq 'CODE') {
 			$class->{registers}{ $gh->[0] } = $gh->[1];
 		} else {
 			$class->{_}->bail->("Walker Must be Coderef");
@@ -45,11 +45,7 @@ sub register {
 sub exists {
 	my ($class,$h) = @_;
 
-	if (my $ref = $class->{registers}{ $h }) {
-		return $ref;
-	} else {
-		return undef;
-	}
+	return $class->{registers}{ $h } || undef;
 }
 
 #----------
@@ -60,7 +56,7 @@ sub walk {
 
 	# call the handler for this tag
 	if ( my $ref = $class->exists( $i->type ) ) {
-			return $ref->($i);
+		return $ref->($i);
 	} else {
 		return 1;
 	}

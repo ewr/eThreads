@@ -29,57 +29,60 @@ sub new {
 	my $swb = $class->{switchboard} = new eThreads::Object::Switchboard;
 	$class->{_} = $class->{switchboard}->accessors;
 
-	$swb->register("core",$core);
-	$swb->register("settings",$core->settings);
+	$swb->register('core',$core);
+	$swb->register('settings',$core->settings);
 
 	# register ourself with switchboard
-	$swb->register("instance",$class);
-	$swb->register("ap_request",$class->{ap_request});
+	$swb->register('instance',$class);
+	$swb->register('ap_request',$class->{ap_request});
 
 	# register objects with switchboard
-	$swb->register("objects",$class->{objects});
+	$swb->register('objects',$class->{objects});
 
 	# load up the utils object
-	$swb->register("utils",sub {
-		$class->new_object("Utils");
+	$swb->register('utils',sub {
+		$class->new_object('Utils');
 	});
 
 	# create cache object
 	$class->{cache} 	= $class->new_object(
 		$class->{_}->settings->{cache_obj}
 	);
-	$swb->register("cache",$class->{cache});
+	$swb->register('cache',$class->{cache});
 
-	$swb->register("messages",sub {
-		$class->new_object("Messages");
+	$swb->register('messages',sub {
+		$class->new_object('Messages');
 	});
 
 	# register our bail object
-	$swb->register("bail",sub {
+	$swb->register('bail',sub {
 		sub { $class->{_}->messages->bail(@_); }
-	});
-
-	# register memory cache
-	$swb->register("memcache",sub {
-		$class->new_object("Cache::Memory::Instance");
 	});
 
 	# -- register some accessors lazily -- #
 
-	$swb->register("RequestURI", $class->new_object("RequestURI") );
+	$swb->register('RequestURI', $class->new_object('RequestURI') );
 
-	$swb->register("auth",sub {
+	$swb->register('auth',sub {
 		$class->new_object($class->{_}->settings->{auth_obj});
 	});
 
-	$swb->register("queryopts",sub {
-		$class->new_object("QueryOpts");
+	$swb->register('raw_queryopts',sub {
+		$class->new_object('QueryOpts::Raw');
+	});
+
+	$swb->register('queryopts',sub {
+		$class->new_object('QueryOpts');
 	});
 
 	$swb->register("gholders", $class->new_object("GHolders") );
 
 	$swb->register("last_modified",sub {
 		$class->new_object("LastModifiedTime");
+	});
+
+	$swb->register("plugins",sub {
+		$class->new_object("Plugin");
 	});
 
 	# -- continue with initialization -- #
@@ -467,6 +470,7 @@ sub cache_domains {
 
 	$class->{_}->cache->set(
 		tbl		=> "domains",
+		ref		=> $domains,
 	);
 
 	return $domains;
@@ -562,7 +566,6 @@ The following Switchboard items are registered:
 	* cache (lazy)
 	* messages (lazy)
 	* bail (lazy)
-	* memcache (lazy)
 	* RequestURI 
 	* auth (lazy)
 	* gholders

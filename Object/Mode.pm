@@ -2,6 +2,10 @@ package eThreads::Object::Mode;
 
 use strict;
 
+use eThreads::Object::Mode::Admin;
+use eThreads::Object::Mode::Auth;
+use eThreads::Object::Mode::Normal;
+
 #----------
 
 sub IS_ADMIN { 0; }
@@ -81,19 +85,15 @@ sub get_container {
 
 #----------
 
-sub walk_plugin {
+sub prewalk_plugin {
 	my $class = shift;
 	my $i = shift;
 
 	my $type = $i->args->{type} || $i->args->{DEFAULT};
 	my $named = $i->args->{ctx};
 	
-	my $module = $class->{_}->settings->{plugins}{ $type };
-
-	if (!$module) {
-		warn "invalid plugin type called: $type\n";
-		return undef;
-	}
+	my $obj = $class->{_}->plugins->load($type,i=>$i)
+		or $class->{_}->bail->("Plugin didn't load: $type");
 
 	# -- get an empty context under the plugin space -- #
 
@@ -118,28 +118,43 @@ sub walk_plugin {
 
 	# -- connect the pieces together -- #
 
-	$swb->register("rctx",$rctx);
+	$swb->register('rctx',$rctx);
 
-	my $obj = $swb->new_object("Plugin::".$module,i=>$i);
+	$swb->reroute_calls_for($obj);
 
 	# -- activate the plugin -- #
 	
 	$class->{_}->objects->activate($obj);
+
+	# -- register plugin in shadow item notes -- #
+
+	$i->note('object',$obj);
 }
 
 #----------
 
-sub walk_glomule {
+sub walk_plugin {
+	my $class = shift;
+	my $i = shift;
+
+	my $obj = $i->note("object");
+
+	if ($obj->can("activate_walk")) {
+		$obj->activate_walk;
+	}
+
+	return 1;
+}
+
+#----------
+
+sub prewalk_glomule {
 	my $class = shift;
 	my $type = shift;
 	my $i = shift;
 
-	my $core = $class->{_}->core;
-
 	my $glomule = $i->args->{name} || $i->args->{glomule};
 	my $named = $i->args->{ctx};
-
-	$class->{_}->instance->check_rights_for_glomule($glomule);
 
 	my $objname = $class->{_}->settings->{glomule_types}{ $type };
 
@@ -166,6 +181,31 @@ sub walk_glomule {
 	)->activate;
 
 	$g->connect_to_gholders($rctx);
+
+	# set our object in the ObjectTree
+	$i->note("object",$g);
+
+	return 1;
+}
+
+#----------
+
+sub walk_glomule {
+	my $class = shift;
+	my $type = shift;
+	my $i = shift;
+
+	my $core = $class->{_}->core;
+
+	my $glomule = $i->args->{name} || $i->args->{glomule};
+	my $named = $i->args->{ctx};
+
+	$class->{_}->instance->check_rights_for_glomule($glomule);
+
+	my $objname = $class->{_}->settings->{glomule_types}{ $type };
+
+	my $g = $i->note("object")
+		or $class->{_}->bail->("Couldn't find object in walk");
 
 	if ( my $ref = $g->functions->knows( $i->args->{function} ) ) {
 		$ref->activate->execute( $i->args );

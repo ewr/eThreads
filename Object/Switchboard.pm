@@ -2,6 +2,7 @@ package eThreads::Object::Switchboard;
 
 use strict;
 use Symbol;
+use eThreads::Object::Switchboard::Custom;
 
 sub new {
 	my $class = shift;
@@ -28,11 +29,27 @@ sub accessors {
 
 #----------
 
+sub injector {
+	my $class = shift;
+	my $acc = shift;
+	my $sub = shift;
+
+	my $injector = $class->new_object(
+		"Switchboard::Injector",
+		accessor	=> $acc,
+		routine		=> $sub
+	);
+
+	return $injector;
+}
+
+#----------
+
 sub custom {
 	my $class = shift;
 	
 	my $custom = 
-		$class->{accessors}->instance->new_object(
+		$class->new_object(
 			"Switchboard::Custom" , $class->accessors
 		);
 
@@ -92,12 +109,11 @@ sub _create_accessor {
 			warn "caller: \@caller\n";
 			die "attempt to access invalid accessor: $name\n";
 		}
-		if (ref(\$self->{$name}) eq "CODE") {
-			\$self->{$name} = \$self->{$name}->();
-			return \$self->{$name};
-		} else {
-			return \$self->{$name};
-		}
+
+		return 
+			(ref(\$self->{$name}) eq 'CODE')
+				? ( \$self->{$name} = \$self->{$name}->() )
+				: \$self->{$name};
 	} );
 
 	return 1;
@@ -115,14 +131,7 @@ sub knows {
 package eThreads::Object::Switchboard::Accessors;
 
 sub knows {
-	my $class = shift;
-	my $name = shift;
-
-	if ( my $a = $class->{$name} ) {
-		return $a;
-	} else {
-		return undef;
-	}
+	return $_[0]->{ $_[1] } || undef;
 }
 
 sub AUTOLOAD {

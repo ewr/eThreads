@@ -50,8 +50,7 @@ sub sever_relationships {
 #----------
 
 sub children {
-	my $class = shift;
-	return $class->{children};
+	return shift->{children};
 }
 
 #----------

@@ -10,6 +10,40 @@ sub new {
 
 #----------
 
+sub is_valid_login {
+	my $class = shift;
+	my $user = shift;
+	my $pass = shift;
+	my $crypted = shift;
+
+	my $headers = $class->{_}->cache->get(
+		tbl		=> "user_headers"
+	);
+
+	if (!$headers) {
+		$headers = $class->{_}->instance->cache_user_headers;
+	}
+
+	my $ref = $headers->{u}{ $user };
+
+	if (!$ref) {
+		# invalid user
+		return undef;
+	}
+
+	my $cpass = crypt($pass,$ref->{password}) if (!$crypted);
+
+	if ($cpass eq $ref->{password}) {
+		# -- successful authentication -- #
+		my $obj = $class->{user} 
+			= $class->{_}->instance->new_object("User",id=>$ref->{id});
+		return $obj;
+	} else {
+		# -- invalid password -- #
+		return undef;
+	}
+}
+
 
 #----------
 

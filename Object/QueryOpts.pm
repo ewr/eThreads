@@ -2,6 +2,10 @@ package eThreads::Object::QueryOpts;
 
 use strict;
 
+use eThreads::Object::QueryOpts::Bucket;
+use eThreads::Object::QueryOpts::QueryOption;
+use eThreads::Object::QueryOpts::Raw;
+
 #----------
 
 sub new {
@@ -14,8 +18,6 @@ sub new {
 		buckets	=> [],
 		names	=> {},
 	} , $class );
-
-	$class->{input} = $class->load_input;
 
 	$class->load_qkeys_to_input;
 
@@ -31,11 +33,7 @@ sub DESTROY {
 #----------
 
 sub new_bucket {
-	my $class = shift;
-
-	my $b = $class->{_}->instance->new_object("QueryOpts::Bucket",@_);
-
-	return $b;
+	return shift->{_}->instance->new_object('QueryOpts::Bucket',@_);
 }
 
 #----------
@@ -69,8 +67,7 @@ sub bind_to_name {
 #----------
 
 sub names {
-	my $class = shift;
-	return $class->{names};
+	return shift->{names};
 }
 
 #----------
@@ -217,17 +214,8 @@ sub _load_foreign_qkeys {
 
 sub get_input {
 	my $class = shift;
-	my $arg = shift;
 
-	if ($arg) {
-		if ( exists($class->{input}{ $arg }) ) {	
-			return $class->{input}{ $arg };
-		} else {
-			return undef;
-		}
-	} else {
-		return $class->{input};
-	}
+	return $class->{_}->raw_queryopts->get(@_);
 }
 
 #----------
@@ -240,7 +228,7 @@ sub get_from_input {
 		or return undef;
 
 	# return what we find on input
-	return $class->{_}->queryopts->get_input($name);
+	return $class->{_}->raw_queryopts->get($name);
 }
 
 #----------
@@ -253,52 +241,6 @@ sub get_name_for_opt {
 	my $name = $class->{_}->template->qopts->{ $g }{ $o }{name};
 
 	return $name || undef;
-}
-
-#----------
-
-sub load_input {
-	my $class = shift;
-	my ($info);
-
-	my $input = {};
-
-	# just a little background on why i've waivering back and forth between 
-	# rolling my own input code and using CGI.  I like CGI for the ability 
-	# to do multipart forms (and thereby allow uploading into the screenshot 
-	# module), but i also need access to escaped input values before they're 
-	# parsed (to do pass-throughs), and I can't figure out how to do that 
-	# with CGI at the moment.  So for now we're at an impasse.
-
-	if ($ENV{'REQUEST_METHOD'} eq "POST") {
-		read(STDIN,$info,$ENV{"CONTENT_LENGTH"});
-	} else {
-		$info=$ENV{QUERY_STRING};
-	}
-
-	# this is where we'll put unprocessed input values
-	$input->{raw} = {};
-
-	foreach (split(/&/,$info)) {
-		my ($var,$val) = split(/=/,$_,2);
-		$var =~ s/\+/ /g;
-
-		# don't allow a var = 'raw'
-		next if ($var eq"raw");
-
-		# save the raw value
-		$input->{raw}{$var} = $val;
-
-		#$val = URI::Escape::uri_unescape($val);
-		$val =~ s/\+/ /g;
-		$val =~ s/%([0-9,A-F,a-f]{2})/sprintf("%c",hex($1))/ge;
-		$input->{$var} .= ", " if ($input->{$var});
-		$input->{$var} .= $val;
-	}
-
-	$input->{username} = $ENV{REMOTE_USER};
-
-	return $input;
 }
 
 #----------
@@ -316,7 +258,8 @@ sub load_qkeys_to_input {
 	foreach my $k (@{ $class->{_}->template->qkeys }) {
 		my $v = shift @parts;
 		next if (!$v || $v eq "-");
-		$class->{input}{ $k } = $v;
+
+		$class->{_}->raw_queryopts->set($k,$v);
 	}
 
 	# for now we're just going to say, "hey, we're last," and claim 
