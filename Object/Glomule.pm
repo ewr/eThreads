@@ -445,6 +445,7 @@ sub post {
 				ident	=> $f->{name},
 			},
 			value	=> $post->{ $f->{name} },
+			set_zero_value	=> 1,
 		);
 	}
 
@@ -538,9 +539,9 @@ sub header_fields {
 		def		=> "int(11)",
 		allowed	=> '\d+',
 		d_value	=> 
-			$class->{_}->switchboard->knows("user") 
+			( $class->{_}->switchboard->knows("user") 
 				? $class->{_}->user->id
-				: 0,
+				: 0 ),
 		require	=> 0,
 	},
 	{

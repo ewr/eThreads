@@ -67,6 +67,21 @@ sub _create_accessor {
 
 package eThreads::Object::Switchboard::Custom::Accessors;
 
+sub knows {
+	my $class = shift;
+	my $name = shift;
+
+	if ( my $a = $class->{$name} ) {
+		return $a;
+	} else {
+		if ($class->{parent}) {
+			return $class->{parent}->knows($name);
+		} else {
+			return undef;
+		}
+	}
+}
+
 sub AUTOLOAD {
 	my $class = shift;
 	our $AUTOLOAD;

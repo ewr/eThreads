@@ -47,7 +47,7 @@ sub activate {
 			h.id = d.id 
 			and d.ident = 'name'
 		order by 
-			timestamp 
+			timestamp desc
 		limit $count
 	");
 
