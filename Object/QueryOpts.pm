@@ -10,9 +10,9 @@ sub new {
 
 	$class = bless ( {
 		_		=> $data,
-		opts	=> {},
 		input	=> undef,
 		buckets	=> [],
+		names	=> {},
 	} , $class );
 
 	$class->{input} = $class->load_input;
@@ -51,113 +51,42 @@ sub new_bucket_data {
 
 #----------
 
-# i'm not sure how useful the global register is here.  most always it will 
-# be overloaded by the bucket register, which is as it should be.  I'm 
-# leaving this here because i'm unsure if registering a queryopt from 
-# outside a bucket is ever allowable (i tend to think it is not).
-
-sub register {
+sub bind_to_name {
 	my $class = shift;
-	my %args = @_;
+	my $name = shift;
+	my $opt = shift;
 
-	my $obj = $class->{_}->instance->new_object("QueryOpts::QueryOption",@_);
-
-	if ($args{class}) {
-		$class->{opts}{ $args{class} }{ $args{name} } = $obj;
-		delete $class->{opts}{compiled}{ $args{class} };
+	if (!$class->{names}{ $name }) {
+		# easy...  first time using a name
+		$class->{names}{ $name } = $opt;
 	} else {
-		$class->{opts}{GLOBAL}{ $args{name} } = $obj;
-		delete $class->{opts}{compiled}{GLOBAL};
-	}
-
-	my $input = $class->get_from_input(
-		glomule	=> $args{glomule}->id,
-		name	=> $args{name}
-	);
-
-	if (
-		$input && 
-		$input =~ m!^$args{allowed}$!s && 
-		$input ne $args{d_value}
-	) {
-		$obj->set( $input );
-	} else {
-		# do nothing
-	}
-
-	return $obj->get;
-}
-
-#----------
-
-sub get {
-	my ($class,$opt) = @_;
-
-	my $q = $class->get_ref($opt);
-
-	if ($q) {
-		return $q->get;
-	} else {
-		return undef;
+		# hmmm...  conflict resolution time
+		# FIXME: not sure how to handle this case
+		warn "multiple binds to $name -- IGNORING\n";
 	}
 }
 
 #----------
 
-sub alter {
-	my ($class,$opt,$key,$val) = @_;
-	return $class->get_ref($opt)->alter($key,$val);
-}
-
-#----------
-
-sub set {
-	my ($class,$opt,$val) = @_;
-	return $class->get_ref($opt)->set($val);
-}
-
-#----------
-
-sub get_ref {
-	my ($class,$opt) = @_;
-
-	my ($oclass,$oname);
-	if ($opt =~ m!/!) {
-		($oclass,$oname) = split("/",$opt);
-	} else {
-		$oclass = "GLOBAL";
-		$oname = $opt;
-	}
-
-	return undef if ( 
-		!exists( $class->{opts}{ $oclass } ) 
-		|| !exists( $class->{opts}{ $oclass }{ $oname } )
-	);
-
-	my $oref = $class->{opts}{$oclass}{$oname};
-
-	return $oref;
-}
-
-#----------
-
-sub toggle {
-	my ($class,$opt) = @_;
-	return $class->get_ref($opt)->toggle;
+sub names {
+	my $class = shift;
+	return $class->{names};
 }
 
 #----------
 
 sub link {
 	my $class = shift;
-	my $func = shift;
+	my $tmplt = shift;
 	my $args = shift;
+
+	$tmplt = "/" . $tmplt if ($tmplt !~ m!^/!);
 
 	# to return a link, you have to come up with a number of different 
 	# pieces.  First you need the container path, then the container name, 
 	# then the template name, then the proper query opts to be appended 
 	# to the end.  The template name is simple enough...  that's provided 
-	# in $func.
+	# in $tmplt.
 
 	# start with the basics...
 
@@ -165,24 +94,58 @@ sub link {
 		$class->{_}->root->path,
 		$class->{_}->mode->path,
 		$class->{_}->container->path,
-		$func
+		$tmplt
 	);
+
+	# now try and figure out some qkeys, qopts, etc
+	my $link_qopts;
+	{
+		# get qopts
+		my $qopts = $class->list_link_qopts($tmplt,$args);
+
+		# hash them
+		my $h_qopts = {};
+		foreach my $q (@$qopts) {
+			$h_qopts->{ $q->[0] } = $q;
+		}
+		
+		# we need to open a template object for the linked to template 
+		# so that we can get its qkeys
+		if ( my $qkeys = $class->_load_foreign_qkeys($tmplt) ) {
+			my @keys;
+			foreach my $k (@$qkeys) {
+				push @keys, $h_qopts->{ $k }->[1] || "-";
+				$h_qopts->{ $k }->[2] = 1;
+			}
+
+			# cleanup keys
+			while ( $keys[-1] eq "-" ) {
+				pop @keys;
+			}
+
+			push @pieces, @keys;
+		} else {
+			warn "failed to load qkeys for $tmplt\n";
+			# do nothing
+		}
+
+		my @qopts;
+		foreach my $q (@$qopts) {
+			next if ($q->[2]);
+			push @qopts, ( $q->[0] . "=" . $q->[1] );
+		}
+
+		$link_qopts = join("&amp;",@qopts);
+	}
 
 	my $link = join("/",@pieces);
 	$link =~ s!/+!/!g;
 
-	# now add on query opts
+	# now finally add on query opts
 
-	my $opts;
-	if ($args->{class}) {
-		$opts .= $class->compile_persistent_options($args);
-	}
-
-	#$opts .= $class->compile_class_options({class=>"GLOBAL"});
-
-	if ($opts) {
+	if ($link_qopts) {
 		$link .= ($link =~ /\?/) ? "&amp;" : "?";
-		$link .= $opts;
+		$link .= $link_qopts;
 	}
 
 	# now just return what we've got
@@ -206,27 +169,63 @@ sub compile_persistent_options {
 	if ( !%$qargs && $class->{compiled}{ $args->{class} } ) {
 		return $class->{compiled}{ $args->{class} };
 	} else {
-		my $opts;
+		my $opts = join(
+			"&amp;", 
+			map { $_->[0] . "=" . $_->[1] } 
+				@{ $class->list_persistent_options($args) }
+		);
 
-		foreach my $b (@{ $class->{buckets} }) {
-			my @q_opts;
-			while ( my ($k,$opt) = each %{ $b->{ $args->{class} } } ) {
-				next if ( !$opt->persist );
-				my $v = exists( $qargs->{ $k } ) ? 
-					$qargs->{ $k } : $opt->get;
-	
-				push @q_opts, $opt->{name}."=$v" if ($v ne $opt->d_value); 
-			}
-
-			$opts = join("&amp;",@q_opts);
-		}
-	
 		if (!%$qargs) {
 			$class->{compiled}{ $args->{class} } = $opts;
 		}
 
 		return $opts;
 	}
+}
+
+#----------
+
+sub list_link_qopts {
+	my $class = shift;
+	my $tmplt = shift;
+	my $args = shift;
+	my $qopts = [];
+
+	# find the template object
+	my $t = $class->{_}->look->load_template_by_path($tmplt);
+
+	# return an empty list if we get nothing
+	return $qopts if (!$t);
+
+	# we get qopts from the template as glomule->opt->name, which is really 
+	# pretty backward from what we want.  we need a list of names the foreign 
+	# template will accept, and then we need to 
+
+	my $fnames = {};
+	while ( my ($g,$gref) = each %{ $t->qopts } ) {
+		while ( my ($o,$oref) = each %$gref ) {
+			$fnames->{ $oref->{name} } = 1;
+		}
+	}
+
+	foreach my $n (keys %$fnames) {
+		if (my $opt = $class->names->{ $n }) {
+			next if (!$opt->persist);
+
+			my $v = exists( $args->{ $n } ) ? 
+				$args->{ $n } : $opt->get;
+
+			next if ($v eq $opt->d_value);
+			
+			push @$qopts, [ $n , $v ];
+		} elsif (my $v = $args->{ $n }) {
+			push @$qopts, [ $n , $v ];
+		} else {
+			# ignore this one
+		}
+	}
+
+	return $qopts;
 }
 
 #----------
@@ -253,14 +252,31 @@ sub list_persistent_options {
 				my $v = exists( $qargs->{ $opt->{name} } ) ? 
 					$qargs->{ $opt->{name} } : $opt->get;
 	
-				push @$qopts, [$opt->{name},$v] if ($v ne $opt->d_value); 
+				next if ($v eq $opt->d_value);
+				push @$qopts, [$opt->{name},$v];
 			}
 		}
 	}
 
 	return $qopts;	
 }
+
 #----------
+
+sub _load_foreign_qkeys {
+	my $class = shift;
+	my $path = shift;
+
+	if (my $c = $class->{qkey_cache}{ $path }) {
+		return $c;
+	}
+
+	if (my $t = $class->{_}->look->load_template_by_path($path)) {
+		return $class->{qkey_cache}{ $path } = $t->qkeys;
+	} else {
+		return undef;
+	}
+}
 
 #----------------#
 # input routines #
@@ -366,7 +382,6 @@ sub load_qkeys_to_input {
 
 	foreach my $k (@{ $class->{_}->template->qkeys }) {
 		my $v = shift @parts;
-		warn "k: $k\tv: $v\n";
 		next if (!$v || $v eq "-");
 		$class->{input}{ $k } = $v;
 	}

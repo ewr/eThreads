@@ -209,7 +209,10 @@ sub write_cache_file {
 
 	$class->store($name , $a{ref});
 
-	if ( ref($a{ref}) eq "ARRAY" ) {
+	if ( ref($a{ref}) eq "HASH" ) {
+		# delete the update ts
+		delete $a{ref}{ ".updated" };
+	} elsif ( ref($a{ref}) eq "ARRAY" ) {
 		# get ts back off the end
 		pop @{ $a{ref} };
 	}

@@ -28,10 +28,10 @@ sub activate {
 		sub { return $class->handle_form(@_); }
 	);
 
-	$class->{_}->gholders->register(
-		"qopt",
-		sub { return $class->handle_form_qopt(@_); }
-	);
+	#$class->{_}->gholders->register(
+	#	"qopt",
+	#	sub { return $class->handle_form_qopt(@_); }
+	#);
 
 	return $class;
 }
@@ -42,17 +42,8 @@ sub handle_form {
 	my $class = shift;
 	my $i = shift;
 
-	# add initial form statement
-	my $flink = $class->{_}->queryopts->link($i->args->{func});
-
-	$_[0] .= 
-		qq(<form action=") . 
-			$flink . 
-		qq(" method=") . 
-			$i->args->{method} . 
-		qq(">);
-
-	my @keys = keys(%{$i->{args}});
+	my $tmplt = $i->args->{func};
+	$tmplt = "/" . $tmplt if ($tmplt !~ m!^/!);
 
 	# make a copy of the args
 	my $args = {};
@@ -66,15 +57,24 @@ sub handle_form {
 		$class->handle_form_qopt($c,$args);
 	}
 
-	# now figure out what class opts need to be hidden fields
-	my $opts = $class->{_}->queryopts->list_persistent_options($args);
+	my $link = $class->{_}->queryopts->link($i->args->{func},$args);
 
-	foreach my $o (@$opts) {
+	my ($flink,$opts) = $link =~ m!([^\?]*)\??(.*)?!;
+
+	$_[0] .= 
+		qq(<form action=") . 
+			$flink . 
+		qq(" method=") . 
+			$i->args->{method} . 
+		qq(">);
+
+	foreach my $o (split("&amp;",$opts)) {
+		my ($k,$v) = split("=",$o);
 		$_[0] .= 
 			qq(<input type="hidden" name=").
-				$o->[0].
+				$k.
 			qq(" value=").
-				URI::Escape::uri_escape($o->[1]).
+				URI::Escape::uri_escape($v).
 			qq("/>);
 	}
 	

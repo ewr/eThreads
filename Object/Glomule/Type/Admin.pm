@@ -647,13 +647,9 @@ sub f_qkeys {
 		my $name = $fobj->bucket->get("name");
 		my $pos = $fobj->bucket->get("pos");
 
-		warn "in edit mode\n";
-
 		if ($name) {
 			# update it
 
-			warn "updating $pos to $name\n";
-			
 			# make sure this is a legal name
 			if (!$names->{ $name }) {
 				$class->{_}->core->bail("Invalid qkey name: $name");
@@ -671,19 +667,14 @@ sub f_qkeys {
 		} else {
 			# delete it
 
-			warn "deleting pos $pos\n";
-
 			# make a copy
 			my @keys = @$qkeys;
 
 			# take out our position
 			splice(@keys,($pos - 1),1);
 
-			warn "new keys: @keys\n";
-
 			my $i = 1;
 			foreach my $n (@keys) {
-				warn "pos $i is now $n\n";
 				$class->{_}->core->set_value(
 					tbl		=> "qkeys",
 					keys	=> {
@@ -698,7 +689,6 @@ sub f_qkeys {
 
 			# now delete the former last position
 			my $last = @$qkeys;
-			warn "deleting key from pos $last\n";
 			$class->{_}->core->set_value(
 				tbl		=> "qkeys",
 				keys	=> {
@@ -727,7 +717,6 @@ sub f_qkeys {
 		my @o;
 		my $i = 1;
 		foreach my $n (@$qkeys) {
-			warn "qkey: $i\t$n\n";
 			$class->gholders->register(
 				["qkey.".$i , { pos => $i , name => $n }]
 			);
@@ -779,6 +768,8 @@ sub _walk_glomule {
 	my $qopts = shift;
 	my $i = shift;
 
+	my $glomule = $i->args->{name} || $i->args->{glomule};
+
 	my $objname = $class->{_}->core->get_object_for_type($type);
 
 	if (!$objname) {
@@ -788,7 +779,7 @@ sub _walk_glomule {
 	my $g = $class->{_}->objects->create(
 		"Glomule::Type::".$objname,
 		$class->{_}->cswitchboard->accessors,
-		$i->args->{glomule}
+		$glomule
 	)->activate_functions;
 
 	if ( my $ref = $g->_is_function( $i->args->{function} ) ) {
@@ -800,7 +791,7 @@ sub _walk_glomule {
 	} else {
 		$class->{_}->core->bail(
 			"Unknown glomule function: "
-			. $i->args->{glomule}
+			. $glomule
 			. "/"
 			. $i->args->{function}
 		);

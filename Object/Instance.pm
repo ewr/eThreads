@@ -45,6 +45,11 @@ sub new {
 	);
 	$swb->register("cache",$class->{cache});
 
+	# register memory cache
+	$swb->register("memcache",sub {
+		$class->new_object("Cache::Memory::Instance");
+	});
+
 	# -- register some accessors lazily -- #
 
 	$swb->register("RequestURI",sub {

@@ -160,6 +160,36 @@ sub determine_template {
 
 #----------
 
+sub load_template_by_path {
+	my $class = shift;
+	my $path = shift;
+
+	if (!$path) {
+		return undef;
+	}
+
+	my $tm = $class->get_templates;
+
+	if ($tm->{$path}) {
+		if (my $t = $class->{_}->memcache->get("Template",$tm->{$path}{id})) {
+			return $t;
+		} else {
+			my $t = $class->{_}->instance->new_object(
+				"Template",
+				%{$tm->{$path}}
+			);
+
+			$class->{_}->memcache->set("Template",$tm->{$path}{id},$t);
+
+			return $t;
+		}
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
 sub load_template {
 	my $class = shift;
 	my $id = shift;

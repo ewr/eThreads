@@ -9,6 +9,8 @@ use eThreads::Object::Auth;
 use eThreads::Object::Auth::Internal;
 
 use eThreads::Object::Cache;
+use eThreads::Object::Cache::Memory;
+use eThreads::Object::Cache::Memory::Instance;
 use eThreads::Object::Cache::SingleServer;
 use eThreads::Object::Cache::MultiServer;
 
@@ -98,6 +100,10 @@ sub new {
 
 	$class->{db}->connect();
 
+	# -- set up our memory cache -- #
+
+	$class->{memcache} = $class->new_object("Cache::Memory");
+
 	# -- return our class object -- #
 
 	return $class;
@@ -114,6 +120,12 @@ sub get_dbh {
 
 sub settings {
 	return shift->{settings};
+}
+
+#----------
+
+sub memcache {
+	return shift->{memcache};
 }
 
 #----------

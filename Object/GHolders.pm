@@ -440,13 +440,48 @@ sub handle_link {
 	my $class = shift;
 	my $i = shift;
 
-	$i->args->{class} = $i->args->{class} || $i->args->{DEFAULT};
+	my $template = $i->args->{template} || $i->args->{DEFAULT};
 
-	my $base;
-	$class->handle_template_tree($i,$base);
-	$_[0] .= $class->{_}->queryopts->link($base,$i->args);
+	if (!$template) {
+		$class->handle_template_tree($i,$template);
+	}
+
+	# make a copy of the args
+	my $args = {};
+	%$args = %{$i->args};
+
+	foreach my $c (@{$i->children}) {
+		$class->handle_link_qopt($c,$args);
+	}
+
+	$_[0] .= $class->{_}->queryopts->link($template,$args);
 
 	return undef;
+}
+
+#----------
+
+sub handle_link_qopt {
+	my $class = shift;
+	my $i = shift;
+	my $opts = shift;
+
+	# only handle qopts
+	return 0 if ($i->type ne "qopt"); 
+
+	# make sure we've got an opts hash to throw into
+	return 0 if (ref($opts) ne "HASH");
+
+	my $name = $i->args->{name} || $i->args->{DEFAULT};
+	return 0 if (!$name);
+
+	#warn "handle link qopt $name\n";
+
+	my $v;
+	$class->{_}->gholders->handle_template_tree($i,$v);
+	#warn "value: $v\n";
+
+	$opts->{$name} = $v;
 }
 
 #----------

@@ -341,12 +341,6 @@ sub f_archive {
 				month	=> $mons[$m],
 				year	=> $y,
 				count	=> $dates{$y}{$m}{TOTAL},
-				link	=> 
-					$class->{_}->queryopts->link("",{
-						class		=> "nav",
-						year		=> $y,
-						month		=> $m,
-					}),
 			} ]);
 
 			push @months, $m;
@@ -356,11 +350,6 @@ sub f_archive {
 			['year.'.$y , {
 				year	=> $y,
 				count	=> $dates{$y}{TOTAL},
-				link	=> 
-					$class->{_}->queryopts->link("",{
-						class	=> "nav",
-						year	=> $y,
-					}),
 				month	=> \@months,
 			} ]
 		);

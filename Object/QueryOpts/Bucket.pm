@@ -46,19 +46,14 @@ sub register {
 		@_
 	);
 
-	if ( $obj->class ) {
-		$class->{opts}{ $obj->class }{ $obj->opt } = $obj;
-		delete $class->{compiled}{ $obj->class };
-	} else {
-		$class->{opts}{GLOBAL}{ $obj->opt } = $obj;
-		delete $class->{compiled}{GLOBAL};
-	}
+	$class->{opts}{ $obj->opt } = $obj;
 
 	my $name = $obj->name;
 
 	my $input;
 	if ($name) {
 		$input = $class->{_}->queryopts->get_input($name);
+		$class->{_}->queryopts->bind_to_name($name,$obj);
 	} else {
 		# nothing to look for
 	}
@@ -74,6 +69,57 @@ sub register {
 	}
 
 	return $obj->get;
+}
+
+#----------
+
+sub get {
+	my ($class,$opt) = @_;
+
+	my $q = $class->get_ref($opt);
+
+	if ($q) {
+		return $q->get;
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
+sub alter {
+	my ($class,$opt,$key,$val) = @_;
+	return $class->get_ref($opt)->alter($key,$val);
+}
+
+#----------
+
+sub set {
+	my ($class,$opt,$val) = @_;
+	return $class->get_ref($opt)->set($val);
+}
+
+#----------
+
+sub get_ref {
+	my ($class,$opt) = @_;
+
+	$opt =~ s!.*/([^/]+)!$1!;
+
+	return undef if ( 
+		!exists( $class->{opts}{ $opt } )
+	);
+
+	my $oref = $class->{opts}{$opt};
+
+	return $oref;
+}
+
+#----------
+
+sub toggle {
+	my ($class,$opt) = @_;
+	return $class->get_ref($opt)->toggle;
 }
 
 #----------
