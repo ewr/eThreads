@@ -89,8 +89,8 @@ sub load_info {
 
 	foreach my $h ($gh,$gd) {
 		while ( my ($k,$v) = each %$h ) {
-			next if ($class->{$k});
-			$class->{$k} = $v;
+			next if ($class->{data}{$k});
+			$class->{data}{$k} = $v;
 		}
 	}
 
@@ -167,7 +167,7 @@ sub register_data {
 		ts		=> time,
 	);
 
-	$class->{ $name } = $value;
+	$class->{data}{ $name } = $value;
 
 	return 1;
 }
@@ -177,8 +177,8 @@ sub register_data {
 sub data {
 	my $class = shift;
 	my $name = shift;
-	return $class->{$name};
-	#return $class->{data}{$name};
+	#return $class->{$name};
+	return $class->{data}{$name};
 }
 
 #----------
@@ -321,7 +321,7 @@ sub get_from_glomheaders {
 			status,
 			user
 		from 
-			" . $class->{headers} . "
+			" . $class->data('headers') . "
 		where 
 			$sql
 	");
@@ -416,7 +416,7 @@ sub post {
 
 		my $update = $db->prepare("
 			update 
-				" . $class->{headers} . " 
+				" . $class->data('headers') . " 
 			set 
 				" . join("=\?,",@hfields) . "=? 
 			where 
@@ -430,7 +430,7 @@ sub post {
 
 		my $insert = $db->prepare("
 			insert into 
-				" . $class->{headers} . "
+				" . $class->data('headers') . "
 			(" . join(",",@hfields) . ") 
 			values(" . join(",",split("","?"x@hfields)) . ")
 		");
@@ -445,7 +445,7 @@ sub post {
 	# now do data
 	foreach my $f (@{ $class->fields }) {
 		$class->{_}->utils->set_value(
-			tbl		=> $class->{data},
+			tbl		=> $class->data('data'),
 			keys	=> {
 				id		=> $post->{id},
 				ident	=> $f->{name},
@@ -467,7 +467,7 @@ sub delete {
 	# delete from headers
 	my $delh = $class->{_}->core->get_dbh->prepare("
 		delete from 
-			" . $class->{headers} . "
+			" . $class->data('headers') . "
 		where 
 			id = ?
 	");
@@ -478,7 +478,7 @@ sub delete {
 	# delete from data
 	my $deld = $class->{_}->core->get_dbh->prepare("
 		delete from 
-			" . $class->{data} . "
+			" . $class->data('data') . "
 		where 
 			id = ?
 	");

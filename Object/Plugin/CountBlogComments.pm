@@ -37,13 +37,11 @@ sub activate_walk {
 	# and if it doesn't exist it'll get created
 
 	my $cobj = $class->{_}->switchboard->new_object(
-		"Glomule::Type::Blog",
+		"Glomule::Type::Comments",
 		$comments
 	);
 
-	# FIXME: this should use $cobj->data(), but blog needs to be updated 
-	# FIXME: first before we can make that move
-	my $htbl = $cobj->{headers};
+	my $htbl = $cobj->data('headers');
 
 	if (!$htbl) {
 		warn "CountBlogComments: no comments glomule given\n";

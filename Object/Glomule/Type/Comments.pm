@@ -277,7 +277,7 @@ sub get_by_id {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> [$id],
 	);
@@ -326,7 +326,7 @@ sub get_by_parent {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> \@ids,
 	);

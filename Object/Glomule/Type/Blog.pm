@@ -247,7 +247,7 @@ sub f_archive {
 			select 
 				timestamp 
 			from 
-				" . $class->{headers} . "
+				" . $class->data('headers') . "
 			where 
 				status = 1 
 				and parent = 0
@@ -503,7 +503,7 @@ sub f_ondate {
 			select 
 				min(timestamp)
 			from 
-				" . $class->data("headers") . "
+				" . $class->data('headers') . "
 		");
 
 		$get->execute()
@@ -517,7 +517,7 @@ sub f_ondate {
 		select 
 			id 
 		from 
-			" . $class->data("headers") . "
+			" . $class->data('headers') . "
 		where 
 			timestamp >= ?
 			and timestamp < (? + 86400)
@@ -560,7 +560,7 @@ sub f_ondate {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> $ids,
 	);
@@ -750,7 +750,7 @@ sub count_posts {
 		select 
 			count(id) 
 		from 
-			" . $class->{headers} . " 
+			" . $class->data('headers') . " 
 		where 
 			status = 1
 	");
@@ -791,7 +791,7 @@ sub post {
 
 		my $update = $db->prepare("
 			update 
-				" . $class->{headers} . " 
+				" . $class->data('headers') . " 
 			set 
 				" . join("=\?,",@hfields) . "=? 
 			where 
@@ -805,7 +805,7 @@ sub post {
 
 		my $insert = $db->prepare("
 			insert into 
-				" . $class->{headers} . "
+				" . $class->data('headers') . "
 			(" . join(",",@hfields) . ") 
 			values(" . join(",",split("","?"x@hfields)) . ")
 		");
@@ -820,7 +820,7 @@ sub post {
 	# now do data
 	foreach my $f (@{ $class->fields }) {
 		$class->{_}->utils->set_value(
-			tbl		=> $class->{data},
+			tbl		=> $class->data('data'),
 			keys	=> {
 				id		=> $post->{id},
 				ident	=> $f->{name},
@@ -849,7 +849,7 @@ sub get_post_information {
 			status,
 			parent
 		from 
-			$class->{headers}
+			" . $class->data('headers') . "
 		where 
 			id = ?
 	");
@@ -880,7 +880,7 @@ sub get_post_information {
 	# -- now load post data onto headers -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> [$id],
 		flat	=> 1,
@@ -903,7 +903,7 @@ sub get_data_lengths_for {
 		select 
 			ident,length(value)
 		from 
-			$class->{data} 
+			" . $class->data('data') . "
 		where 
 			id = ?
 	");
@@ -993,7 +993,7 @@ sub get_data_by_parent {
 		select 
 			count(id) 
 		from
-			$class->{headers}
+			" . $class->data('headers') . "
 		where 
 			$where
 	");
@@ -1022,7 +1022,7 @@ sub get_data_by_parent {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> \@ids,
 	);
