@@ -35,6 +35,10 @@ glomule_types	=> {
 	comments	=> "Comments",
 },
 
+plugins			=> {
+	CountBlogComments	=> "CountBlogComments",
+},
+
 modes		=> {
 	Auth	=> "auth",
 	Admin	=> "admin",

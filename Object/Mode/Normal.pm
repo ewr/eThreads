@@ -62,6 +62,12 @@ sub go {
 		);
 	}
 
+	# register plugin walker
+	$walker->register(['plugin', sub { return $class->walk_plugin(@_); } ]);
+	$class->{_}->gholders->register(
+		['plugin',sub { return undef; }]
+	);
+
 	$walker->walk_template_tree(
 		$class->{_}->template->get_tree
 	);

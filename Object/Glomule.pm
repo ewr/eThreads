@@ -168,6 +168,13 @@ sub register_data {
 
 #----------
 
+sub data {
+	my $class = shift;
+	return $class->{data};
+}
+
+#----------
+
 sub connect_to_gholders {
 	my $class = shift;
 	my $gholders = shift;

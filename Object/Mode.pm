@@ -85,6 +85,54 @@ sub get_container {
 
 #----------
 
+sub walk_plugin {
+	my $class = shift;
+	my $i = shift;
+
+	my $type = $i->args->{type} || $i->args->{DEFAULT};
+	my $named = $i->args->{ctx};
+	
+	my $module = $class->{_}->settings->{plugins}{ $type };
+
+	if (!$module) {
+		warn "invalid plugin type called: $type\n";
+		return undef;
+	}
+
+	# -- get an empty context under the plugin space -- #
+
+	my $ctx = $class->{_}->gholders->get_unused_child("plugin." . $type);
+
+	# -- if we want a named context, create that -- #
+
+	if ($named) {
+		$class->{_}->gholders->register_blank($ctx);
+		$class->{_}->gholders->new_named_ctx($named,$ctx);
+	}
+
+	# -- create a register context for the plugin -- #
+
+	my $rctx = $class->{_}->instance->new_object(
+		"GHolders::RegisterContext"
+	)->set($ctx);
+
+	# -- create a custom switchboard for the plugin -- #
+
+	my $swb = $class->{_}->switchboard->custom;
+
+	# -- connect the pieces together -- #
+
+	$swb->register("rctx",$rctx);
+
+	my $obj = $swb->new_object("Plugin::".$module,i=>$i);
+
+	# -- activate the plugin -- #
+	
+	$class->{_}->objects->activate($obj);
+}
+
+#----------
+
 sub walk_glomule {
 	my $class = shift;
 	my $type = shift;
@@ -97,7 +145,7 @@ sub walk_glomule {
 
 	$class->{_}->instance->check_rights_for_glomule($glomule);
 
-	my $objname = $class->{_}->core->get_object_for_type($type);
+	my $objname = $class->{_}->settings->{glomule_types}{ $type };
 
 	if (!$objname) {
 		$class->{_}->bail->("Couldn't find object name for $type");

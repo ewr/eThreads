@@ -167,6 +167,15 @@ sub register {
 
 #----------
 
+sub register_blank {
+	my $class = shift;
+	my $ctx = shift;
+
+	$class->register([$ctx,'']);
+}
+
+#----------
+
 sub assimilate_hash {
 	my ($class,$obj,$href) = @_;
 
@@ -222,7 +231,7 @@ sub exists {
 		$no_context = 1;
 	} elsif ($h =~ s!^\./!!) {
 		$force_context = 1;
-	} elsif ($h =~ s!^\$([^\.]+)\.!!) {
+	} elsif ($h =~ s!^\$([^\.]+)\.?!!) {
 		# named contextual prefix
 		$named_context = $1;
 		$force_context = 1;
@@ -233,7 +242,13 @@ sub exists {
 	if ($named_context) {
 		# find the context for the given prefix and look only there
 		if ( my $ctx = $class->{named}{$named_context} ) {
-			return $class->_exists($h,$ctx);
+			if ( !$h ) {
+				# they gave us a named context but nothing else
+				# we'll just return that
+				return $ctx;
+			} else {
+				return $class->_exists($h,$ctx);
+			}
 		} else {
 			return undef;
 		}
@@ -271,6 +286,21 @@ sub _exists {
 	} else {
 		return 0;
 	}
+}
+
+#----------
+
+sub get_unused_child {
+	my $class = shift;
+	my $parent = shift;
+
+	my $ctx;
+	do {
+		my $key = $class->{_}->utils->random("4");
+		$ctx = $parent . "." . $key;
+	} until (!$class->exists($ctx));
+
+	return $ctx;
 }
 
 #----------
