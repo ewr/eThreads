@@ -74,10 +74,10 @@ sub register_data {
 	my $name = shift;
 	my $value = shift;
 
-	$class->{_}->core->set_value(
+	$class->{_}->utils->set_value(
 		tbl		=> "glomule_data",
 		keys	=> {
-			ident	=> "ident",
+			ident	=> "comments",
 			id		=> $class->id,
 		},
 		value	=> $value,

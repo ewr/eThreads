@@ -36,7 +36,7 @@ sub set {
 
 	# -- update the value in the db -- #
 
-	$class->{_}->core->set_value(
+	$class->{_}->utils->set_value(
 		tbl		=> $class->{_}->core->tbl_name("update_time"),
 		keys	=> {
 			tbl		=> $a{tbl},
@@ -47,7 +47,7 @@ sub set {
 		value		=> $a{ts}
 	);
 
-	$class->{_}->core->set_value(
+	$class->{_}->utils->set_value(
 		tbl		=> $class->{_}->core->tbl_name("update_time"),
 		keys	=> {
 			tbl		=> "update_time",

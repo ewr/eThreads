@@ -54,6 +54,15 @@ sub activate {
 
 	$class->{_}->objects->activate($class->{_}->format);
 
+	# -- load comments module -- #
+#	$class->{_}->switchboard->register("comments" , sub {
+#		$class->{_}->switchboard->new_object(
+#			"System::Comments",glomule=>$class
+#		);
+#	} );
+
+#	$class->{_}->comments->initialize;
+
 	return $class;
 }
 
@@ -203,6 +212,9 @@ sub f_main {
 				push @$days, [ $p->{timestamp} , $ploc ];
 				$cday = $date;
 			}
+
+			# get lengths of data fields
+			$p->{length} = $class->get_data_lengths_for($p->{id});
 
 			foreach my $f (@{ $class->fields }) {
 				next if (!$f->{format});
@@ -529,6 +541,8 @@ sub load_and_format_post {
 	return $post;
 }
 
+#----------
+
 sub register_navigation {
 	my $class = shift;
 	my $count = shift;
@@ -672,7 +686,7 @@ sub post {
 
 	# now do data
 	foreach my $f (@{ $class->fields }) {
-		$class->{_}->core->set_value(
+		$class->{_}->utils->set_value(
 			tbl		=> $class->{data},
 			keys	=> {
 				id		=> $post->{id},
@@ -724,7 +738,7 @@ sub get_post_information {
 
 	# -- now load post data onto headers -- #
 
-	my $data = $class->{_}->core->g_load_tbl(
+	my $data = $class->{_}->utils->g_load_tbl(
 		tbl		=> $class->{data},
 		ident	=> "id",
 		ids		=> [$id],
@@ -737,6 +751,34 @@ sub get_post_information {
 
 	return $p;
 }	
+
+#----------
+
+sub get_data_lengths_for {
+	my $class = shift;
+	my $id = shift;
+
+	my $get = $class->{_}->core->get_dbh->prepare("
+		select 
+			ident,length(value)
+		from 
+			$class->{data} 
+		where 
+			id = ?
+	");
+
+	$get->execute($id);
+
+	my ($i,$l);
+	$get->bind_columns( \($i,$l) );
+
+	my $lengths = {};
+	while ($get->fetch) {
+		$lengths->{ $i } = $l;
+	}
+
+	return $lengths;
+}
 
 #----------
 
@@ -829,7 +871,7 @@ sub get_data_by_parent {
 	
 	# -- now get post data -- #
 
-	my $data = $class->{_}->core->g_load_tbl(
+	my $data = $class->{_}->utils->g_load_tbl(
 		tbl		=> $class->{data},
 		ident	=> "id",
 		ids		=> \@ids,

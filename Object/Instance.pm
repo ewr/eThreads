@@ -39,6 +39,11 @@ sub new {
 	# register objects with switchboard
 	$swb->register("objects",$class->{objects});
 
+	# load up the utils object
+	$swb->register("utils",sub {
+		$class->new_object("Utils");
+	});
+
 	# create cache object
 	$class->{cache} 	= $class->new_object(
 		$class->{_}->settings->{cache_obj}
@@ -410,7 +415,7 @@ sub cache_glomule_data {
 	my $class = shift;
 	my $id = shift;
 
-	my $data = $class->{_}->core->g_load_tbl(
+	my $data = $class->{_}->utils->g_load_tbl(
 		tbl		=> $class->{_}->core->tbl_name("glomule_data"),
 		ident	=> "id",
 		ids		=> [$id],

@@ -41,6 +41,21 @@ sub custom {
 
 #----------
 
+sub new_object {
+	my $class = shift;
+	my $type = shift;
+
+	my $obj = $class->accessors->objects->create(
+		$type,
+		$class->accessors,
+		@_
+	);
+
+	return $obj;
+}
+
+#----------
+
 sub register {
 	my $class = shift;
 	my $name = shift;

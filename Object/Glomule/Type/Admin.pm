@@ -362,7 +362,7 @@ sub f_templates_edit {
 	$class->{_}->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
-		$class->{_}->core->set_value(
+		$class->{_}->utils->set_value(
 			tbl		=> "templates",
 			keys	=> {
 				id	=> $template->id,
@@ -465,7 +465,7 @@ sub f_subtemplates_edit {
 	$class->{_}->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
-		$class->{_}->core->set_value(
+		$class->{_}->utils->set_value(
 			tbl		=> "subtemplates",
 			keys	=> {
 				id	=> $template->id,
@@ -519,7 +519,7 @@ sub f_qopts {
 		my $o = $fobj->bucket->get("opt");
 		my $n = $fobj->bucket->get("name");
 
-		$class->{_}->core->set_value(
+		$class->{_}->utils->set_value(
 			tbl		=> "qopts",
 			keys	=> {
 				glomule		=> $g,
@@ -634,7 +634,7 @@ sub f_qkeys {
 		# we need to know what position to make this
 		my $count = @$qkeys + 1;
 
-		$class->{_}->core->set_value(
+		$class->{_}->utils->set_value(
 			tbl		=> "qkeys",
 			keys	=> {
 				template	=> $template->id,
@@ -655,7 +655,7 @@ sub f_qkeys {
 				$class->{_}->bail->("Invalid qkey name: $name");
 			}
 
-			$class->{_}->core->set_value(
+			$class->{_}->utils->set_value(
 				tbl		=> "qkeys",
 				keys	=> {
 					template	=> $template->id,
@@ -675,7 +675,7 @@ sub f_qkeys {
 
 			my $i = 1;
 			foreach my $n (@keys) {
-				$class->{_}->core->set_value(
+				$class->{_}->utils->set_value(
 					tbl		=> "qkeys",
 					keys	=> {
 						template	=> $template->id,
@@ -689,7 +689,7 @@ sub f_qkeys {
 
 			# now delete the former last position
 			my $last = @$qkeys;
-			$class->{_}->core->set_value(
+			$class->{_}->utils->set_value(
 				tbl		=> "qkeys",
 				keys	=> {
 					template	=> $template->id,

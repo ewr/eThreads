@@ -101,7 +101,7 @@ sub get_user_info {
 		$class->{_}->bail->("Can't get user info with no id.");
 	}
 
-	my $user = $class->{_}->core->g_load_tbl(
+	my $user = $class->{_}->utils->g_load_tbl(
 		tbl		=> "user_data",
 		ident	=> "id",
 		ids		=> [ $class->{id} ],
@@ -139,14 +139,14 @@ sub get_rights {
 
 	my @tree = ( '0' , $class->{_}->container->id );
 
-	my $rights = $class->{_}->core->g_load_tbl(
+	my $rights = $class->{_}->utils->g_load_tbl(
 		tbl		=> $class->{_}->core->tbl_name("rights"),
 		ident	=> "container",
 		extra	=> "and user=" . $class->{id},
 		ids		=> \@tree,
 	);
 
-	$class->{rights} = $class->{_}->core->g_rec_populate($rights,\@tree);
+	$class->{rights} = $class->{_}->utils->g_rec_populate($rights,\@tree);
 
 	return $class;
 }
