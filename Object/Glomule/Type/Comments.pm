@@ -281,6 +281,11 @@ sub f_delete {
 	my $class = shift;
 	my $fobj = shift;
 
+	# -- register a timestamp handler -- #
+	$class->{_}->gholders->register(
+		["timestamp" , sub { $class->handle_timestamp(@_); }]
+	);
+
 	my $id 		= $fobj->bucket->get("id");
 	my $confirm	= $fobj->bucket->get("confirm");
 
@@ -331,7 +336,6 @@ sub handle_timestamp {
 
 sub get_by_id {
 	my $class = shift;
-	my $id = shift;
 
 	my $results = $class->get_from_glomheaders(
 		'id in (' . join('?',map{'?'} @_) .')',
@@ -520,10 +524,12 @@ sub header_fields {
 
 	return [
 
+	{ KEYS => [
+		'primary key(id)'
+	] },
 	{
 		name	=> "id",
 		def		=> "int(11) not null auto_increment",
-		primary	=> 1,
 		allowed	=> '\d+',
 		d_value	=> 0,
 	},

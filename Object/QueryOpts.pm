@@ -179,7 +179,7 @@ sub list_link_qopts {
 				$args->{ $n } : $opt->get;
 
 			next if (!$v || $v eq $opt->d_value);
-			
+
 			push @$qopts, [ $n , $v ];
 		} elsif (my $v = $args->{ $n }) {
 			push @$qopts, [ $n , $v ];

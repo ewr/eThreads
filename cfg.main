@@ -33,8 +33,9 @@ dir		=> {
 },
 
 glomule_types	=> {
-	blog		=> "Blog",
-	comments	=> "Comments",
+	blog			=> "Blog",
+	comments		=> "Comments",
+	ncmanagement	=> "NCManagement",
 },
 
 plugins			=> {
@@ -57,7 +58,7 @@ ping_methods	=> {
 },
 
 cache_obj	=> "Cache::MultiServer",
-auth_obj	=> "Auth::Internal",
+auth_obj	=> "Auth::Cookies",
 auth_name	=> "eThreads",
 db_logging	=> 0,
 

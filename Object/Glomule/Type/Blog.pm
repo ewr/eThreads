@@ -322,15 +322,17 @@ sub f_management {
 
 	# -- get postponed posts -- #
 	{
-		my $posts = $class->get_posts_by_status(0);
+		my $posts = $class->posts_by_status(0);
 
-		my @o;
-		foreach my $p (@$posts) {
-			$class->gholders->register(["postponed.".$p->{id} , $p]);
-			push @o, $p->{id};
+		if ($posts) {
+			my @o;
+			foreach my $p (@{ $posts->posts }) {
+				$class->gholders->register(["postponed.".$p->{id} , $p]);
+				push @o, $p->{id};
+			}
+
+			$class->gholders->register(["postponed",\@o]) if (@o);
 		}
-
-		$class->gholders->register(["postponed",\@o]) if (@o);
 	}
 }
 
@@ -769,78 +771,6 @@ sub count_posts {
 
 #----------
 
-sub post {
-	my $class = shift;
-	my $ipost = shift;
-	my %args = @_;
-
-	my $post = {};
-	%$post = %$ipost;
-
-	while ( my ($k,$v) = each %args ) {
-		$post->{ $k } = $v;
-	}
-
-	my $db = $class->{_}->core->get_dbh;
-
-	# now we need to insert (or update) our headers entry.
-
-	my (@hfields,@hvalues);
-	foreach my $f (@{$class->header_fields}) {
-		next if ($f->{name} eq "id");
-		
-		push @hfields, $f->{name};
-		push @hvalues, $post->{ $f->{name} };
-	}
-	
-	if ($post->{id}) {
-		# update
-
-		my $update = $db->prepare("
-			update 
-				" . $class->data('headers') . " 
-			set 
-				" . join("=\?,",@hfields) . "=? 
-			where 
-				id = ?
-		");
-
-		$update->execute(@hvalues,$post->{id}) 
-			or $class->{_}->bail->("update post failure: " . $db->errstr);
-	} else {
-		# insert 
-
-		my $insert = $db->prepare("
-			insert into 
-				" . $class->data('headers') . "
-			(" . join(",",@hfields) . ") 
-			values(" . join(",",split("","?"x@hfields)) . ")
-		");
-
-		$insert->execute(@hvalues) 
-			or $class->{_}->bail->("insert post failed: " . $db->errstr);
-
-		# FIXME - this is a MySQL specific hack
-		$post->{id} = $db->{'mysql_insertid'};
-	}
-
-	# now do data
-	foreach my $f (@{ $class->fields }) {
-		$class->{_}->utils->set_value(
-			tbl		=> $class->data('data'),
-			keys	=> {
-				id		=> $post->{id},
-				ident	=> $f->{name},
-			},
-			value	=> $post->{ $f->{name} },
-		);
-	}
-
-	return $post;
-}
-
-#----------
-
 sub get_post_information {
 	my $class = shift;
 	my $id = shift;
@@ -936,24 +866,17 @@ sub posts_by_status {
 
 	my $datelimit = $class->set_up_datelimit;
 
-	my $sql = 
+	my $where = 
 		qq(
-			status = ? 
+			status = ?
 			$datelimit->{sql}
 			order by 
 		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
-	
 
-	my $posts = $class->get_from_glomheaders(
-		$sql,
+	return $class->posts_generic(
+		$where,
 		$status
 	);
-
-	my $obj = $class->{_}->new_object("Glomule::Data::Posts");
-	$obj->posts($posts);
-	$obj->count( scalar(@$posts) );
-
-	return $obj;
 }
 
 #----------
