@@ -707,32 +707,22 @@ sub get_posts_by_status {
 	my $class = shift;
 	my $status = shift;
 
-	my $headers = $class->get_glomheaders;
+	#my $headers = $class->get_glomheaders;
 
 	my $datelimit = $class->set_up_datelimit;
 
-	# what ids do we want?
-	my $get = $class->{_}->core->get_dbh->prepare("
-		select 
-			id
-		from 
-			" . $class->{headers} . "
-		where 
-			status = ?
+	my $sql = 
+		qq(
+			status = ? 
 			$datelimit->{sql}
-		order by id
-	");
+			order by 
+		) . $class->pref("sortby") . " " . $class->pref("sortdir");
+	
 
-	$get->execute($status) 
-		or $class->{_}->core->bail("get by status failed: " . $get->errstr);
-
-	my ($id);
-	$get->bind_columns(\$id);
-
-	my $posts = [];
-	while ($get->fetch) {
-		push @$posts, \%{$headers->{ $id }};
-	}
+	my $posts = $class->get_from_glomheaders(
+		$sql,
+		$status
+	);
 
 	return $posts;
 }
@@ -742,10 +732,6 @@ sub get_posts_by_status {
 sub get_data_by_parent {
 	my $class = shift;
 	my %a = @_;
-
-	# -- load headers -- #
-
-	my $headers = $class->get_glomheaders;
 
 	my $status;
 	if ($a{status}) {
@@ -763,17 +749,24 @@ sub get_data_by_parent {
 	# first make a count of all posts the query would have retrieved if 
 	# it had not been limited
 
+	my $where = 
+		qq(
+			parent = ? 
+			$status 
+			$datelimit->{sql} 
+			order by 
+		)  
+		. $class->pref("sortby")->get 
+		. " " 
+		. $class->pref("sortdir")->get;
+
 	my $count = $db->prepare("
 		select 
 			count(id) 
 		from
 			$class->{headers}
 		where 
-			parent = ?
-			$status
-			$datelimit->{sql}
-		order by 
-			".$class->pref("sortby")->get." ".$class->pref("sortdir")->get."
+			$where
 	");
 
 	$count->execute($a{parent}) 
@@ -783,42 +776,20 @@ sub get_data_by_parent {
 
 	# now actually get our limited rows
 
-	my $select = $db->prepare("
-		select 
-			id 
-		from
-			$class->{headers}
-		where 
-			parent = ?
-			$status
-			$datelimit->{sql}
-		order by 
-			".$class->pref("sortby")->get." ".$class->pref("sortdir")->get."
-		limit
-			".$class->pref("start")->get.",".$class->pref("limit")->get."
-	");
+	my $results = $class->get_from_glomheaders(
+		$where
+		. " limit " 
+		. $class->pref("start")->get
+		. ","
+		. $class->pref("limit")->get,
+		$a{parent}
+	);
 
-	$select->execute($a{parent}) 
-		or $class->{_}->core->bail("main select failed: ".$db->errstr);
-
-	my $id;
-	$select->bind_columns(\$id);
-
-	my $results = [];
-	my @ids = (0);
 	my $posts = {};
-	while ($select->fetch) {
-		my $post = {};
 
-		%$post = %{$headers->{ $id }};
-
-		$posts->{$id} = $post;
-
-		push @ids, $id;
-
-		push @$results, $post;
-	}
-
+	my @ids = map { $_->{id} } @$results;
+	%$posts = map { $_->{id} => $_ } @$results; 
+	
 	# -- now get post data -- #
 
 	my $data = $class->{_}->core->g_load_tbl(

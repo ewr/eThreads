@@ -224,6 +224,50 @@ sub load_pings {
 
 #----------
 
+sub get_from_glomheaders {
+	my $class = shift;
+	my $sql = shift;
+	# the rest of @_ should be bind vars
+
+	my $get = $class->{_}->core->get_dbh->prepare("
+		select 
+			id,
+			title,
+			timestamp,
+			parent,
+			status,
+			user
+		from 
+			" . $class->{headers} . "
+		where 
+			$sql
+	");
+
+	$get->execute(@_) 
+		or $class->{_}->core->bail("get_from_gh failed: " . $get->errstr);
+
+	my ($id,$tit,$tim,$p,$s,$u);
+	$get->bind_columns( \($id,$tit,$tim,$p,$s,$u) );
+
+	my $posts = [];
+	while ($get->fetch) {
+		my $post = {
+			id			=> $id,
+			title		=> $tit,
+			timestamp	=> $tim,
+			parent		=> $p,
+			status		=> $s,
+			user		=> $u
+		};
+
+		push @$posts, $post;
+	}
+
+	return $posts;
+}
+
+#----------
+
 sub get_glomheaders {
 	my $class = shift;
 
