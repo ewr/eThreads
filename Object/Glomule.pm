@@ -23,12 +23,19 @@ sub load_info {
 
 	# -- load glomule headers -- #
 
-	my $gh = $class->{_}->cache->load_cache_file(
-		tbl		=> "glomule_headers",
-	);
+	my $gh;
+	if ($gh = $class->{_}->memcache->get_raw("glomule_headers")) {
+		# woo hoo!
+	} else {
+		$gh = $class->{_}->cache->load_cache_file(
+			tbl		=> "glomule_headers",
+		);
 
-	if (!$gh) {
-		$gh = $class->{_}->instance->cache_glomule_headers();
+		if (!$gh) {
+			$gh = $class->{_}->instance->cache_glomule_headers();
+		}
+
+		$class->{_}->memcache->set_raw("glomule_headers",undef,$gh);
 	}
 
 	# -- figure out our id -- #
@@ -44,15 +51,22 @@ sub load_info {
 
 	# -- load glomule data -- #
 
-	my $gd = $class->{_}->cache->load_cache_file(
-		tbl		=> "glomule_data",
-		first	=> $ghobj->{id},
-	);
-
-	if (!$gd) {
-		$gd = $class->{_}->instance->cache_glomule_data(
-			$ghobj->{id}
+	my $gd;
+	if ($gd = $class->{_}->memcache->get_raw("glomule_data",$ghobj->{id})) {
+		# woo hoo!
+	} else {
+		$gd = $class->{_}->cache->load_cache_file(
+			tbl		=> "glomule_data",
+			first	=> $ghobj->{id},
 		);
+
+		if (!$gd) {
+			$gd = $class->{_}->instance->cache_glomule_data(
+				$ghobj->{id}
+			);
+		}
+		
+		$class->{_}->memcache->set_raw("glomule_data",$ghobj->{id},$gd);
 	}
 
 	# -- load these values into our object -- #
@@ -206,6 +220,29 @@ sub load_pings {
 	);
 
 	return $obj;
+}
+
+#----------
+
+sub get_glomheaders {
+	my $class = shift;
+
+	if (my $h = $class->{_}->memcache->get_raw("glomheaders",$class->id)) {
+		return $h;
+	} else {
+		my $headers = $class->{_}->cache->load_cache_file(
+			tbl		=> "glomheaders",
+			first	=> $class->id,
+		);
+
+		if (!$headers) {
+			$headers = $class->cache_glomheaders;
+		}
+		
+		$class->{_}->memcache->set_raw("glomheaders",$class->id,$headers);
+
+		return $headers;
+	}
 }
 
 #----------

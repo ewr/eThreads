@@ -33,11 +33,7 @@ sub determine_container {
 
 	# -- load our container cache -- #
 
-	my $gh = $class->{_}->cache->load_cache_file(tbl=>"containers");
-
-	if (!$gh) {
-		$gh = $class->{_}->instance->cache_containers();
-	}
+	my $gh = $class->{_}->instance->load_containers();
 
 	# -- match as much container as possible -- #
 
@@ -60,10 +56,35 @@ sub determine_container {
 
 	$class->{_}->RequestURI->claim($container);
 
-	$c->{path} = $container;
-	$c->{id} = $gh->{$container};
+	my $c = $class->get_container($container);
+
+	#$c->{path} = $container;
+	#$c->{id} = $gh->{$container};
 
 	return $c;	
+}
+
+#----------
+
+sub get_container {
+	my $class	= shift;
+	my $path 	= shift;
+
+	if (my $c = $class->{_}->memcache->get("Container",$path)) {
+		return $c;
+	} else {
+		my $gh = $class->{_}->instance->load_containers();
+
+		my $c = $class->{_}->instance->new_object(
+			"Container",
+			path	=> $path,
+			id		=> $gh->{ $path },
+		);
+
+		$class->{_}->memcache->set("Container",$path,$c);
+
+		return $c;
+	}
 }
 
 #----------

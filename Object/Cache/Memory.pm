@@ -2,7 +2,9 @@ package eThreads::Object::Cache::Memory;
 
 use strict;
 
-use Cache::SizeAwareMemoryCache;
+#use Cache::SizeAwareMemoryCache;
+use Cache::MemoryCache;
+use Cache::FastMemoryCache;
 
 sub new {
 	my $class = shift;
@@ -13,9 +15,10 @@ sub new {
 		cache	=> undef,
 	} , $class );
 
-	$class->{cache} = new Cache::SizeAwareMemoryCache( {
+#	$class->{cache} = new Cache::SizeAwareMemoryCache( {
+	$class->{cache} = new Cache::FastMemoryCache( {
 		namespace		=> "MemCache",
-		max_size		=> 1000000,
+#		max_size		=> 1000000,
 	} );
 
 	return $class;
@@ -31,7 +34,24 @@ sub set {
 
 	my $ckey = $type . "WOOP" . $key;
 
+	#warn "$$ before insert, cache size is: ". $class->{cache}->Size() . "\n";
+
 	$class->{cache}->set($ckey,$val->cachable);
+}
+
+#----------
+
+sub set_raw {
+	my $class = shift;
+	my $type = shift;
+	my $key = shift;
+	my $val = shift;
+
+	my $ckey = $type . "WOOP" . $key;
+
+	#warn "$$ before insert, cache size is: ". $class->{cache}->Size() . "\n";
+
+	$class->{cache}->set($ckey,$val);
 }
 
 #----------

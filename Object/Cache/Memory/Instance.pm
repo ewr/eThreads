@@ -62,4 +62,20 @@ sub get {
 
 #----------
 
+sub set_raw {
+	my $class = shift;
+
+	$class->{_}->core->memcache->set_raw(@_);
+}
+
+#----------
+
+sub get_raw {
+	my $class = shift;
+
+	$class->{_}->core->memcache->get(@_);
+}
+
+#----------
+
 1;

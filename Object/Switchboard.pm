@@ -73,6 +73,8 @@ sub _create_accessor {
 	*{$sub} = eval qq( sub {
 		my \$self = shift;
 		if (!\$self->{$name}) {
+			my \@caller = caller;
+			warn "caller: \@caller\n";
 			die "attempt to access invalid accessor: $name\n";
 		}
 		if (ref(\$self->{$name}) eq "CODE") {

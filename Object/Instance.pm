@@ -106,7 +106,7 @@ sub go {
 sub DESTROY {
 	my $class = shift;
 
-	$class->{_}->objects->DESTROY;
+	$class->{objects}->DESTROY;
 }
 
 #----------
@@ -161,6 +161,26 @@ sub check_rights_for_glomule {
 
 sub ap_request {
 	return shift->{ap_request};
+}
+
+#----------
+
+sub load_containers {
+	my $class = shift;
+
+	if (my $c = $class->{_}->memcache->get_raw("containers")) {
+		return $c;
+	} else {
+		my $c = $class->{_}->cache->load_cache_file(tbl=>"containers");
+	
+		if (!$c) {
+			$c = $class->{_}->instance->cache_containers();
+		}
+
+		$class->{_}->memcache->set_raw("containers",undef,$c);
+
+		return $c;
+	}
 }
 
 #--------------------#

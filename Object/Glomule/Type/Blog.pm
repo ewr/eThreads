@@ -707,14 +707,7 @@ sub get_posts_by_status {
 	my $class = shift;
 	my $status = shift;
 
-	my $headers = $class->{_}->cache->load_cache_file(
-		tbl		=> "glomheaders",
-		first	=> $class->id,
-	);
-
-	if (!$headers) {
-		$headers = $class->cache_glomheaders;
-	}
+	my $headers = $class->get_glomheaders;
 
 	my $datelimit = $class->set_up_datelimit;
 
@@ -752,14 +745,7 @@ sub get_data_by_parent {
 
 	# -- load headers -- #
 
-	my $headers = $class->{_}->cache->load_cache_file(
-		tbl		=> "glomheaders",
-		first	=> $class->{id},
-	);
-
-	if (!$headers) {
-		$headers = $class->cache_glomheaders;
-	}
+	my $headers = $class->get_glomheaders;
 
 	my $status;
 	if ($a{status}) {

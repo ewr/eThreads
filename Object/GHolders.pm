@@ -1,7 +1,6 @@
 package eThreads::Object::GHolders;
 
 use strict;
-use Storable;
 
 #----------
 
@@ -520,18 +519,27 @@ sub handle_template {
 
 	my $name = $i->args->{template} || $i->args->{DEFAULT};
 
-	my $tmplt = $class->{_}->instance->new_object(
-		"Template::Subtemplate",
-		path=>$name
-	);
+	my $tm = $class->{_}->look->get_subtemplates;
 
-	if ($tmplt->load_from_sub) {
-		return $class->{_}->gholders->handle_template_tree(
-			$tmplt->get_tree,$_[0]
-		);
+	return undef if (!$tm->{ $name });
+
+	my $id = $tm->{ $name }{id};
+
+	my $t;
+	if ($t = $class->{_}->memcache->get("Template::Subtemplate",$id)) {
+		# we're cool
 	} else {
-		return undef;
+		$t = $class->{_}->instance->new_object(
+			"Template::Subtemplate",
+			%{ $tm->{ $name } }
+		);
+
+		$class->{_}->memcache->set("Template::Subtemplate",$id,$t);
 	}
+
+	return $class->{_}->gholders->handle_template_tree(
+		$t->get_tree,$_[0]
+	);
 }
 
 #----------
