@@ -101,20 +101,27 @@ sub get {
 	my $class = shift;
 	my %a = @_;
 
-	my $c;
-	if ( $c = $class->{_}->memcache->get(%a) ) {
-		# we're cool
+	if ( my $c = $class->{_}->memcache->get(%a) ) {
+		# memcache hit success
+		return $c;
 	} else {
 		# get from disk
 		$c = $class->load_cache_file(%a);
 
 		if ($c) {
 			# and cache to mem
-			$class->{_}->memcache->set($c,%a);
+			$class->{_}->memcache->set({
+				%a,
+				ref	=> $c,
+				ts	=> $class->update_times->get(%a)
+			});
+
+			return $c;
+		} else {
+			# cache miss
+			return undef;
 		}
 	}
-
-	return $c;
 }
 
 #----------
@@ -122,6 +129,9 @@ sub get {
 sub set {
 	my $class = shift;
 	my %a = @_;
+
+	# make sure we have a ts
+	$a{ts} = time if (!$a{ts});
 
 	# write disk cache
 	$class->write_cache_file(%a);
@@ -185,7 +195,11 @@ sub write_cache_file {
 
 	my $name = $class->file_name(%a);
 
-	$class->store($name , { u => time , r => $a{ref} } );
+	# delete our file
+	$class->delete_cache_file($name);
+
+	# and then rewrite it 
+	$class->store($name , { u => $a{ts} , r => $a{ref} } );
 }
 
 #----------

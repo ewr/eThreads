@@ -76,14 +76,6 @@ sub activate_functions {
 			},
 		},
 		{
-			name	=> "ping_tmp",
-			sub		=> sub {$class->f_ping(@_)},
-			qopts	=> [],
-			modes	=> {
-				Auth	=> 1,
-			},
-		},
-		{
 			name	=> "view",
 			sub		=> sub {$class->f_view(@_)},
 			qopts	=> $class->qopts_view,
@@ -121,6 +113,14 @@ sub activate_functions {
 			name	=> "post",
 			sub		=> sub {$class->f_post(@_)},
 			qopts	=> $class->qopts_post,
+			modes	=> {
+				Auth	=> 1,
+			},
+		},
+		{
+			name	=> "delete",
+			sub		=> sub {$class->f_delete(@_)},
+			qopts	=> $class->qopts_delete,
 			modes	=> {
 				Auth	=> 1,
 			},
@@ -250,36 +250,7 @@ sub f_view {
 
 	my $id = $fobj->bucket->get("id");
 
-	if (!$id) {
-		$class->{_}->core->bail("You must provide an ID");
-	}
-
-	my $post = $class->get_post_information($id);
-
-	# FIXME -- temporary hack while i'm missing posts
-	if (!$post->{title} && ($id > 1410 && $id < 1620)) {
-		$post = {
-			title	=> "It'll be a bit...",
-			intro	=> "The post you're looking for falls into the gap of posts that I'm still working to recover.  Sorry about that.  Come back in a week or two and maybe it'll be back.",
-			user	=> 1,
-			timestamp	=> 1098868083,
-		};
-	}
-
-	foreach my $f (@{ $class->fields }) {
-		next if (!$f->{format});
-
-		$post->{ $f->{name} } 
-			= $class->{_}->format->format( $post->{ $f->{name} } );
-	}
-
-	# -- load user information -- #
-
-	if ($post->{user}) {
-		my $user = $class->{_}->instance->new_object("User",id=>$post->{user});
-		$post->{user} = $user->cachable;
-	}
-
+	my $post = $class->load_and_format_post($id);
 
 	$class->{gholders}->register(
 		['post',$post]
@@ -307,6 +278,7 @@ sub f_archive {
 				" . $class->{headers} . "
 			where 
 				status = 1 
+				and parent = 0
 		");
 
 		$class->gholders->register(['category','-']);
@@ -462,8 +434,8 @@ sub f_post {
 			status => 1,
 		);
 
-		#my $pings = $class->load_pings;
-		#$pings->ping_all;
+		my $pings = $class->load_pings;
+		$pings->ping_all;
 
 		$class->gholders->register(["post",$post]);
 	} elsif ($fobj->bucket->get("post/preview")) {
@@ -504,17 +476,56 @@ sub f_post {
 
 #----------
 
-sub f_ping {
+sub f_delete {
 	my $class = shift;
 	my $fobj = shift;
 
-	warn "in f_ping\n";
+	my $id 		= $fobj->bucket->get("id");
+	my $confirm	= $fobj->bucket->get("confirm");
 
-	my $pings = $class->load_pings;
-	$pings->ping_all;
+	# -- load post information -- #
+
+	my $post = $class->load_and_format_post($id);
+
+	$class->{gholders}->register(
+		['post',$post]
+	);
+
+	# -- now figure an action -- #
+
+	if ($confirm) {
+
+	}
 }
 
 #----------
+
+sub load_and_format_post {
+	my $class = shift;
+	my $id = shift;
+
+	if (!$id) {
+		$class->{_}->core->bail("You must provide an ID");
+	}
+
+	my $post = $class->get_post_information($id);
+
+	foreach my $f (@{ $class->fields }) {
+		next if (!$f->{format});
+
+		$post->{ $f->{name} } 
+			= $class->{_}->format->format( $post->{ $f->{name} } );
+	}
+
+	# -- load user information -- #
+
+	if ($post->{user}) {
+		my $user = $class->{_}->instance->new_object("User",id=>$post->{user});
+		$post->{user} = $user->cachable;
+	}
+
+	return $post;
+}
 
 sub register_navigation {
 	my $class = shift;
@@ -678,6 +689,8 @@ sub get_post_information {
 	my $class = shift;
 	my $id = shift;
 
+	# -- first get post headers -- #
+
 	my $get_headers = $class->{_}->core->get_dbh->prepare("
 		select 
 			id,
@@ -698,6 +711,16 @@ sub get_post_information {
 		\($p->{id},$p->{title},$p->{timestamp},$p->{user},$p->{parent}) 
 	);
 	$get_headers->fetch;
+
+	# -- bail if we didn't get anything -- #
+	
+	if (!$p->{id}) {
+		$class->{_}->core->bail(
+			"get_post_information: Post does not exist: $id"
+		);
+	}
+
+	# -- now load post data onto headers -- #
 
 	my $data = $class->{_}->core->g_load_tbl(
 		tbl		=> $class->{data},
@@ -728,7 +751,7 @@ sub get_posts_by_status {
 			status = ? 
 			$datelimit->{sql}
 			order by 
-		) . $class->pref("sortby") . " " . $class->pref("sortdir");
+		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
 	
 
 	my $posts = $class->get_from_glomheaders(
@@ -963,7 +986,6 @@ sub qopts_archive {
 	},
 	{
 		opt		=> "year",
-		class	=> "nav",
 		allowed	=> '\d+',
 		d_value	=> $class->pref("year")->get,
 		desc	=> "Year Limit",
@@ -971,7 +993,6 @@ sub qopts_archive {
 	},
 	{
 		opt		=> "month",
-		class	=> "nav",
 		allowed	=> '\d+',
 		d_value	=> $class->pref("month")->get,
 		desc	=> "Month Limit",
@@ -979,7 +1000,6 @@ sub qopts_archive {
 	},
 	{
 		opt		=> "day",
-		class	=> "nav",
 		allowed	=> '\d+',
 		d_value	=> $class->pref("day")->get,
 		desc	=> "Day Limit",
@@ -1027,7 +1047,6 @@ sub qopts_compose_post {
 		allowed	=> '\d+',
 		d_value	=> '',
 		desc	=> "Post ID",
-		class	=> "post",
 		persist	=> 1,
 	},
 	{
@@ -1035,21 +1054,18 @@ sub qopts_compose_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post Title",
-		class	=> "post",
 	},
 	{
 		opt		=> "intro",
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post Intro",
-		class	=> "post",
 	},
 	{
 		opt		=> "body",
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post Body",
-		class	=> "post",
 	},
 
 	];
@@ -1067,7 +1083,6 @@ sub qopts_post {
 		allowed	=> '\d+',
 		d_value	=> '',
 		desc	=> "Post ID",
-		class	=> "post",
 		persist	=> 1,
 	},
 	{
@@ -1075,7 +1090,6 @@ sub qopts_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post Title",
-		class	=> "post",
 		persist	=> 1,
 	},
 	{
@@ -1083,7 +1097,6 @@ sub qopts_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post Intro",
-		class	=> "post",
 		persist	=> 1,
 	},
 	{
@@ -1091,7 +1104,6 @@ sub qopts_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post Body",
-		class	=> "post",
 		persist	=> 1,
 	},
 	{
@@ -1099,7 +1111,6 @@ sub qopts_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Preview",
-		class	=> "post",
 		persist	=> 0,
 	},
 	{
@@ -1107,7 +1118,6 @@ sub qopts_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Postpone",
-		class	=> "post",
 		persist	=> 0,
 	},
 	{
@@ -1115,7 +1125,31 @@ sub qopts_post {
 		allowed	=> '.*',
 		d_value	=> '',
 		desc	=> "Post",
-		class	=> "post",
+		persist	=> 0,
+	},
+
+	];
+}
+
+#----------
+
+sub qopts_delete {
+	my $class = shift;
+
+	return [
+
+	{
+		opt		=> "id",
+		allowed	=> '\d+',
+		d_value	=> '',
+		desc	=> "Post ID",
+		persist	=> 1,
+	},
+	{
+		opt		=> "confirm",
+		allowed	=> '(?:1|true)',
+		d_value	=> '',
+		desc	=> "Confirm Delete",
 		persist	=> 0,
 	},
 

@@ -35,7 +35,7 @@ sub set {
 
 	my $name = $class->{_}->cache->file_name(%a);
 
-	$class->{_}->core->memcache->set($name,$c);
+	$class->{_}->core->memcache->set($name,$c,$a{ts});
 }
 
 #----------
@@ -55,6 +55,7 @@ sub get {
 	if ($data->{u} >= $cts) {
 		return $data->{r};
 	} else {
+		$class->{_}->core->memcache->set($name,undef);
 		return undef;
 	}
 }

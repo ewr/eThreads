@@ -105,12 +105,8 @@ sub link {
 
 		# hash them
 		my $h_qopts = {};
-		foreach my $q (@$qopts) {
-			$h_qopts->{ $q->[0] } = $q;
-		}
+		%$h_qopts = map { $_->[0] => $_ } @$qopts;
 		
-		# we need to open a template object for the linked to template 
-		# so that we can get its qkeys
 		if ( my $qkeys = $class->_load_foreign_qkeys($tmplt) ) {
 			my @keys;
 			foreach my $k (@$qkeys) {
@@ -155,36 +151,6 @@ sub link {
 
 #----------
 
-sub compile_persistent_options {
-	my $class = shift;
-	my $args = shift;
-
-	# build a hash without class
-	my $qargs = {};
-	while ( my ($k,$v) = each %$args ) {
-		next if ($k eq "class");
-		$qargs->{ $k } = $v;
-	}
-
-	if ( !%$qargs && $class->{compiled}{ $args->{class} } ) {
-		return $class->{compiled}{ $args->{class} };
-	} else {
-		my $opts = join(
-			"&amp;", 
-			map { $_->[0] . "=" . $_->[1] } 
-				@{ $class->list_persistent_options($args) }
-		);
-
-		if (!%$qargs) {
-			$class->{compiled}{ $args->{class} } = $opts;
-		}
-
-		return $opts;
-	}
-}
-
-#----------
-
 sub list_link_qopts {
 	my $class = shift;
 	my $tmplt = shift;
@@ -215,7 +181,7 @@ sub list_link_qopts {
 			my $v = exists( $args->{ $n } ) ? 
 				$args->{ $n } : $opt->get;
 
-			next if ($v eq $opt->d_value);
+			next if (!$v || $v eq $opt->d_value);
 			
 			push @$qopts, [ $n , $v ];
 		} elsif (my $v = $args->{ $n }) {
@@ -226,39 +192,6 @@ sub list_link_qopts {
 	}
 
 	return $qopts;
-}
-
-#----------
-
-sub list_persistent_options {
-	my $class = shift;
-	my $args = shift;
-	my $qopts = [];
-
-	# build a hash without class
-	my $qargs = {};
-	while ( my ($k,$v) = each %$args ) {
-		next if ($k eq "class");
-		$qargs->{ $k } = $v;
-	}
-
-	my @classes = ('GLOBAL');
-	push @classes, $args->{class} if ($args->{class});
-
-	foreach my $b (@{ $class->{buckets} }) {
-		foreach my $c (@classes) {
-			while ( my ($k,$opt) = each %{ $b->{ $c } } ) {
-				next if ( !$opt->persist || !$opt->{name} );
-				my $v = exists( $qargs->{ $opt->{name} } ) ? 
-					$qargs->{ $opt->{name} } : $opt->get;
-	
-				next if ($v eq $opt->d_value);
-				push @$qopts, [$opt->{name},$v];
-			}
-		}
-	}
-
-	return $qopts;	
 }
 
 #----------

@@ -30,6 +30,7 @@ sub set {
 	my $class = shift;
 	my $name = shift;
 	my $ref = shift;
+	my $ts = shift;
 
 	# if they're caching it, it's current as of right now.  so we'll use 
 	# now as our updated time
@@ -46,8 +47,6 @@ sub set_raw {
 	my $val = shift;
 
 	my $ckey = $type . "WOOP" . $key;
-
-	#warn "$$ before insert, cache size is: ". $class->{cache}->Size() . "\n";
 
 	$class->{cache}->set($ckey,$val);
 }
