@@ -170,7 +170,9 @@ sub register_data {
 
 sub data {
 	my $class = shift;
-	return $class->{data};
+	my $name = shift;
+	return $class->{$name};
+	#return $class->{data}{$name};
 }
 
 #----------

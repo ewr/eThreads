@@ -4,6 +4,7 @@ package eThreads::Object::Glomule::Type::Blog;
 
 use strict;
 use Date::Format;
+use Time::ParseDate;
 
 #----------
 
@@ -90,6 +91,15 @@ sub activate_functions {
 			name	=> "archive",
 			sub		=> sub {$class->f_archive(@_)},
 			qopts	=> $class->qopts_archive,
+			modes	=> {
+				Normal	=> 1,
+				Auth	=> 1,
+			},
+		},
+		{
+			name	=> "ondate",
+			sub		=> sub {$class->f_ondate(@_)},
+			qopts	=> $class->qopts_ondate,
 			modes	=> {
 				Normal	=> 1,
 				Auth	=> 1,
@@ -186,65 +196,7 @@ sub f_main {
 	# -- register our posts -- #
 
 	if ($class->pref("day_based_display")->get) {
-		my $days = [];
-
-		# -- divide posts into days -- #
-		my $cday = 0;
-		foreach my $p (@$posts) {
-			#$p->{categories} = $class->{categories}->get_cats_for_id($p->{id});
-
-			$class->{_}->last_modified->nominate($p->{timestamp});
-
-			my $date = time2str("%x",$p->{timestamp});
-
-			my $ploc = '/' . $class->{gholders}->get . 'post.'.$p->{id};
-
-			if ($cday eq $date) {
-				push @{$days->[-1]}, $ploc;
-			} else {
-				push @$days, [ 0, $p->{timestamp} , $ploc ];
-				$cday = $date;
-			}
-
-			# get lengths of data fields
-			$p->{length} = $class->get_data_lengths_for($p->{id});
-
-			foreach my $f (@{ $class->fields }) {
-				next if (!$f->{format});
-
-				$p->{ $f->{name} } 
-					= $class->{_}->format->format( $p->{ $f->{name} } );
-			}
-
-			$class->{gholders}->register(
-				['post.'.$p->{id} , $p]
-			);
-		}
-
-		# -- go through each day -- #
-
-		# mark day one
-		$days->[0][0] = 1;
-
-		my @odays;
-		foreach my $d (@$days) {
-			my $expcol = shift @$d;
-			my $ts = shift @$d;
-
-			$class->{gholders}->register(
-				[ 'day.'.$ts , { 
-					expand 		=> $expcol, 
-					timestamp 	=> $ts, 
-					post 		=> $d 
-				} ],
-			);
-
-			push @odays, $ts;
-		}
-
-		$class->{gholders}->register(
-			[ 'day' , \@odays ]
-		);
+		$class->register_day_nav($posts);
 	}
 
 	return 1;
@@ -516,6 +468,173 @@ sub f_delete {
 		# they said to go ahead
 		$class->delete($id);
 	}
+}
+
+#----------
+
+sub f_ondate {
+	my $class = shift;
+	my $fobj = shift;
+
+	# -- register a timestamp handler -- #
+	$class->{_}->gholders->register(
+		["timestamp" , sub { $class->handle_timestamp(@_); }]
+	);
+
+	my $date = $fobj->bucket->get("date");
+	
+	my $ts = 
+		($date) 
+		? Time::ParseDate::parsedate($date)
+		: Time::ParseDate::parsedate("12:00am",NOW=>time);
+
+	# first get our minimum timestamp
+	my $min;
+	{
+		my $get = $class->{_}->core->get_dbh->prepare("
+			select 
+				min(timestamp)
+			from 
+				" . $class->data("headers") . "
+		");
+
+		$get->execute()
+			or $class->{_}->bail->("ondate get_min failure: ".$get->errstr);
+
+		$min = $get->fetchrow_array;
+	}
+
+	# prepare our id getting query
+	my $get_ids = $class->{_}->core->get_dbh->prepare("
+		select 
+			id 
+		from 
+			" . $class->data("headers") . "
+		where 
+			timestamp >= ?
+			and timestamp < (? + 86400)
+	");
+
+	my $ids = [];
+	while ($ts >= $min) {
+		$get_ids->execute($ts,$ts)
+			or $class->{_}->bail->("ondate get_ids failure: ".$get_ids->errstr);
+
+		my $id;
+		$get_ids->bind_columns(\$id);
+
+		while ($get_ids->fetch) {
+			push @$ids, $id;
+		}
+	
+		$ts = Time::ParseDate::parsedate("-1 year",NOW=>$ts);
+	}
+
+	$class->gholders->register(["count",scalar @$ids]);
+
+	if (@$ids == 0) {
+		return 1;
+	}
+
+	# -- now get these ids -- #
+
+	my $results = $class->get_from_glomheaders(
+		"id in (" 
+			. join(",",map { "?" } @$ids) .
+		") and parent = 0 order by timestamp desc",
+		@$ids
+	);
+
+	my $posts = {};
+
+	%$posts = map { $_->{id} => $_ } @$results; 
+	
+	# -- now get post data -- #
+
+	my $data = $class->{_}->utils->g_load_tbl(
+		tbl		=> $class->{data},
+		ident	=> "id",
+		ids		=> $ids,
+	);
+
+	while ( my ($id,$d) = each %$data ) {
+		while ( my ($k,$v) = each %$d ) {
+			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
+		}
+	}
+
+	# -- now format and register -- #
+
+	$class->register_day_nav($results);
+}
+
+#----------
+
+sub register_day_nav {
+	my $class = shift;
+	my $posts = shift;
+
+	my $days = [];
+
+	# -- divide posts into days -- #
+	my $cday = 0;
+	foreach my $p (@$posts) {
+		#$p->{categories} = $class->{categories}->get_cats_for_id($p->{id});
+
+		$class->{_}->last_modified->nominate($p->{timestamp});
+
+		my $date = time2str("%x",$p->{timestamp});
+
+		my $ploc = '/' . $class->{gholders}->get . 'post.'.$p->{id};
+
+		if ($cday eq $date) {
+			push @{$days->[-1]}, $ploc;
+		} else {
+			push @$days, [ 0, $p->{timestamp} , $ploc ];
+			$cday = $date;
+		}
+
+		# get lengths of data fields
+		$p->{length} = $class->get_data_lengths_for($p->{id});
+
+		foreach my $f (@{ $class->fields }) {
+			next if (!$f->{format});
+
+			$p->{ $f->{name} } 
+				= $class->{_}->format->format( $p->{ $f->{name} } );
+		}
+
+		$class->{gholders}->register(
+			['post.'.$p->{id} , $p]
+		);
+	}
+
+	# -- go through each day -- #
+
+	# mark day one
+	$days->[0][0] = 1;
+
+	my @odays;
+	foreach my $d (@$days) {
+		my $expcol = shift @$d;
+		my $ts = shift @$d;
+
+		$class->{gholders}->register(
+			[ 'day.'.$ts , { 
+				expand 		=> $expcol, 
+				timestamp 	=> $ts, 
+				post 		=> $d 
+			} ],
+		);
+
+		push @odays, $ts;
+	}
+
+	$class->{gholders}->register(
+		[ 'day' , \@odays ]
+	);
+
+	return 1;
 }
 
 #----------
@@ -814,6 +933,15 @@ sub get_posts_by_status {
 
 #----------
 
+sub get_data_by_ids {
+	my $class = shift;
+	my %a = @_;
+
+
+}
+
+#----------
+
 sub get_data_by_parent {
 	my $class = shift;
 	my %a = @_;
@@ -1034,26 +1162,21 @@ sub qopts_archive {
 		desc	=> "Selects a category for viewing.",
 		persist	=> 1,
 	},
+
+	];
+}
+
+#----------
+
+sub qopts_ondate {
+	my $class = shift;
+
+	return [
+
 	{
-		opt		=> "year",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("year")->get,
-		desc	=> "Year Limit",
-		persist	=> 1,
-	},
-	{
-		opt		=> "month",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("month")->get,
-		desc	=> "Month Limit",
-		persist	=> 1,
-	},
-	{
-		opt		=> "day",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("day")->get,
-		desc	=> "Day Limit",
-		persist	=> 1,
+		opt		=> "date",
+		allowed	=> '[\w\/]+',
+		d_value	=> undef,
 	},
 
 	];
