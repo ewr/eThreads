@@ -212,7 +212,10 @@ sub delete_cache_file {
 	) if ($name !~ m!^[\w\d\.]+$!);
 
 	my $file = $class->{_}->core->settings->{dir}{cache} . "/cache." . $name;
-	`rm $file`;
+
+	if (-e $file) {
+		`rm $file`;
+	}
 }
 
 #----------

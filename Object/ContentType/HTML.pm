@@ -59,7 +59,7 @@ sub handle_form {
 
 	my $link = $class->{_}->queryopts->link($i->args->{func},$args);
 
-	my ($flink,$opts) = $link =~ m!([^\?]*)\??(.*)?!;
+	my ($flink,$opts) = $link =~ m!([^\?]*)\??(.*)?!s;
 
 	$_[0] .= 
 		qq(<form action=") . 
