@@ -111,7 +111,7 @@ sub new {
 sub go {
 	my $class = shift;
 
-	$class->{_}->mode->go;
+	return $class->{_}->mode->go;
 }
 
 #----------

@@ -107,25 +107,28 @@ sub f_view {
 
 	my $id = $fobj->bucket->get("id");
 
-	my ($posts,$count) = $class->get_by_parent($id);
+	my $posts = $class->posts_by_parent($id);
 
 	my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
 
 	my $comments = [];
 	my @data;
-	foreach my $p (@$posts) {
-		$class->{_}->last_modified->nominate($p->{timestamp});
-		foreach my $f (@{ $class->fields }) {
-			if ($format && $f->{format}) {
-				$p->{ $f->{name} } 
-					= $class->{_}->format->format( $p->{ $f->{name} } );
-			} else {
-				# do nothing
-			}
-		}
 
-		push @$comments, $p->{id};
-		push @data, ['comments.'.$p->{id} , $p ];
+	if ($posts) {
+		foreach my $p (@{ $posts->posts }) {
+			$class->{_}->last_modified->nominate($p->{timestamp});
+			foreach my $f (@{ $class->fields }) {
+				if ($format && $f->{format}) {
+					$p->{ $f->{name} } 
+						= $class->{_}->format->format( $p->{ $f->{name} } );
+				} else {
+					# do nothing
+				}
+			}
+
+			push @$comments, $p->{id};
+			push @data, ['comments.'.$p->{id} , $p ];
+		}
 	}
 
 	# create a blank compose hash
@@ -133,7 +136,7 @@ sub f_view {
 	%$compose = map { $_->{name} => "" } @{ $class->edit_fields };
 
 	$class->gholders->register(
-		['count' , $count],
+		['count' , $posts->count],
 		['comments' , $comments ],
 		['compose', $compose ],
 		@data
@@ -210,6 +213,70 @@ sub f_post {
 
 #----------
 
+sub f_mass_delete {
+	my $class = shift;
+	my $fobj = shift;
+
+	my $start	= $fobj->bucket->get("start") || '0';
+	my $limit	= $fobj->bucket->get("limit") || $class->pref("limit")->get;
+	my $delete	= $fobj->bucket->get("delete");
+	my $confirm	= $fobj->bucket->get("confirm");
+
+	my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
+
+	# -- if we have posts to delete, get them -- #
+
+	if ($delete) {
+		my $d = $class->get_by_id( split(',',$delete) );
+
+		my @data;
+		foreach my $c ( @{ $d->posts } ) {
+			foreach my $f (@{ $class->fields }) {
+				if ($format && $f->{format}) {
+					$c->{ $f->{name} } 
+						= $class->{_}->format->format( $c->{ $f->{name} } );
+				} else {
+					# do nothing
+				}
+			}
+
+			push @data, ['delete.'.$c->{id} , $c ];
+		}
+
+		$class->gholders->register(
+			['delete', [ map { $_->{id} } @{$d->posts} ] ],
+			@data
+		);
+	} else {
+		# -- load information for the last $count comments -- #
+
+		my $comments = $class->posts_by_time($start,$limit);
+
+		my @data;
+		foreach my $c ( @{ $comments->posts } ) {
+			#$class->{_}->last_modified->nominate($p->{timestamp});
+			foreach my $f (@{ $class->fields }) {
+				if ($format && $f->{format}) {
+					$c->{ $f->{name} } 
+						= $class->{_}->format->format( $c->{ $f->{name} } );
+				} else {
+					# do nothing
+				}
+			}
+
+			push @data, ['comments.'.$c->{id} , $c ];
+		}
+
+		$class->gholders->register(
+			['count',$comments->count],
+			['comments', [ map { $_->{id} } @{$comments->posts} ] ],
+			@data
+		);
+	}
+}
+
+#----------
+
 sub f_delete {
 	my $class = shift;
 	my $fobj = shift;
@@ -219,7 +286,7 @@ sub f_delete {
 
 	# -- load post information -- #
 
-	my $c = $class->get_by_id($id);
+	my $c = $class->get_by_id($id)->{$id};
 
 	my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
 
@@ -267,8 +334,8 @@ sub get_by_id {
 	my $id = shift;
 
 	my $results = $class->get_from_glomheaders(
-		"id = ?",
-		$id
+		'id in (' . join('?',map{'?'} @_) .')',
+		@_
 	);
 
 	my $posts = {};
@@ -279,7 +346,7 @@ sub get_by_id {
 	my $data = $class->{_}->utils->g_load_tbl(
 		tbl		=> $class->data('data'),
 		ident	=> "id",
-		ids		=> [$id],
+		ids		=> \@_,
 	);
 
 	while ( my ($id,$d) = each %$data ) {
@@ -288,18 +355,32 @@ sub get_by_id {
 		}
 	}
 
-	return $posts->{$id};
+	return $posts;
 }
 
 #----------
 
-sub get_by_parent {
+sub posts_by_time {
+	my $class = shift;
+	my $start = shift;
+	my $limit = shift;
+
+	my $where = 
+		qq(
+			(1 = 1)
+			order by timestamp desc
+		);
+
+	return $class->posts_generic_w_limit($where,$start,$limit);
+}
+
+#----------
+
+sub posts_by_parent {
 	my $class = shift;
 	my $parent = shift;
 
 	# -- what ids do we want? -- #
-
-	my $db = $class->{_}->core->get_dbh;
 
 	my $where = 
 		qq(
@@ -308,36 +389,7 @@ sub get_by_parent {
 			timestamp
 		);
 
-	my ($results,$count) = $class->get_from_glomheaders(
-		$where,
-		$parent
-	);
-
-	my $posts = {};
-
-	# if we didn't get anything, short-circuit here
-	if (!$count) {
-		return ([],0);
-	}
-
-	my @ids = map { $_->{id} } @$results;
-	%$posts = map { $_->{id} => $_ } @$results; 
-	
-	# -- now get post data -- #
-
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->data('data'),
-		ident	=> "id",
-		ids		=> \@ids,
-	);
-
-	while ( my ($id,$d) = each %$data ) {
-		while ( my ($k,$v) = each %$d ) {
-			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
-		}
-	}
-
-	return ($results,$count);
+	return $class->posts_generic($where,$parent);
 }
 
 #----------

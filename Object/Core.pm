@@ -57,6 +57,7 @@ sub new {
 	# -- read in our settings -- #
 
 	{ 
+#		my $cfg = "/etc/apache2/perl/eThreads/cfg.main";
 		my $cfg = "/web/ericrichardson.com/eTdev/cfg.main";
 
 		my $s;
@@ -203,7 +204,9 @@ sub tbl_name {
 #----------
 
 sub code {
-	return shift->settings->{response_codes}{ shift };
+	my $class = shift;
+	my $code = shift;
+	return $class->settings->{response_codes}{ $code };
 }
 
 #----------

@@ -59,16 +59,7 @@ sub custom {
 #----------
 
 sub new_object {
-	my $class = shift;
-	my $type = shift;
-
-	my $obj = $class->accessors->objects->create(
-		$type,
-		$class->accessors,
-		@_
-	);
-
-	return $obj;
+	return shift->accessors->new_object(@_);
 }
 
 #----------
@@ -130,6 +121,24 @@ sub knows {
 
 package eThreads::Object::Switchboard::Accessors;
 
+sub new_object {
+	my $class = shift;
+	my $type = shift;
+
+	if (!$type) {
+		Carp::confess "no type given to new_object";
+	}
+
+	my $obj = $class->objects->create(
+		$type,
+		$class,
+		@_
+	);
+
+	return $obj;
+}
+
+#----------
 sub knows {
 	return $_[0]->{ $_[1] } || undef;
 }

@@ -51,12 +51,13 @@ sub activate {
 	$class->activate_functions;
 
 	# -- load the categories system -- #
-	# $class->{categories} 
-	#	= $class->{_}->load_module("systems/categories");
+	$class->{_}->switchboard->register("categories" , sub {
+		$class->{_}->new_object("System::Categories")
+	} );
 
 	# -- load our format module -- #
 	$class->{_}->switchboard->register("format" , sub {
-		$class->{_}->instance->new_object("Format::Markdown")
+		$class->{_}->new_object("Format::Markdown")
 	} );
 
 	$class->{_}->objects->activate($class->{_}->format);
@@ -178,24 +179,26 @@ sub f_main {
 	my $category	= $fobj->bucket->get("category");
 
 	foreach my $qo ('start','limit','sortby','sortdir','month','year','day') {
-		my $v = $fobj->bucket->get("nav/".$qo);
+		my $v = $fobj->bucket->get($qo);
 		$class->pref($qo)->set($v) if ($v);
 	}
 
 	# -- figure out what posts we're getting, and, uh, get em -- #
 
 	my $posts;
-	my $count;
 	if ($category) {
-
+		$posts = $class->posts_by_category(
+			category	=> $category,
+			status		=> 1,
+		);
 	} else {
-		($posts,$count) = $class->get_data_by_parent(
+		$posts = $class->posts_by_parent(
 			parent	=> 0,
 			status	=> 1,
 		);
 	}
 
-	$class->register_navigation($count);
+	$class->register_navigation($posts->count);
 	
 	# -- register our posts -- #
 
@@ -379,7 +382,7 @@ sub f_post {
 	my $post = {};
 
 	foreach my $f ('id','title','intro','body') {
-		my $v = $fobj->bucket->get("post/".$f);
+		my $v = $fobj->bucket->get($f);
 		$v = URI::Escape::uri_unescape($v);
 
 		$post->{ $f } = $v;
@@ -396,7 +399,7 @@ sub f_post {
 
 	$class->flesh_out_post($post);
 
-	if ($fobj->bucket->get("post/post")) {
+	if ($fobj->bucket->get("post")) {
 		$class->gholders->register(["post",1]);
 
 		# figure out our ping situation first
@@ -416,7 +419,7 @@ sub f_post {
 		}
 
 		$class->gholders->register(["post",$post]);
-	} elsif ($fobj->bucket->get("post/preview")) {
+	} elsif ($fobj->bucket->get("preview")) {
 		# -- register a timestamp handler -- #
 		$class->{_}->gholders->register(
 			["timestamp" , sub { $class->handle_timestamp(@_); }]
@@ -438,7 +441,7 @@ sub f_post {
 		$class->gholders->register(
 			['post',$preview]
 		);
-	} elsif ($fobj->bucket->get("post/postpone")) {
+	} elsif ($fobj->bucket->get("postpone")) {
 		$class->gholders->register(["postpone",1]);
 
 		my $post = $class->post(
@@ -448,7 +451,7 @@ sub f_post {
 
 		$class->gholders->register(["post",$post]);
 	} else {
-		# they suck
+		$class->{_}->bail->("Post called incorrectly.  No valid function.");
 	}
 }
 
@@ -584,9 +587,13 @@ sub register_day_nav {
 
 	my $days = [];
 
+	# -- get data lengths for posts -- #
+
+	my $lengths = $class->get_data_lengths_for($posts);
+
 	# -- divide posts into days -- #
 	my $cday = 0;
-	foreach my $p (@$posts) {
+	foreach my $p (@{ $posts->posts }) {
 		#$p->{categories} = $class->{categories}->get_cats_for_id($p->{id});
 
 		$class->{_}->last_modified->nominate($p->{timestamp});
@@ -603,7 +610,7 @@ sub register_day_nav {
 		}
 
 		# get lengths of data fields
-		$p->{length} = $class->get_data_lengths_for($p->{id});
+		$p->{length} = $lengths->{ $p->{id} };
 
 		foreach my $f (@{ $class->fields }) {
 			next if (!$f->{format});
@@ -667,7 +674,7 @@ sub load_and_format_post {
 	# -- load user information -- #
 
 	if ($post->{user}) {
-		my $user = $class->{_}->instance->new_object("User",id=>$post->{user});
+		my $user = $class->{_}->new_object("User",id=>$post->{user});
 		$post->{user} = $user->cachable;
 	}
 
@@ -897,25 +904,25 @@ sub get_post_information {
 
 sub get_data_lengths_for {
 	my $class = shift;
-	my $id = shift;
+	my $posts = shift;
 
 	my $get = $class->{_}->core->get_dbh->prepare("
 		select 
-			ident,length(value)
+			id,ident,length(value)
 		from 
 			" . $class->data('data') . "
 		where 
-			id = ?
+			id in (" . join( ',' , map {'?'} @{$posts->posts} ) . ")
 	");
 
-	$get->execute($id);
+	$get->execute( map { $_->{id} } @{ $posts->posts } );
 
-	my ($i,$l);
-	$get->bind_columns( \($i,$l) );
+	my ($id,$i,$l);
+	$get->bind_columns( \($id,$i,$l) );
 
 	my $lengths = {};
 	while ($get->fetch) {
-		$lengths->{ $i } = $l;
+		$lengths->{ $id }{ $i } = $l;
 	}
 
 	return $lengths;
@@ -923,11 +930,9 @@ sub get_data_lengths_for {
 
 #----------
 
-sub get_posts_by_status {
+sub posts_by_status {
 	my $class = shift;
 	my $status = shift;
-
-	#my $headers = $class->get_glomheaders;
 
 	my $datelimit = $class->set_up_datelimit;
 
@@ -944,12 +949,16 @@ sub get_posts_by_status {
 		$status
 	);
 
-	return $posts;
+	my $obj = $class->{_}->new_object("Glomule::Data::Posts");
+	$obj->posts($posts);
+	$obj->count( scalar(@$posts) );
+
+	return $obj;
 }
 
 #----------
 
-sub get_data_by_ids {
+sub posts_by_id {
 	my $class = shift;
 	my %a = @_;
 
@@ -958,7 +967,36 @@ sub get_data_by_ids {
 
 #----------
 
-sub get_data_by_parent {
+sub posts_by_parent {
+	my $class = shift;
+	my %a = @_;
+
+	my $datelimit = $class->set_up_datelimit;
+
+	my $status;
+    if ($a{status}) {
+        $status = "and status = $a{status}";
+    }
+
+	my $where = 
+		qq(
+			parent = ?
+			$status
+			$datelimit->{sql}
+			order by 
+		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
+
+	return $class->posts_generic_w_limit(
+		$where,
+		$class->pref("start")->get,
+		$class->pref("limit")->get,
+		$a{parent}
+	);
+}
+
+#----------
+
+sub posts_by_category {
 	my $class = shift;
 	my %a = @_;
 
@@ -971,16 +1009,13 @@ sub get_data_by_parent {
 
 	my $datelimit = $class->set_up_datelimit;
 
-	# -- what ids do we want? -- #
+	# -- get category sql -- #
 
-	my $db = $class->{_}->core->get_dbh;
-
-	# first make a count of all posts the query would have retrieved if 
-	# it had not been limited
+	my $cat_sql = $class->{_}->categories->get_sql_for($a{category});
 
 	my $where = 
 		qq(
-			parent = ? 
+			$cat_sql
 			$status 
 			$datelimit->{sql} 
 			order by 
@@ -989,51 +1024,11 @@ sub get_data_by_parent {
 		. " " 
 		. $class->pref("sortdir")->get;
 
-	my $count = $db->prepare("
-		select 
-			count(id) 
-		from
-			" . $class->data('headers') . "
-		where 
-			$where
-	");
-
-	$count->execute($a{parent}) 
-		or $class->{_}->bail->("count posts failed: ".$db->errstr);
-
-	my $num_posts = $count->fetchrow_array;
-
-	# now actually get our limited rows
-
-	my $results = $class->get_from_glomheaders(
-		$where
-		. " limit " 
-		. $class->pref("start")->get
-		. ","
-		. $class->pref("limit")->get,
-		$a{parent}
+	return $class->posts_generic_w_limit(
+		$where,
+		$class->pref('start')->get,
+		$class->pref('limit')->get
 	);
-
-	my $posts = {};
-
-	my @ids = map { $_->{id} } @$results;
-	%$posts = map { $_->{id} => $_ } @$results; 
-	
-	# -- now get post data -- #
-
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->data('data'),
-		ident	=> "id",
-		ids		=> \@ids,
-	);
-
-	while ( my ($id,$d) = each %$data ) {
-		while ( my ($k,$v) = each %$d ) {
-			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
-		}
-	}
-
-	return ($results,$num_posts);
 }
 
 #----------

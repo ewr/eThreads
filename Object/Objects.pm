@@ -61,7 +61,9 @@ sub create {
 	my $type = shift;
 	my $data = shift;
 
-#	$class->{counts}{$type}++;
+	if (!$type) {
+		Carp::carp "no type given to create\n";
+	}
 
 	my $module = "eThreads::Object::$type";
 	my $obj = $module->new($data,@_);
