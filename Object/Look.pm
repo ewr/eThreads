@@ -324,4 +324,96 @@ sub get_subtemplates {
 
 #----------
 
+=head1 NAME
+
+eThreads::Object::Look
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This is the Look object.  It keeps track of loading look data and knowing 
+what template should be called.
+
+=over 4
+
+=item new
+
+	my $look = $inst->new_object("Look",id=>$id);
+
+Return a new look object.  You should pass it the look id.
+
+=item cachable 
+
+Return the cachable items for the look.  These are just id and name.
+
+=item id 
+
+Return the look id
+
+=item cache_template_map
+
+Cache the template map for the look.
+
+=item cache_subtemplates
+
+Cache the subtemplates for the look.
+
+=item determine_template
+
+	my $tmplt = $look->determine_template;
+
+Determine the template for the given instance, and return it as a template 
+object.
+
+=item load_template_by_path
+
+	my $tmplt = $look->load_template_by_path("/foo");
+
+Load a template given its path.  Returns a template object.
+
+=item load_template
+
+	my $tmplt = $look->load_template("17");
+
+Load a template given its ID.  Returns a template object.
+
+=item load_subtemplate_by_path
+
+	my $sub = $look->load_subtemplate_by_path("header");
+
+Load a subtemplate given a lookup name.  Returns a subtemplate object.
+
+=item load_subtemplate
+
+	my $sub = $look->load_subtemplate("17");
+
+Load a subtemplate given its ID.  Returns a subtemplate object.
+
+=item get_templates
+
+	my $tm = $look->load_templates;
+
+Used internally to load template map.
+
+=item get_subtemplates
+
+	my $tm = $look->load_subtemplates;
+
+Used internally to load subtemplate map.
+
+=back
+
+=head1 AUTHOR
+
+Eric Richardson <e@ericrichardson.com>
+
+=head1 COPYRIGHT
+
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
+is licensed under the terms of the GNU General Public License, which you 
+should have received in your distribution.
+	
+=cut
+
 1;

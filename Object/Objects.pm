@@ -94,6 +94,9 @@ eThreads::Object::Objects
 	# create and register a new object
 	my $obj = $objs->create("type",$data);
 
+	# just register
+	$objs->register($myobj);
+
 	# activate our new object
 	$objs->activate($obj);
 
@@ -123,6 +126,12 @@ Create a new Objects object.
 
 Creates and registers a new object of type "type".  Most objects expect $data 
 to be a reference to $inst.
+
+=item register 
+
+	$objs->register($myobj);
+
+Just register an object that's already been created.
 
 =item activate 
 

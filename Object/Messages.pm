@@ -126,6 +126,16 @@ can optionally be overwritten on the container level.
 Returns a Messages object.  Should be called through Instance's new_object 
 interface so that it can call back to Instance.
 
+=item bail
+
+	$obj->bail("error message");
+
+	$class->{_}->bail->("error message");
+
+This is a special case that uses the ERROR Message.  It will usually be 
+registered as "bail" with the switchboard.  Note that for the switchboard 
+usage you need the extra dereference.
+
 =item print 
 
 	$obj->print("MsgName","my msg text");
@@ -151,7 +161,7 @@ Eric Richardson <e@ericrichardson.com>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1999-2004 Eric Richardson.   All rights reserved.  eThreads 
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
 is licensed under the terms of the GNU General Public License, which you 
 should have received in your distribution.
 
