@@ -128,7 +128,7 @@ sub link {
 		my @qopts;
 		foreach my $q (@$qopts) {
 			next if ($q->[2]);
-			push @qopts, ( $q->[0] . "=" . $q->[1] );
+			push @qopts, ( $q->[0] . "=" . URI::Escape::uri_escape($q->[1]) );
 		}
 
 		$link_qopts = join("&amp;",@qopts);
