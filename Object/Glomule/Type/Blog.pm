@@ -8,6 +8,10 @@ use Time::ParseDate;
 
 #----------
 
+sub TYPE { "blog" }
+
+#----------
+
 sub new {
 	my $class = shift;
 	my $data = shift;
@@ -1465,10 +1469,12 @@ sub fields {
 		{
 			name	=> "intro",
 			format	=> 1,
+			edit	=> 1,
 		},
 		{
 			name	=> "body",
 			format	=> 1,
+			edit	=> 1,
 		},
 	];
 }
