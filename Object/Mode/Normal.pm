@@ -112,7 +112,7 @@ sub go {
 
 	my $content;
 	$class->{_}->gholders->handle_template_tree(
-		$class->{_}->template->get_tree,
+		$shadow,
 		$content
 	);
 
@@ -136,11 +136,15 @@ sub handle_glomule {
 	my $glomule = $i->args->{name} || $i->args->{glomule};
 
 	my $ctx = $class->{_}->gholders->get_context;
-	$class->{_}->gholders->set_context($type.".".$glomule);
+	my $gctx = $i->note('ctx');
+
+	$class->{_}->gholders->set_context($gctx) 
+		if ($gctx);
 
 	$class->{_}->gholders->handle_template_tree($i,$_[0]);
 
-	$class->{_}->gholders->set_context($ctx);
+	$class->{_}->gholders->set_context($ctx)
+		if ($gctx);;
 
 	return undef;
 }

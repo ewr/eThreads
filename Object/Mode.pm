@@ -162,7 +162,9 @@ sub prewalk_glomule {
 		$class->{_}->bail->("Couldn't find object name for $type");
 	}
 
-	my $ctx = $type.".".$glomule;
+	# -- get an empty context under the plugin space -- #
+
+	my $ctx = $class->{_}->gholders->get_unused_child("glomule." . $type);
 
 	my $rctx = $class->{_}->instance->new_object(
 		"GHolders::RegisterContext"
@@ -184,6 +186,7 @@ sub prewalk_glomule {
 
 	# set our object in the ObjectTree
 	$i->note("object",$g);
+	$i->note("ctx",$ctx);
 
 	return 1;
 }
@@ -195,14 +198,7 @@ sub walk_glomule {
 	my $type = shift;
 	my $i = shift;
 
-	my $core = $class->{_}->core;
-
-	my $glomule = $i->args->{name} || $i->args->{glomule};
-	my $named = $i->args->{ctx};
-
-	$class->{_}->instance->check_rights_for_glomule($glomule);
-
-	my $objname = $class->{_}->settings->{glomule_types}{ $type };
+	#$class->{_}->instance->check_rights_for_glomule($glomule);
 
 	my $g = $i->note("object")
 		or $class->{_}->bail->("Couldn't find object in walk");
@@ -212,9 +208,9 @@ sub walk_glomule {
 	} else {
 		$class->{_}->bail->(
 			"Unknown glomule function: "
-			. $glomule
-			. "/"
-			. $i->args->{function}
+		#	. $glomule
+		#	. "/"
+		#	. $i->args->{function}
 		);
 	}
 }
