@@ -335,7 +335,7 @@ sub get_named_ctx {
 	my $class = shift;
 	my $name = shift;
 
-	return $class->{named}{ $name } : undef;
+	return $class->{named}{ $name } || undef;
 }
 
 #----------
