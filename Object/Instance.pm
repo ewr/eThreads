@@ -249,6 +249,8 @@ sub determine_domain {
 
 	my $d = $class->load_domains;
 
+	warn "domain: $domain\n";
+
 	my $croot;
 	if ( my $dref = $d->{d}{ $domain } ) {
 		$croot = $class->new_object("Domain",%$dref);

@@ -307,6 +307,109 @@ sub load_pings {
 
 #----------
 
+sub posts_generic {
+	my $class = shift;
+	my $where = shift;
+
+	my ($results,$count) = $class->get_from_glomheaders(
+		$where,
+		@_
+	);
+
+	my $posts = {};
+
+	# if we didn't get anything, short-circuit here
+	return undef 
+		if (!$count);
+
+	my @ids = map { $_->{id} } @$results;
+	%$posts = map { $_->{id} => $_ } @$results; 
+	
+	# -- now get post data -- #
+
+	my $data = $class->{_}->utils->g_load_tbl(
+		tbl		=> $class->{data},
+		ident	=> "id",
+		ids		=> \@ids,
+	);
+
+	while ( my ($id,$d) = each %$data ) {
+		while ( my ($k,$v) = each %$d ) {
+			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
+		}
+	}
+
+	my $obj = $class->{_}->new_object("Glomule::Data::Posts");
+	$obj->posts($results);
+	$obj->count($count);
+
+	return $obj;
+}
+
+#----------
+
+sub posts_generic_w_limit {
+	my $class = shift;
+	my $where = shift;
+	my $start = shift;
+	my $limit = shift;
+
+	my $count = $class->{_}->core->get_dbh->prepare("
+		select 
+			count(id) 
+		from
+			$class->{headers}
+		where 
+			$where
+	");
+
+	$count->execute(@_)
+		or $class->{_}->bail->("count posts failed: ".$count->errstr);
+
+	my $num_posts = $count->fetchrow_array;
+
+	# now actually get our limited rows
+
+	my $results = $class->get_from_glomheaders(
+		$where
+		. " limit " 
+		. $start
+		. ","
+		. $limit
+		@_
+	);
+
+	my $posts = {};
+
+	my @ids = map { $_->{id} } @$results;
+	%$posts = map { $_->{id} => $_ } @$results; 
+	
+	# -- now get post data -- #
+
+	my $data = $class->{_}->utils->g_load_tbl(
+		tbl		=> $class->{data},
+		ident	=> "id",
+		ids		=> \@ids,
+	);
+
+	while ( my ($id,$d) = each %$data ) {
+		while ( my ($k,$v) = each %$d ) {
+			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
+		}
+	}
+
+	# -- now return this as an object -- #
+
+	my $obj = $class->{_}->switchboard->new_object("Glomule::Data::Posts");
+
+	$obj->posts($results);
+	$obj->count($num_posts);
+
+	return $obj;
+}
+
+#----------
+
 sub get_from_glomheaders {
 	my $class = shift;
 	my $sql = shift;
