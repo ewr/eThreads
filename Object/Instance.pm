@@ -252,6 +252,43 @@ sub determine_root {
 # caching routines #
 #------------------#
 
+sub cache_user_headers {
+	my $class = shift;
+
+	my $db = $class->{_}->core->get_dbh;
+	my $get = $db->prepare("
+		select 
+			id,user,password 
+		from 
+			" . $class->{_}->core->tbl_name("user_headers") . " 
+	");
+
+	$get->execute();
+
+	my ($id,$u,$p);
+	$get->bind_columns( \($id,$u,$p) );
+
+	my $headers = { u => {} , id => {} };
+	while ($get->fetch) {
+		my $user = {
+			id			=> $id,
+			username	=> $u,
+			password	=> $p,
+		};
+
+		$headers->{u}{ $u } = $headers->{id}{ $id } = $user;
+	}
+
+	$class->{_}->cache->write_cache_file(
+		tbl		=> "user_headers",
+		ref		=> $headers,
+	);
+
+	return $headers;
+}
+
+#----------
+
 sub cache_looks {
 	my $class = shift;
 

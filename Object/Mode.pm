@@ -68,9 +68,6 @@ sub determine_container {
 
 #----------
 
-
-#----------
-
 sub walk_glomule {
 	my $class = shift;
 	my $type = shift;
@@ -100,7 +97,7 @@ sub walk_glomule {
 	if ( my $ref = $g->is_function( $i->args->{function} ) ) {
 		$ref->activate->execute( $i->args );
 	} else {
-		$class->{_}->bail(
+		$class->{_}->core->bail(
 			"Unknown glomule function: "
 			. $i->args->{glomule}
 			. "/"

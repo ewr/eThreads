@@ -24,8 +24,6 @@ sub new {
 sub activate {
 	my $class = shift;
 
-	# activate our functions
-	
 }
 
 #----------

@@ -41,6 +41,11 @@ sub go {
 		$class->{_}->look->determine_template()
 	);
 
+	# load the content type module
+	$class->{_}->switchboard->register("content_type",
+		$class->{_}->template->type
+	);
+
 	# -- walk the template to see what glomules we're using -- #
 
 	my $walker = $class->{_}->instance->new_object("Template::Walker");

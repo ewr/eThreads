@@ -46,35 +46,28 @@ sub authenticate {
 	# -- now check that the user is valid -- #
 
 	{
-		my $db = $class->{_}->core->get_dbh;
-		my $get = $db->prepare("
-			select 
-				id,password 
-			from 
-				" . $class->{_}->core->tbl_name("user_headers") . " 
-			where 
-				user = ?
-		");
+		my $headers = $class->{_}->cache->load_cache_file(
+			tbl		=> "user_headers"
+		);
 
-		$get->execute($user);
+		if (!$headers) {
+			$headers = $class->{_}->instance->cache_user_headers;
+		}
 
-		if (!$get->rows) {
-			# -- invalid username -- #
+		my $ref = $headers->{u}{ $user };
+
+		if (!$ref) {
+			# invalid user
 			return undef;
 		}
 
-		my ($id,$db_pass);
-		$get->bind_columns( \($id,$db_pass) );
+		my $cpass = crypt($password,$ref->{password});
 
-		$get->fetch;
-
-		my $cpass = crypt($password,$db_pass);
-
-		if ($cpass eq $db_pass) {
+		if ($cpass eq $ref->{password}) {
 			# -- successful authentication -- #
-			my $user = $class->{user} 
-				= $class->{_}->instance->new_object("User",$id);
-			return $user;
+			my $obj = $class->{user} 
+				= $class->{_}->instance->new_object("User",id=>$ref->{id});
+			return $obj;
 		} else {
 			# -- invalid password -- #
 			return undef;

@@ -74,7 +74,7 @@ sub handle_form {
 			qq(<input type="hidden" name=").
 				$o->[0].
 			qq(" value=").
-				$o->[1].
+				URI::Escape::uri_escape($o->[1]).
 			qq("/>);
 	}
 	

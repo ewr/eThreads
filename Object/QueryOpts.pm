@@ -340,6 +340,7 @@ sub load_input {
 		# save the raw value
 		$input->{raw}{$var} = $val;
 
+		#$val = URI::Escape::uri_unescape($val);
 		$val =~ s/\+/ /g;
 		$val =~ s/%([0-9,A-F,a-f]{2})/sprintf("%c",hex($1))/ge;
 		$input->{$var} .= ", " if ($input->{$var});

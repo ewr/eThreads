@@ -292,4 +292,76 @@ sub cache_look_prefs {
 
 #----------
 
+sub flesh_out_post {
+	my $class = shift;
+	my %a = @_;
+
+	my $post = $a{post};
+	my $data = $a{data};
+
+	# fill in and check header fields
+	foreach my $f (@{$class->header_fields}) {
+		if ($f->{require} && !$post->{ $f->{name} }) {
+			$class->{_}->core->bail("missing required field: $f->{name}");
+		}
+
+		if (!$post->{ $f->{name} }) {
+			$post->{ $f->{name} } = $f->{d_value};
+		}
+	}
+
+	# fill in data fields
+	foreach my $f (@{$data}) {
+		if (!$post->{ $f->{name} }) {
+			$post->{ $f->{name} } = $f->{d_value};
+		}
+	}
+
+	return $post;
+}
+
+#----------
+
+sub header_fields {
+	my $class = shift;
+
+	return [
+
+	{
+		name	=> "id",
+		allowed	=> '\d+',
+		d_value	=> 0,
+	},
+	{
+		name	=> "title",
+		allowed	=> '.*',
+		require	=> 1,
+	},
+	{
+		name	=> "parent",
+		allowed	=> '\d+',
+		d_value	=> 0,
+	},
+	{
+		name	=> "timestamp",
+		allowed	=> '\d+',
+		d_value	=> time,
+	},
+	{
+		name	=> "user",
+		allowed	=> '\d+',
+		d_value	=> $class->{_}->user->id,
+		require	=> 0,
+	},
+	{
+		name	=> "status",
+		allowed	=> '\d+',
+		d_value	=> 0,
+	},
+
+	];
+}
+
+#----------
+
 1;

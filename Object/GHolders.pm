@@ -85,6 +85,7 @@ sub gholder_init {
 	my $context	= $i->new_object("GHolders::GHolder","context",$t);
 	my $tmplt	= $i->new_object("GHolders::GHolder","template",$t);
 	my $link 	= $i->new_object("GHolders::GHolder","link",$t);
+	my $require	= $i->new_object("GHolders::GHolder","require",$t);
 
 	$raw->sub(		sub { return $class->handle_raw(@_) }		);
 	$foreach->sub(	sub { return $class->handle_foreach(@_) }	);
@@ -92,6 +93,7 @@ sub gholder_init {
 	$context->sub(	sub { return $class->handle_context(@_) }	);
 	$tmplt->sub(	sub { return $class->handle_template(@_) }	);
 	$link->sub(		sub { return $class->handle_link(@_) }		);
+	$require->sub(	sub { return $class->handle_require(@_) }	);
 
 	return 1;
 }
@@ -393,6 +395,31 @@ sub handle_foreach {
 		}
 	} else {
 		return undef;
+	}
+}
+
+#----------
+
+sub handle_require {
+	my $class = shift;
+	my $i = shift;
+
+	my $level = $i->args->{level} || $i->args->{DEFAULT};
+
+	my ($inv) = $level =~ s/^(!)//;
+
+	# if we don't have a user, we can't have any rights
+	if (!$class->{_}->switchboard->knows("user")) {
+		# if normal, return 0... if inv return 1
+		return ($inv) ? 1 : 0;
+	}
+
+	if ($class->{_}->user->has_rights($level)) {
+		# if normal, return 1... if inv return 0
+		return ($inv) ? 0 : 1;
+	} else {
+		# if normal, return 0... if inv return 1
+		return ($inv) ? 1 : 0;
 	}
 }
 

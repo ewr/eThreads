@@ -383,7 +383,17 @@ sub f_templates_edit {
 		$class->gholders->register("message","updating content...");
 	}
 
-	$class->gholders->register("template",$template->cachable);
+	my $safe_data = {};
+	my $data = $template->cachable;
+	while ( my ($k,$v) = each %$data ) {
+		$safe_data->{ $k } = $v;
+
+		$safe_data->{ $k } =~ s!&!&amp;!g;
+		$safe_data->{ $k } =~ s!<!&lt;!g;
+		$safe_data->{ $k } =~ s!>!&gt;!g;
+	}
+
+	$class->gholders->register("template",$safe_data);
 }
 
 #----------

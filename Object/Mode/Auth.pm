@@ -1,10 +1,22 @@
-package eTrevolution::eThreads::Object::Mode::Auth;
+package eThreads::Object::Mode::Auth;
 
-@ISA = qw( eTrevolution::eThreads::Object::Mode::Normal );
+@ISA = qw( eThreads::Object::Mode::Normal );
 
 use strict;
 
 #----------
+
+sub go {
+	my $class = shift;
+	my $r = shift;
+
+	my $user = $class->{_}->auth->authenticate
+		or return $class->{_}->auth->unauthorized;
+
+	$class->{_}->switchboard->register("user",$user);
+
+	$class->SUPER::go($r);
+}
 
 #----------
 

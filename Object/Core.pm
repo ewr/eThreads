@@ -2,6 +2,7 @@ package eThreads::Object::Core;
 
 use Data::Dumper;
 use Date::Format;
+use URI::Escape;
 
 use eThreads::Object::Auth;
 use eThreads::Object::Auth::Internal;

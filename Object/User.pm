@@ -7,20 +7,64 @@ use strict;
 sub new {
 	my $class 	= shift;
 	my $data 	= shift;
-	my $id 		= shift;
 
 	$class = bless ( {
 		_			=> $data,
-		id			=> $id,
+		id			=> undef,
 		username	=> undef,
 		name		=> undef,
 		email		=> undef,
 		vemail		=> undef,
 		url			=> undef,
 		rights		=> undef,
+		@_
 	} , $class );
 
+	if (!$class->{id}) {
+		$class->{_}->core->bail("No id given to User module");
+	}
+
+	$class->_validate_user;
+
 	return $class;
+}
+
+#----------
+
+sub cachable {
+	my $class = shift;
+	return {
+		id			=> $class->id,
+		username	=> $class->username,
+		email		=> $class->data("email"),
+		vemail		=> $class->data("vemail"),
+		url			=> $class->data("url"),
+		name		=> $class->data("name"),
+	};
+}
+
+#----------
+
+sub _validate_user {
+	my $class = shift;
+
+	my $headers = $class->{_}->cache->load_cache_file(
+		tbl		=> "user_headers",
+	);
+
+	if (!$headers) {
+		$headers = $class->{_}->instance->cache_user_headers;
+	}
+
+	my $ref = $headers->{id}{ $class->id };
+
+	if (!$ref) {
+		$class->{_}->core->bail("Invalid id given to User");
+	}
+
+	$class->{username} = $ref->{username};
+
+	return 1;
 }
 
 #----------
@@ -32,61 +76,20 @@ sub id {
 #----------
 
 sub username {
-	my $class = shift;
-
-	if (!$class->{username}) {
-		$class->get_user_info;
-	}
-
-	return $class->{username};
+	return shift->{username};
 }
 
 #----------
 
-sub name {
+sub data {
 	my $class = shift;
+	my $key = shift;
 
-	if (!$class->{username}) {
+	if (!$class->{data}) {
 		$class->get_user_info;
 	}
 
-	return $class->{name};
-}
-
-#----------
-
-sub email {
-	my $class = shift;
-
-	if (!$class->{username}) {
-		$class->get_user_info;
-	}
-
-	return $class->{email};
-}
-
-#----------
-
-sub vemail {
-	my $class = shift;
-
-	if (!$class->{username}) {
-		$class->get_user_info;
-	}
-
-	return $class->{vemail};
-}
-
-#----------
-
-sub url {
-	my $class = shift;
-
-	if (!$class->{username}) {
-		$class->get_user_info;
-	}
-
-	return $class->{url};
+	return $class->{data}{ $key };
 }
 
 #----------
@@ -98,26 +101,14 @@ sub get_user_info {
 		$class->{_}->core->bail("Can't get user info with no id.");
 	}
 
-	my $get = $class->{_}->core->get_dbh->prepare("
-		select 
-			username,name,email,vemail,url
-		from 
-			" . $class->{_}->core->tbl_name("users") . " 
-		where 
-			id = ?
-	");
+	my $user = $class->{_}->core->g_load_tbl(
+		tbl		=> "user_data",
+		ident	=> "id",
+		ids		=> [ $class->{id} ],
+		flat	=> 1,
+	);
 
-	$get->execute($class->{id});
-
-	my ($un,$n,$e,$v,$u);
-	$get->bind_columns( \($un,$n,$e,$v,$u) );
-	$get->fetch;
-
-	$class->{username}	= $un;
-	$class->{name}		= $n;
-	$class->{email}		= $e;
-	$class->{vemail}	= $v;
-	$class->{url}		= $u;
+	$class->{data} = $user;
 
 	return $class;
 }

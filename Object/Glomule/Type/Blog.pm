@@ -84,6 +84,30 @@ sub activate_functions {
 				Auth	=> 1,
 			},
 		},
+		{
+			name	=> "management",
+			sub		=> sub {$class->f_management(@_)},
+			qopts	=> $class->qopts_management,
+			modes	=> {
+				Auth	=> 1,
+			},
+		},
+		{
+			name	=> "compose_post",
+			sub		=> sub {$class->f_compose_post(@_)},
+			qopts	=> $class->qopts_compose_post,
+			modes	=> {
+				Auth	=> 1,
+			},
+		},
+		{
+			name	=> "post",
+			sub		=> sub {$class->f_post(@_)},
+			qopts	=> $class->qopts_post,
+			modes	=> {
+				Auth	=> 1,
+			},
+		},
 	);
 
 	return $class;
@@ -112,7 +136,6 @@ sub f_main {
 	my $fobj = shift;
 
 	# -- register a timestamp handler -- #
-
 	$class->{_}->gholders->register(
 		["timestamp" , sub { $class->handle_timestamp(@_); }]
 	);
@@ -206,6 +229,11 @@ sub f_view {
 	my $class = shift;
 	my $fobj = shift;
 
+	# -- register a timestamp handler -- #
+	$class->{_}->gholders->register(
+		["timestamp" , sub { $class->handle_timestamp(@_); }]
+	);
+
 	my $id = $fobj->bucket->get("id");
 
 	if (!$id) {
@@ -226,6 +254,127 @@ sub f_view {
 	);
 
 	return 1;
+}
+
+#----------
+
+sub f_management {
+	my $class = shift;
+	my $fobj = shift;
+
+	# -- get postponed posts -- #
+	{
+		my $posts = $class->get_posts_by_status(0);
+
+		my @o;
+		foreach my $p (@$posts) {
+			$class->gholders->register(["postponed.".$p->{id} , $p]);
+			push @o, $p->{id};
+		}
+
+		$class->gholders->register(["postponed",\@o]);
+	}
+}
+
+#----------
+
+sub f_compose_post {
+	my $class = shift;
+	my $fobj = shift;
+
+	my $id = $fobj->bucket->get("post/id");
+
+	my $data = {
+		id		=> undef,
+		title	=> undef,
+		body	=> undef,
+		intro	=> undef,
+	};
+
+	if (!$id) {
+		# do nothing
+	} else {
+		# load postponed post from the db
+		my $post = $class->get_post_information($id);
+
+		foreach my $f ('title','intro','body') {
+			$data->{$f} = $post->{$f};
+		}
+	}
+
+	foreach my $f ('title','intro','body') {
+		if (my $v = $fobj->bucket->get("post/".$f)) {
+			$v = URI::Escape::uri_unescape($v);
+			$data->{$f} = $v;
+		}
+
+		# strip some html
+		$data->{$f} =~ s!<br>!!g;
+	}
+
+	$class->gholders->register(["post" , $data]);
+}
+
+#----------
+
+sub f_post {
+	my $class = shift;
+	my $fobj = shift;
+
+	my $post = {};
+
+	foreach my $f ('id','title','intro','body') {
+		my $v = $fobj->bucket->get("post/".$f);
+		$v = URI::Escape::uri_unescape($v);
+
+		$post->{ $f } = $v;
+	}
+
+	# fill in fields from postponed post
+	if ($post->{id}) {
+		my $p = $class->get_post_information($post->{id});
+
+		while ( my ($k,$v) = each %$p ) {
+			$post->{ $k } = $v if (!$post->{ $k });
+		}
+	}
+
+	$class->flesh_out_post(
+		post	=> $post,
+		data	=> $class->fields,
+	);
+
+	if ($fobj->bucket->get("post/post")) {
+		$class->gholders->register(["post",1]);
+
+
+	} elsif ($fobj->bucket->get("post/preview")) {
+		# -- register a timestamp handler -- #
+		$class->{_}->gholders->register(
+			["timestamp" , sub { $class->handle_timestamp(@_); }]
+		);
+
+		$class->gholders->register(["preview",1]);
+		my $preview = {};
+		%$preview = %$post;
+
+		$preview->{user} = $class->{_}->user->cachable;
+	
+		foreach my $f (@{ $class->fields }) {
+			next if (!$f->{format});
+
+			$preview->{ $f->{name} } 
+				= $class->{_}->format->format( $preview->{ $f->{name} } );
+		}
+
+		$class->gholders->register(
+			['post',$preview]
+		);
+	} elsif ($fobj->bucket->get("post/postpone")) {
+
+	} else {
+		# they suck
+	}
 }
 
 #----------
@@ -268,6 +417,46 @@ sub get_post_information {
 
 	return $p;
 }	
+
+#----------
+
+sub get_posts_by_status {
+	my $class = shift;
+	my $status = shift;
+
+	my $headers = $class->{_}->cache->load_cache_file(
+		tbl		=> "glomheaders",
+		first	=> $class->id,
+	);
+
+	if (!$headers) {
+		$headers = $class->cache_glomheaders;
+	}
+
+	# what ids do we want?
+	my $get = $class->{_}->core->get_dbh->prepare("
+		select 
+			id
+		from 
+			" . $class->{headers} . "
+		where 
+			status = ?
+		order by id
+	");
+
+	$get->execute($status) 
+		or $class->{_}->core->bail("get by status failed: " . $get->errstr);
+
+	my ($id);
+	$get->bind_columns(\$id);
+
+	my $posts = [];
+	while ($get->fetch) {
+		push @$posts, \%{$headers->{ $id }};
+	}
+
+	return $posts;
+}
 
 #----------
 
@@ -319,10 +508,6 @@ sub get_data_by_parent {
 		my $post = {};
 
 		%$post = %{$headers->{ $id }};
-
-		#while ( my ($k,$v) = each %{$data->{ $id }} ) {
-		#	$post->{$k} = $v if (!$post->{$k});
-		#}
 
 		$posts->{$id} = $post;
 
@@ -412,6 +597,121 @@ sub qopts_view {
 		allowed	=> '\d+',
 		d_value	=> '',
 		desc	=> "Post ID",
+	},
+
+	];
+}
+
+#----------
+
+sub qopts_management {
+	my $class = shift;
+
+	return [
+	];
+}
+
+#----------
+
+sub qopts_compose_post {
+	my $class = shift;
+
+	return [
+
+	{
+		opt		=> "id",
+		allowed	=> '\d+',
+		d_value	=> '',
+		desc	=> "Post ID",
+		class	=> "post",
+	},
+	{
+		opt		=> "title",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post Title",
+		class	=> "post",
+	},
+	{
+		opt		=> "intro",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post Intro",
+		class	=> "post",
+	},
+	{
+		opt		=> "body",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post Body",
+		class	=> "post",
+	},
+
+	];
+}
+
+#----------
+
+sub qopts_post {
+	my $class = shift;
+
+	return [
+
+	{
+		opt		=> "id",
+		allowed	=> '\d+',
+		d_value	=> '',
+		desc	=> "Post ID",
+		class	=> "post",
+		persist	=> 1,
+	},
+	{
+		opt		=> "title",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post Title",
+		class	=> "post",
+		persist	=> 1,
+	},
+	{
+		opt		=> "intro",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post Intro",
+		class	=> "post",
+		persist	=> 1,
+	},
+	{
+		opt		=> "body",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post Body",
+		class	=> "post",
+		persist	=> 1,
+	},
+	{
+		opt		=> "preview",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Preview",
+		class	=> "post",
+		persist	=> 1,
+	},
+	{
+		opt		=> "postpone",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Postpone",
+		class	=> "post",
+		persist	=> 1,
+	},
+	{
+		opt		=> "post",
+		allowed	=> '.*',
+		d_value	=> '',
+		desc	=> "Post",
+		class	=> "post",
+		persist	=> 1,
 	},
 
 	];
@@ -515,18 +815,6 @@ sub fields {
 		},
 		{
 			name	=> "body",
-			format	=> 1,
-		},
-		{
-			name	=> "poster",
-			format	=> 1,
-		},
-		{
-			name	=> "poster_email",
-			format	=> 1,
-		},
-		{
-			name	=> "poster_url",
 			format	=> 1,
 		},
 	];
