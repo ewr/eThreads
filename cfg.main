@@ -10,6 +10,7 @@ db	=> {
 		containers		=> "containers",
 		container_data	=> "container_data",
 		domains			=> "domains",
+		domain_aliases	=> "domain_aliases",
 		glomule_headers	=> "glomule_headers",
 		glomule_data	=> "glomule_data",
 		looks			=> "looks",
@@ -64,7 +65,7 @@ d_path		=> "",
 virtual_root	=> 1,
 
 default_domain	=> {
-	id		=> 2,
+	id		=> 1,
 	domain	=> "blog.ericrichardson.com",
 	path	=> "/",
 },

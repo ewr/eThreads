@@ -440,6 +440,31 @@ sub cache_domains {
 		$domains->{id}{$id} = $domains->{d}{$d} = $h;
 	}
 
+	# now get aliases
+
+	{
+		my $get_a = $class->{_}->core->get_dbh->prepare("
+			select 
+				domain,
+				alias
+			from 
+				" . $class->{_}->core->tbl_name("domain_aliases") . "
+	
+		");
+
+		$get_a->execute() 
+			or $class->{_}->bail->("get domain aliases failure: ".$get_a->errstr);
+		
+		my ($d,$a);
+		$get_a->bind_columns( \($d,$a) );
+
+		while ($get_a->fetch) {
+			next if ($domains->{d}{ $a });
+			$domains->{d}{ $a } = $domains->{id}{ $d };
+		}
+
+	}
+
 	$class->{_}->cache->set(
 		tbl		=> "domains",
 	);

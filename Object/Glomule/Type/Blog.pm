@@ -240,6 +240,7 @@ sub f_archive {
 
 	my $get;
 	if ($category) {
+		$class->{_}->bail->("Category support not yet implemented.");
 
 	} else {
 		$get = $class->{_}->core->get_dbh->prepare("

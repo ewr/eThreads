@@ -29,10 +29,6 @@ sub mode {
 sub determine_container {
 	my $class = shift;
 
-	# -- load a blank container object -- #
-
-	my $c = $class->{_}->instance->new_object("Container");
-
 	# -- load our container cache -- #
 
 	my $gh = $class->{_}->instance->load_containers();
