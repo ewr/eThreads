@@ -84,7 +84,7 @@ sub go {
 
 	$r->set_last_modified( $class->{_}->last_modified->get );
 
-	$r->content_type( $class->{_}->template->type->type );
+	$r->content_type( $class->{_}->content_type->type );
 	$r->print($content);
 
 	return Apache::OK;
@@ -114,5 +114,58 @@ sub handle_glomule {
 #----------
 
 #----------
+
+=head1 NAME
+
+eThreads::Object::Mode::Normal
+
+=head1 SYNOPSIS
+
+	my $mode = $inst->new_object("Mode::Normal");
+
+	$mode->go;
+
+=head1 DESCRIPTION
+
+This is the Normal mode, which is the default.  The mode object executes 
+the core of eThreads functionality.
+
+=over 4
+
+=item new 
+
+Returns a new blessed ref for a Mode::Normal object.
+
+=item go 
+
+Determine container, look, and template.  Create and execute a walker and then 
+a handler for plugin and glomule types.  Returns an Apache status.  Gets the 
+last_modified time and sets it with Apache.  Prints the handled template 
+content.  Basically makes things go.  Duh.
+
+Registers the following Switchboard objects:
+
+	* container
+	* look
+	* template
+	* content_type
+
+=item handle_glomule 
+
+Registered internally as a handler for glomule types.
+
+=back
+
+=head1 AUTHOR
+
+Eric Richardson <e@ericrichardson.com>
+
+=head1 COPYRIGHT
+
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
+is licensed under the terms of the GNU General Public License, which you 
+should have received in your distribution.
+	
+=cut
 
 1;

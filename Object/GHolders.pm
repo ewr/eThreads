@@ -241,7 +241,7 @@ sub exists {
 
 	if ($named_context) {
 		# find the context for the given prefix and look only there
-		if ( my $ctx = $class->{named}{$named_context} ) {
+		if ( my $ctx = $class->get_named_ctx($named_context) ) {
 			if ( !$h ) {
 				# they gave us a named context but nothing else
 				# we'll just return that
@@ -272,19 +272,23 @@ sub _exists {
 
 	my $test = 1;
 
-	foreach my $part (split(/\./,$h)) {
-		if (my $new = $ctx->has_child($part)) {
-			$ctx = $new;
-		} else {
-			$test = 0;
-			last;
+	if ($h =~ m!\.!) {
+		foreach my $part (split(/\./,$h)) {
+			if (my $new = $ctx->has_child($part)) {
+				$ctx = $new;
+			} else {
+				$test = 0;
+				last;
+			}
 		}
-	}
 
-	if ($test) {
-		return $ctx;
+		if ($test) {
+			return $ctx;
+		} else {
+			return 0;
+		}
 	} else {
-		return 0;
+		return $ctx->has_child($h);
 	}
 }
 
@@ -323,6 +327,15 @@ sub new_named_ctx {
 	} else {
 		return 0;
 	}
+}
+
+#----------
+
+sub get_named_ctx {
+	my $class = shift;
+	my $name = shift;
+
+	return $class->{named}{ $name } : undef;
 }
 
 #----------

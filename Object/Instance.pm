@@ -50,9 +50,13 @@ sub new {
 	);
 	$swb->register("cache",$class->{cache});
 
+	$swb->register("messages",sub {
+		$class->new_object("Messages");
+	});
+
 	# register our bail object
 	$swb->register("bail",sub {
-		sub { $class->new_object("Messages")->bail(@_); }
+		sub { $class->{_}->messages->bail(@_); }
 	});
 
 	# register memory cache
@@ -62,13 +66,7 @@ sub new {
 
 	# -- register some accessors lazily -- #
 
-	$swb->register("RequestURI",sub {
-		$class->new_object("RequestURI");
-	});
-
-	$swb->register("messages",sub {
-		$class->new_object("Messages");
-	});
+	$swb->register("RequestURI", $class->new_object("RequestURI") );
 
 	$swb->register("auth",sub {
 		$class->new_object($class->{_}->settings->{auth_obj});
@@ -78,9 +76,7 @@ sub new {
 		$class->new_object("QueryOpts");
 	});
 
-	$swb->register("gholders",sub {
-		$class->new_object("GHolders");
-	});
+	$swb->register("gholders", $class->new_object("GHolders") );
 
 	$swb->register("last_modified",sub {
 		$class->new_object("LastModifiedTime");
@@ -136,22 +132,6 @@ sub new_object {
 	);
 
 	return $obj;
-}
-
-#----------
-
-sub _new_object_data {
-	my $class = shift;
-
-	return {
-		%{$class->{_}},
-		inst		=> $class,
-		container	=> $class->{container},
-		look		=> $class->{look},
-		template	=> $class->{template},
-		gholders	=> $class->{gholders},
-		queryopts	=> $class->{queryopts}
-	};
 }
 
 #----------
@@ -466,18 +446,6 @@ sub cache_containers {
 
 #----------
 
-sub bail {
-	my $class = shift;
-	my $err = shift;
-
-	$class->messages->print("Bail",$err);
-
-	exit Apache::OK;	
-}
-
-
-#----------
-
 =head1 NAME
 
 eThreads::Object::Instance
@@ -488,23 +456,7 @@ eThreads::Object::Instance
 
 	my $obj = $inst->new_object("ObjType",$objdata);
 
-	$do->something
-		or $inst->bail("Somethign Failed");
-
-	# object calls
-	$inst->auth;
-	$inst->messages;
-	$inst->core;
-	$inst->RequestURI;
-	$inst->ap_request;
-	$inst->mode;
-	$inst->objects;
-	$inst->cache;
-	$inst->gholders;
-	$inst->queryopts;
-	$inst->container;
-	$inst->look;
-	$inst->template;
+	my $status = $inst->go();
 
 	# determine routines
 	my $mode = $inst->determine_mode;
@@ -530,11 +482,28 @@ Returns a new Instance object.  B<$r> must be the Apache request object.  On
 a call to new Instance loads 
 
 	* Objects object
-	* Cache object
+	* A Switchboard object
+	* determine_root() to get a Container object for the root
 	* determine_mode() to get a Mode object
-	* determine_container() to get a Container object
-	* determine_look() to get a Look object
-	* determine_template() to get a Template object
+
+The following Switchboard items are registered:
+
+	* core
+	* settings
+	* instance
+	* ap_request
+	* objects
+	* utils (lazy)
+	* cache (lazy)
+	* messages (lazy)
+	* bail (lazy)
+	* memcache (lazy)
+	* RequestURI 
+	* auth (lazy)
+	* gholders
+	* last_modified (lazy)
+	* root
+	* mode
 
 new should always be called through $core->new_object so that it has a 
 reference back to $core.
@@ -548,62 +517,74 @@ eThreads::Object).  The object is passed the Instance object as its first
 argument in order to allow it to connect to other objects.  Any objdata given 
 in the new_object call is appended after that.
 
+=item go
+
+	my $status = $inst->go();
+
+Calls the mode's go() routine.  Returns an Apache status code.
+
+=item check_rights_for_glomule
+
+	if ($inst->check_rights_for_glomule($id)) {
+		# we're cool in this container
+	}
+
+Intended to check and make sure container has proper rights for glomule.  
+Currently just returns true.
+
+=item load_containers
+
+Returns a reference to the containers table.
+
+=item determine_root
+
+Used internally to determine the root container.  This is where domain 
+rooting support lives.
+
+=item determine_mode
+
+Used internally.  Parses RequestURI to see if it recognizes a mode.  Inits 
+mode object and returns it.  Returns a Mode::Normal object if no mode 
+recognized.
+
 =back
-
-=item bail 
-
-	$inst->bail("my error message");
-
-Prints a failure message including the given error message and then exits.
-
-=head1 Object Calls
-
-The object calls all return the objects stored in the Instance.  The available 
-objects are:
-
-	* auth
-	* messages
-	* core
-	* RequestURI
-	* ap_request (the ApacheReq $r passed into Instance)
-	* mode
-	* objects
-	* cache
-	* gholders
-	* queryopts
-	* container
-	* look
-	* template
 
 =head1 Cache Routines
 
 =over 4
 
+=item cache_user_headers 
+
+Caches user_headers table and returns a hash containing {u}{ (username) } 
+and {id}{ (user id) } for all users.
+
 =item cache_looks
 
 	my $looks = $inst->cache_looks;
 
-Caches and returns a hash containing the contents of the looks table.
+Caches and returns a hash containing the contents of the looks table.  Hash 
+contents are { (container) }{ (look id) } and { (container) }{DEFAULT}.
 
 =item cache_glomule_headers
 
 	my $h = $inst->cache_glomule_headers;
 
 Caches and returns a hash containing the contents of the glomule_headers 
-table.
+table. Contains lookups for id, container (c/id), and name (c/name).
 
 =item cache_glomule_data 
 
 	my $d = $inst->cache_glomule_data($id);
 
 Caches and returns a hash containing the contents of the glomule_data 
-table for the given glomule id.
+table for the given glomule id. { (key) }
 
 =item cache_containers
 
 	my $c = $inst->cache_containers;
 
-Caches and returns a hash containing the contents of the containers table.
+Caches and returns a hash containing the contents of the containers table. 
+{ (path) } = (id).
 
 =back
 
@@ -613,7 +594,7 @@ Eric Richardson <e@ericrichardson.com>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1999-2004 Eric Richardson.   All rights reserved.  eThreads 
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
 is licensed under the terms of the GNU General Public License, which you 
 should have received in your distribution.
 

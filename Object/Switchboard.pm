@@ -151,13 +151,13 @@ eThreads::Object::Switchboard
 		$inst->new_object("RequestURI");
 	});
 
-	# check and see if an object is available
-	if ($board->knows("template")) {
-		# go ahead and use it...
-	}
-
 	# get the accessors object
 	my $acc = $board->accessors;
+
+	# check and see if an object is available
+	if ($acc->knows("template")) {
+		# go ahead and use it...
+	}
 
 	# call an object
 	my $template = $acc->template;
@@ -187,7 +187,18 @@ attempted.
 		$inst->new_object("RequestURI");
 	});
 
-Registers an object with the switchboard.
+Registers an object with the switchboard.  The only reserved word is "knows".  
+If you register a sub ref it'll act as a lazy accessor.  The coderef will be 
+stored until the switchboard item is called.  At that time the ref will be run 
+and should return the proper ref for the accessor.
+
+=item knows 
+
+	if ($acc->knows("foo")) {
+		...
+	}
+
+Do some behaviour if the switchboard has an accessor for "foo".
 
 =back
 
@@ -197,7 +208,7 @@ Eric Richardson <e@ericrichardson.com>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1999-2004 Eric Richardson.   All rights reserved.  eThreads 
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
 is licensed under the terms of the GNU General Public License, which you 
 should have received in your distribution.
 

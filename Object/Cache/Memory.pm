@@ -73,4 +73,59 @@ sub get {
 
 #----------
 
+=head1 NAME
+
+eThreads::Object::Cache::Memory
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This is the low-level persistant memory cache object.  It should be used 
+through the Cache::Memory::Instance wrapper.
+
+=over 4
+
+=item new
+
+Return a new memory cache.
+
+=item set 
+
+	$memcache->set($name,$ref,$ts);
+
+Store an item ($ref) with key $name and update time $ts.
+
+=item set_raw 
+
+	$memcache->set_raw($type,$key,$val);
+
+Store an abnormal item of type $type with key $key and value $val.
+
+=item get 
+
+	my $ref = $memcache->get($name);
+
+Get an item with key $name.
+
+=item remove 
+
+	$memcache->remove($name);
+
+Remove an item with name $name.
+
+=back
+
+=head1 AUTHOR
+
+Eric Richardson <e@ericrichardson.com>
+
+=head1 COPYRIGHT
+
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
+is licensed under the terms of the GNU General Public License, which you 
+should have received in your distribution.
+	
+=cut
+
 1;

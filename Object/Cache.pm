@@ -194,15 +194,6 @@ sub load_cache_file {
 
 #----------
 
-=item B<write_cache_file>
-
-	$e{modules}{cache}->write_cache_file(
-		tbl		=> $tbl,
-		ref		=> $ref,
-	);
-
-=cut
-
 sub write_cache_file {
 	my $class = shift;
 	my %a = @_;
@@ -270,5 +261,138 @@ sub retrieve {
 }
 
 #----------
+
+=head1 NAME
+
+eThreads::Object::Cache
+
+=head1 SYNOPSIS
+
+	my $cache = $inst->new_object("Cache");
+
+	my $ref = $cache->get(tbl=>"",first=>"",second=>"");
+
+	$cache->set(
+		tbl		=> "",
+		first	=> "",
+		second	=> "",
+		ref		=> ""
+	);
+
+=head1 DESCRIPTION
+
+This is the main cache module for eThreads.  
+
+=head1 IMPORTANT
+
+It's important to note that you should never modify the data referenced by a 
+cache object.  If you need to modify the data, B<MAKE YOUR OWN COPY>.  The 
+referenced data can be global to multiple instances, so consider it read-only.
+
+=head1 GENERAL FUNCTIONS
+
+=over 4
+
+=item new 
+
+Returns a new Cache object.
+
+=item update_times 
+
+Returns a blessed ref to the Cache::UpdateTimes object.
+
+=item memory
+
+Returns a blessed ref to the Cache::Memory::Instance object.
+
+=item objects
+
+Returns a blessed ref to the Cache::Objects object.
+
+=item get
+
+	my $ref = $cache->get(tbl=>"",first=>"",second=>"");
+
+Returns a reference to the cached object from either memory or disk, whichever 
+is convenient.  Returns undef if it's a cache miss.  
+
+=item set 
+
+	$cache->set(
+		tbl		=> "",
+		first	=> "",
+		second	=> "",
+		ref		=> ""
+	);
+
+Writes (or rewrites) the cached object.  
+
+=item expire 
+
+	$cache->expire(tbl=>"",first=>"",second=>"");
+
+Expire the given cache from both memory and disk.
+
+=item file_name 
+
+	my $file = $cache->file_name(tbl=>"",first=>"",second=>"");
+
+Take tbl/first/second args and make a useful filename.  Used by disk cache 
+for actual filenames, and by memcache as a flat key name.
+
+=back
+
+=head1 DISK CACHE FUNCTIONS
+
+=over 4
+
+=item load_cache_file
+
+	my $ref = $cache->load_cache_file(tbl=>"",first=>"",second=>"");
+
+Load a cache file from disk.
+
+=item write_cache_file 
+
+	$cache->write_cache_file(
+		tbl		=> "",
+		first	=> "",
+		second	=> "",
+		ref		=> ""
+	);
+
+Write a cache file to disk.
+
+=item delete_cache_file
+
+	$cache->delete_cache_file($file);
+
+Deletes the given cache file.
+
+=item get_cached_file
+
+Used internally to retrieve disk cache files.
+
+=item retrieve 
+
+Used internally to retrieve disk cache files.
+
+=item store 
+
+Used internally to store disk cache files.
+
+=back
+
+=head1 AUTHOR
+
+Eric Richardson <e@ericrichardson.com>
+
+=head1 COPYRIGHT
+
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
+is licensed under the terms of the GNU General Public License, which you 
+should have received in your distribution.
+	
+=cut
 
 1;

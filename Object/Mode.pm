@@ -185,4 +185,65 @@ sub walk_glomule {
 
 #----------
 
+=head1 NAME
+
+eThreads::Object::Mode
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+The object contains functionality generic to multiple modes.  It cannot be 
+used directly, but should instead be used in @ISA for Mode objects.
+
+=over 4
+
+=item IS_ADMIN 
+
+Returns 0.  Only the Admin mode should set this true.
+
+=item path
+
+Return the mode's path string.
+
+=item mode 
+
+Return the name of our mode.
+
+=item determine_container 
+
+Figure out what our container is.  Create and return a new object for it.
+
+=item get_container 
+
+	my $obj = $mode->get_container("/foo");
+
+Get an object for the container at "/foo".  If none is found, returns undef;
+
+=item walk_plugin
+
+Should be registered as the walker for "plugin".  Creates an object for the 
+plugin and makes the proper function call.
+
+=item walk_glomule
+
+	$walker->register(['blog',sub { $class->walk_glomule("blog",@_); }]);
+
+Should be registered as the walker for each glomule type.  Creates an 
+object for the glomule and makes the proper function call.  
+
+=back
+
+=head1 AUTHOR
+
+Eric Richardson <e@ericrichardson.com>
+
+=head1 COPYRIGHT
+
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
+is licensed under the terms of the GNU General Public License, which you 
+should have received in your distribution.
+	
+=cut
+
 1;

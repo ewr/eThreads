@@ -1,38 +1,30 @@
-package eThreads::Object::Auth;
+package eThreads::Object::Empty;
 
 use strict;
 
 #----------
 
 sub new {
-	die "Cannot call Auth object directly\n";
-}
-
-#----------
-
-
-#----------
-
-sub allowed {
 	my $class = shift;
+	my $data = shift;
 
-	return 1;
+	$class = bless ( {
+		_		=> $data,
+	} , $class ); 
+
+	return $class;
 }
 
 #----------
 
 =head1 NAME
 
-eThreads::Object::Auth;
+eThreads::Object::
 
 =head1 SYNOPSIS
 
-	# no functionality
-
 =head1 DESCRIPTION
 
-This is the base Auth module.  Will provide common auth routines when there 
-are more auth types.
 
 =over 4
 

@@ -243,7 +243,7 @@ eThreads::Object::Core
 	# get db handler
 	$db = $core->get_dbh;
 
-	$core->table_name("templates");
+	$core->tbl_name("templates");
 
 =head1 DESCRIPTION
 
@@ -255,6 +255,57 @@ up the database connection.
 
 =over 4
 
+=item new 
+
+	my $core = new eThreads::Object::Core;
+
+Create a new core object.  Read the settings file into memory.  Create our 
+database connection.  Create the persistant memory cache.
+
+=item get_dbh
+
+	my $db = $core->get_dbh;
+
+Returns the DB object.
+
+=item settings 
+
+	my $settings = $core->settings;
+
+Returns a reference to the settings hash.  Usually you wouldn't call this 
+directly.
+
+=item memcache
+
+	$core->memcache->set(...);
+
+Returns a blessed ref to the memcache.  This should never be accessed 
+directly.  Instead, use the Cache::Memory::Instance interface.
+
+=item new_object
+
+	$core->new_object("type",args);
+
+Creates an object with the core as its ->{_} data.  This should only be 
+used when you don't yet have an instance or switchboard.
+
+=item get_default_id 
+
+Returns the default container id from settings.
+
+=item tbl_name
+
+	my $tbl = $core->tbl_name("glomule_headers");
+
+Returns the localized database table name for the key (default table name) 
+given.
+
+=item bail
+
+	$core->bail("error");
+
+Die.  Hard.  Used as a last resort.
+
 =back
 
 =head1 AUTHOR
@@ -263,7 +314,7 @@ Eric Richardson <e@ericrichardson.com>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1999-2004 Eric Richardson.   All rights reserved.  eThreads 
+Copyright (c) 1999-2005 Eric Richardson.   All rights reserved.  eThreads 
 is licensed under the terms of the GNU General Public License, which you 
 should have received in your distribution.
 	
