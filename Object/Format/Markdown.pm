@@ -33,7 +33,15 @@ sub format {
 	my $class = shift;
 	my $text = shift;
 
-	return $class->Markdown($text);
+	my $sum = Digest::MD5::md5_hex($text);
+
+	if (my $ftxt = $class->{_}->memcache->get_raw("markdown",$sum)) {
+		return $ftxt;
+	} else {
+		my $ftxt = $class->Markdown($text);
+		$class->{_}->memcache->set_raw("markdown",$sum,$ftxt);
+		return $ftxt;
+	}
 }
 
 #----------
