@@ -43,9 +43,6 @@ sub activate {
 	# -- register our functions -- #
 	$class->activate_functions;
 
-	# -- load our prefs -- #
-	$class->register_prefs( $class->_prefs )->load_prefs;
-
 	# -- load the categories system -- #
 	# $class->{categories} 
 	#	= $class->{_}->load_module("systems/categories");
@@ -64,6 +61,9 @@ sub activate {
 
 sub activate_functions {
 	my $class = shift;
+
+	# -- load our prefs -- #
+	$class->register_prefs( $class->_prefs )->load_prefs;
 
 	$class->register_functions(
 		{
@@ -143,28 +143,27 @@ sub f_main {
 	# -- get our query options -- #
 
 	my $category	= $fobj->bucket->get("category");
-	my $start 		= $fobj->bucket->get("nav/start");
-	my $limit 		= $fobj->bucket->get("nav/limit");
-	my $sortby 		= $fobj->bucket->get("nav/sortby");
-	my $sortdir		= $fobj->bucket->get("nav/sortdir");
+
+	foreach my $qo ('start','limit','sortby','sortdir') {
+		my $v = $fobj->bucket->get("nav/".$qo);
+		$class->pref($qo)->set($v) if ($v);
+	}
 
 	# -- figure out what posts we're getting, and, uh, get em -- #
 
 	my $posts;
+	my $count;
 	if ($category) {
 
 	} else {
-		#$class->{_}->set_title();
-
-		$posts = $class->get_data_by_parent(
+		($posts,$count) = $class->get_data_by_parent(
 			parent	=> 0,
-			start	=> $start,
-			limit	=> $limit,
-			sortby	=> $sortby,
-			dir		=> $sortdir,
+			status	=> 1,
 		);
 	}
 
+	$class->register_navigation($count);
+	
 	# -- register our posts -- #
 
 	if ($class->pref("day_based_display")->get) {
@@ -242,12 +241,28 @@ sub f_view {
 
 	my $post = $class->get_post_information($id);
 
+	# FIXME -- temporary hack while i'm missing posts
+	if (!$post->{title} && ($id > 1413 && $id < 1620)) {
+		$post = {
+			title	=> "It'll be a bit...",
+			intro	=> "The post you're looking for falls into the gap of posts that I'm still working to recover.  Sorry about that.  Come back in a week or two and maybe it'll be back.",
+			user	=> 1,
+			timestamp	=> 1098868083,
+		};
+	}
+
 	foreach my $f (@{ $class->fields }) {
 		next if (!$f->{format});
 
 		$post->{ $f->{name} } 
 			= $class->{_}->format->format( $post->{ $f->{name} } );
 	}
+
+	# -- load user information -- #
+
+	my $user = $class->{_}->instance->new_object("User",id=>$post->{user});
+
+	$post->{user} = $user->cachable;
 
 	$class->{gholders}->register(
 		['post',$post]
@@ -285,7 +300,7 @@ sub f_compose_post {
 	my $id = $fobj->bucket->get("post/id");
 
 	my $data = {
-		id		=> undef,
+		id		=> $id,
 		title	=> undef,
 		body	=> undef,
 		intro	=> undef,
@@ -347,7 +362,12 @@ sub f_post {
 	if ($fobj->bucket->get("post/post")) {
 		$class->gholders->register(["post",1]);
 
+		my $post = $class->post(
+			$post,
+			status => 1,
+		);
 
+		$class->gholders->register(["post",$post]);
 	} elsif ($fobj->bucket->get("post/preview")) {
 		# -- register a timestamp handler -- #
 		$class->{_}->gholders->register(
@@ -371,10 +391,181 @@ sub f_post {
 			['post',$preview]
 		);
 	} elsif ($fobj->bucket->get("post/postpone")) {
+		$class->gholders->register(["postpone",1]);
 
+		my $post = $class->post(
+			$post,
+			status	=> 0,
+		);
+
+		$class->gholders->register(["post",$post]);
 	} else {
 		# they suck
 	}
+}
+
+#----------
+
+sub register_navigation {
+	my $class = shift;
+	my $count = shift;
+
+	my $max = $class->pref("limit")->get;
+	my $start = $class->pref("start")->get;
+
+	my ($prev,$next);
+	my $p_start = ($start - $max);
+	my $f_start = ($start + $max);
+
+	$p_start = 0 if ($p_start < 0);
+
+	if ($start) {
+		my $link = $class->{_}->queryopts->link(
+			$class->{_}->template->path,
+			{
+				class	=> "nav",
+				start	=> $p_start,
+			}
+		);
+
+		my $p_posts = ($start > $max) ? $max : $start;
+
+		$prev = { href => $link , num => $p_posts };
+	} else {
+		$prev = {};
+	}
+
+	if ($count > $f_start) {
+		my $link = $class->{_}->queryopts->link(
+			$class->{_}->template->path,
+			{
+				class	=> "nav",
+				start	=> $f_start,
+			}
+		);
+
+		my $r_posts = ($count - $start - $max);
+
+		if ($r_posts > $max) {
+			$r_posts = $max;
+		}
+
+		$next = { href => $link , num => $r_posts };
+	} else {
+		$next = {};
+	}
+
+	# -- register gholders -- #
+
+	$class->gholders->register(
+		[ 'nav.prev' , $prev ],
+		[ 'nav.next' , $next ],
+	);
+}
+
+#----------
+
+sub count_posts {
+	my $class = shift;
+	my %a = @_;
+
+	my $status;
+	if ($a{status}) {
+		
+	}
+
+	my $db = $class->{_}->core->get_dbh;
+
+	my $count = $db->prepare("
+		select 
+			count(id) 
+		from 
+			" . $class->{headers} . " 
+		where 
+			status = 1
+	");
+
+	$count->execute;
+
+	
+}
+
+#----------
+
+sub post {
+	my $class = shift;
+	my $ipost = shift;
+	my %args = @_;
+
+	my $post = {};
+	%$post = %$ipost;
+
+	while ( my ($k,$v) = each %args ) {
+		$post->{ $k } = $v;
+	}
+
+	my $db = $class->{_}->core->get_dbh;
+
+	# now we need to insert (or update) our headers entry.
+
+	my (@hfields,@hvalues);
+	foreach my $f (@{$class->header_fields}) {
+		next if ($f->{name} eq "id");
+		
+		push @hfields, $f->{name};
+		push @hvalues, $post->{ $f->{name} };
+	}
+	
+	if ($post->{id}) {
+		# update
+
+		my $update = $db->prepare("
+			update 
+				" . $class->{headers} . " 
+			set 
+				" . join("=\?,",@hfields) . "=? 
+			where 
+				id = ?
+		");
+
+		$update->execute(@hvalues,$post->{id}) 
+			or $class->{_}->core->bail("update post failure: " . $db->errstr);
+	} else {
+		# insert 
+
+		my $insert = $db->prepare("
+			insert into 
+				" . $class->{headers} . "
+			(" . join(",",@hfields) . ") 
+			values(" . join(",",split("","?"x@hfields)) . ")
+		");
+
+		$insert->execute(@hvalues) 
+			or $class->{_}->core->bail("insert post failed: " . $db->errstr);
+
+		# FIXME - this is a MySQL specific hack
+		$post->{id} = $db->{'mysql_insertid'};
+	}
+
+	$class->{_}->cache->set_update_ts(
+		tbl		=> "glomheaders",
+		first	=> $class->id,
+		ts		=> time,
+	);
+
+	# now do data
+	foreach my $f (@{ $class->fields }) {
+		$class->{_}->core->set_value(
+			tbl		=> $class->{data},
+			keys	=> {
+				id		=> $post->{id},
+				ident	=> $f->{name},
+			},
+			value	=> $post->{ $f->{name} },
+		);
+	}
+
+	return $post;
 }
 
 #----------
@@ -464,9 +655,6 @@ sub get_data_by_parent {
 	my $class = shift;
 	my %a = @_;
 
-	$a{start} = $a{start} || 0;
-	$a{limit} = $a{limit} || 0;
-
 	# -- load headers -- #
 
 	my $headers = $class->{_}->cache->load_cache_file(
@@ -478,9 +666,36 @@ sub get_data_by_parent {
 		$headers = $class->cache_glomheaders;
 	}
 
+	my $status;
+	if ($a{status}) {
+		$status = "and status = $a{status}";
+	}
+
 	# -- what ids do we want? -- #
 
 	my $db = $class->{_}->core->get_dbh;
+
+	# first make a count of all posts the query would have retrieved if 
+	# it had not been limited
+
+	my $count = $db->prepare("
+		select 
+			count(id) 
+		from
+			$class->{headers}
+		where 
+			parent = ?
+			$status
+		order by 
+			".$class->pref("sortby")->get." ".$class->pref("sortdir")->get."
+	");
+
+	$count->execute($a{parent}) 
+		or $class->{_}->core->bail("count posts failed: ".$db->errstr);
+
+	my $num_posts = $count->fetchrow_array;
+
+	# now actually get our limited rows
 
 	my $select = $db->prepare("
 		select 
@@ -489,13 +704,14 @@ sub get_data_by_parent {
 			$class->{headers}
 		where 
 			parent = ?
+			$status
 		order by 
-			? $a{dir}
+			".$class->pref("sortby")->get." ".$class->pref("sortdir")->get."
 		limit
-			$a{start},$a{limit}
+			".$class->pref("start")->get.",".$class->pref("limit")->get."
 	");
 
-	$select->execute($a{parent},$a{sortby}) 
+	$select->execute($a{parent}) 
 		or $class->{_}->core->bail("main select failed: ".$db->errstr);
 
 	my $id;
@@ -530,7 +746,7 @@ sub get_data_by_parent {
 		}
 	}
 
-	return $results;
+	return ($results,$num_posts);
 }
 
 #---------------#
@@ -547,39 +763,44 @@ sub qopts_main {
 		allowed	=> '\w+',
 		d_value	=> undef,
 		desc	=> "Selects a category for viewing.",
+		persist	=> 1,
 	},
 
 	{
 		opt		=> "start",
 		class	=> "nav",
 		allowed	=> '\d+',
-		d_value	=> 0,
-		desc	=> "Starting result number."
+		d_value	=> $class->pref("start")->get,
+		desc	=> "Starting result number.",
+		persist	=> 1,
 	},
 
 	{
 		opt		=> "limit",
 		class	=> "nav",
 		allowed	=> '\d+',
-		d_value	=> 10,
+		d_value	=> $class->pref("limit")->get,
 		desc	=> "How many results to return",
+		persist	=> 1,
 	},
 
 	{
 		opt		=> "sortby",
 		class	=> "nav",
 		allowed	=> '\w+',
-		d_value	=> 'id',
+		d_value	=> $class->pref("sortby")->get,
 		desc	=> "Field by which results will be sorted.",
+		persist	=> 1,
 	},
 
 	{
 		opt		=> "sortdir",
 		class	=> "nav",
 		allowed	=> '(?:asc|desc)',
-		d_value	=> 'desc',
+		d_value	=> $class->pref("sortdir")->get,
 		toggle	=> ['asc','desc'],
 		desc	=> "Direction of sorting",
+		persist	=> 1,
 	},
 
 	];
@@ -624,6 +845,7 @@ sub qopts_compose_post {
 		d_value	=> '',
 		desc	=> "Post ID",
 		class	=> "post",
+		persist	=> 1,
 	},
 	{
 		opt		=> "title",
@@ -695,7 +917,7 @@ sub qopts_post {
 		d_value	=> '',
 		desc	=> "Preview",
 		class	=> "post",
-		persist	=> 1,
+		persist	=> 0,
 	},
 	{
 		opt		=> "postpone",
@@ -703,7 +925,7 @@ sub qopts_post {
 		d_value	=> '',
 		desc	=> "Postpone",
 		class	=> "post",
-		persist	=> 1,
+		persist	=> 0,
 	},
 	{
 		opt		=> "post",
@@ -711,7 +933,7 @@ sub qopts_post {
 		d_value	=> '',
 		desc	=> "Post",
 		class	=> "post",
-		persist	=> 1,
+		persist	=> 0,
 	},
 
 	];
@@ -755,6 +977,24 @@ sub _prefs {return [
 		descript	=> qq(
 			How many threads eThreads should print per page.
 		),
+	},
+	{
+		name		=> "sortby",
+		d_value		=> "timestamp",
+		allowed		=> '\w+',
+		hidden		=> 1,
+	},
+	{
+		name		=> "sortdir",
+		d_value		=> "desc",
+		allowed		=> '(?:asc|desc)',
+		hidden		=> 1,
+	},
+	{
+		name		=> "start",
+		d_value		=> "0",
+		allowed		=> '\d+',
+		hidden		=> 1,
 	},
 	{
 		name		=> "archive_years",

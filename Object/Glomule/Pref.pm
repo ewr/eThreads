@@ -44,7 +44,7 @@ sub init {
 
 sub get {
 	my $class = shift;
-	return $class->{value} | $class->{d_value};
+	return $class->{value} || $class->{d_value};
 }
 
 #----------
