@@ -296,6 +296,37 @@ sub flesh_out_post {
 
 #----------
 
+sub delete {
+	my $class = shift;
+	my $id = shift;
+
+	# delete from headers
+	my $delh = $class->{_}->core->get_dbh->prepare("
+		delete from 
+			" . $class->{headers} . "
+		where 
+			id = ?
+	");
+
+	$delh->execute($id)
+		or $class->{_}->core->bail("delete headers failed: ".$delh->errstr);
+
+	# delete from data
+	my $deld = $class->{_}->core->get_dbh->prepare("
+		delete from 
+			" . $class->{data} . "
+		where 
+			id = ?
+	");
+
+	$deld->execute($id)
+		or $class->{_}->core->bail("delete data failed: ".$deld->errstr);
+
+	return 1;
+}
+
+#----------
+
 sub header_fields {
 	my $class = shift;
 

@@ -494,7 +494,9 @@ sub f_delete {
 	# -- now figure an action -- #
 
 	if ($confirm) {
-
+		$class->{_}->gholders->register(['confirm',1]);
+		# they said to go ahead
+		$class->delete($id);
 	}
 }
 
@@ -1150,7 +1152,7 @@ sub qopts_delete {
 		allowed	=> '(?:1|true)',
 		d_value	=> '',
 		desc	=> "Confirm Delete",
-		persist	=> 0,
+		persist	=> 1,
 	},
 
 	];
