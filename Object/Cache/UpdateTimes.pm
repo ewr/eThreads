@@ -47,6 +47,18 @@ sub set {
 		value		=> $a{ts}
 	);
 
+	$class->{_}->core->set_value(
+		tbl		=> $class->{_}->core->tbl_name("update_time"),
+		keys	=> {
+			tbl		=> "update_time",
+			first	=> 0,
+			second	=> 0,
+		},
+		value_field	=> "ts",
+		value		=> time
+	);
+
+
 	$class->_load_times;
 
 	return 1;
@@ -61,14 +73,14 @@ sub _get_times {
 
 	if ($data && ( ($data->{u}+5) >= time ) ) {
 		# we have the table and we've checked it in the last 5 secs
-		return $data->{c};
+		return $data->{r};
 	} elsif ($data) {
 		# we have the table, but we need to check its time
 		my $ts = $class->_get_table_ts;
 
 		if ($data->{u} > $ts) {
 			# we're current
-			return $data->{c};
+			return $data->{r};
 		} else {
 			return $class->_load_times;
 		}

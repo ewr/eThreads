@@ -202,7 +202,7 @@ sub load_pings {
 	my $class = shift;
 
 	my $obj = $class->{_}->instance->new_object(
-		"System::Ping",glomule=>$class->id
+		"System::Ping"
 	);
 
 	return $obj;

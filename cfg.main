@@ -13,6 +13,7 @@ db	=> {
 		glomule_data	=> "glomule_data",
 		looks			=> "looks",
 		messages		=> "messages",
+		pings			=> "pings",
 		qkeys			=> "qkeys",
 		qopts			=> "qopts",
 		rights			=> "rights",
@@ -43,7 +44,7 @@ content_types	=> {
 },
 
 ping_methods	=> {
-	XRPC	=> "XML/RPC",
+	XMLRPC	=> "XML/RPC",
 },
 
 cache_obj	=> "Cache::MultiServer",

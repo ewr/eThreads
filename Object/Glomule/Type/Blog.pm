@@ -76,6 +76,14 @@ sub activate_functions {
 			},
 		},
 		{
+			name	=> "ping_tmp",
+			sub		=> sub {$class->f_ping(@_)},
+			qopts	=> [],
+			modes	=> {
+				Auth	=> 1,
+			},
+		},
+		{
 			name	=> "view",
 			sub		=> sub {$class->f_view(@_)},
 			qopts	=> $class->qopts_view,
@@ -496,6 +504,18 @@ sub f_post {
 
 #----------
 
+sub f_ping {
+	my $class = shift;
+	my $fobj = shift;
+
+	warn "in f_ping\n";
+
+	my $pings = $class->load_pings;
+	$pings->ping_all;
+}
+
+#----------
+
 sub register_navigation {
 	my $class = shift;
 	my $count = shift;
@@ -708,7 +728,7 @@ sub get_posts_by_status {
 			status = ? 
 			$datelimit->{sql}
 			order by 
-		) . $class->pref("sortby") . " " . $class->pref("sortdir");
+		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
 	
 
 	my $posts = $class->get_from_glomheaders(

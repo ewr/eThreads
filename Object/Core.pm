@@ -60,6 +60,10 @@ use eThreads::Object::RequestURI;
 use eThreads::Object::Switchboard;
 use eThreads::Object::Switchboard::Custom;
 
+use eThreads::Object::System::Ping;
+use eThreads::Object::System::Ping::BaseMethod;
+use eThreads::Object::System::Ping::XMLRPC;
+
 use eThreads::Object::Template;
 use eThreads::Object::Template::Item;
 use eThreads::Object::Template::Subtemplate;
