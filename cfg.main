@@ -1,0 +1,55 @@
+db	=> {
+	type	=> "mysql",
+	db		=> "eTrev",
+	host	=> "",
+	user	=> "eTrev",
+	pass	=> "p3rlr0cks",
+
+	tbls	=> {
+		update_time		=> "update_time",
+		containers		=> "containers",
+		domains			=> "domains",
+		templates		=> "templates",
+		subtemplates	=> "subtemplates",
+		looks			=> "looks",
+		bindings		=> "bindings",
+		glomule_headers	=> "glomule_headers",
+		glomule_data	=> "glomule_data",
+		qopts			=> "qopts",
+		qkeys			=> "qkeys",
+		user_headers	=> "user_headers",
+		user_data		=> "user_data",
+		rights			=> "rights",
+	},
+},
+
+dir		=> {
+	cache		=> "/web/ericrichardson.com/perl/eThreads/cached",
+},
+
+glomule_types	=> {
+	blog	=> "Blog",
+},
+
+modes		=> {
+	Auth	=> "auth",
+	Admin	=> "admin",
+	Maint	=> "maint",
+},
+
+content_types	=> {
+	HTML	=> "HTML",
+},
+
+cache_obj	=> "Cache::MultiServer",
+auth_obj	=> "Auth::Internal",
+auth_name	=> "eThreads",
+db_logging	=> 0,
+
+d_path		=> "",
+
+d_container	=> 1,
+
+format_module	=> "Markdown",
+
+
