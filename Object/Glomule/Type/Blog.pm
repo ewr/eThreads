@@ -56,15 +56,6 @@ sub activate {
 
 	$class->{_}->objects->activate($class->{_}->format);
 
-	# -- load comments module -- #
-#	$class->{_}->switchboard->register("comments" , sub {
-#		$class->{_}->switchboard->new_object(
-#			"System::Comments",glomule=>$class
-#		);
-#	} );
-
-#	$class->{_}->comments->initialize;
-
 	return $class;
 }
 
@@ -211,7 +202,7 @@ sub f_main {
 			if ($cday eq $date) {
 				push @{$days->[-1]}, $ploc;
 			} else {
-				push @$days, [ $p->{timestamp} , $ploc ];
+				push @$days, [ 0, $p->{timestamp} , $ploc ];
 				$cday = $date;
 			}
 
@@ -232,12 +223,20 @@ sub f_main {
 
 		# -- go through each day -- #
 
+		# mark day one
+		$days->[0][0] = 1;
+
 		my @odays;
 		foreach my $d (@$days) {
+			my $expcol = shift @$d;
 			my $ts = shift @$d;
 
 			$class->{gholders}->register(
-				[ 'day.'.$ts , { timestamp => $ts , post => $d } ],
+				[ 'day.'.$ts , { 
+					expand 		=> $expcol, 
+					timestamp 	=> $ts, 
+					post 		=> $d 
+				} ],
 			);
 
 			push @odays, $ts;

@@ -333,7 +333,7 @@ sub get_from_glomheaders {
 		push @$posts, $post;
 	}
 
-	return ($posts,$count);
+	return wantarray ? ($posts,$count) : $posts;
 }
 
 #----------
