@@ -110,11 +110,11 @@ sub get {
 
 		if ($c) {
 			# and cache to mem
-			$class->{_}->memcache->set({
+			$class->{_}->memcache->set(
 				%a,
 				ref	=> $c,
 				ts	=> $class->update_times->get(%a)
-			});
+			);
 
 			return $c;
 		} else {
@@ -137,7 +137,7 @@ sub set {
 	$class->write_cache_file(%a);
 
 	# and stick in memcache
-	$class->memory->set($a{ref},%a);
+	$class->memory->set(%a);
 
 	return 1;
 }

@@ -30,12 +30,11 @@ sub DESTROY {
 
 sub set {
 	my $class = shift;
-	my $c = shift;
 	my %a = @_;
 
 	my $name = $class->{_}->cache->file_name(%a);
 
-	$class->{_}->core->memcache->set($name,$c,$a{ts});
+	$class->{_}->core->memcache->set($name,$a{ref},$a{ts});
 }
 
 #----------
