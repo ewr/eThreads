@@ -397,6 +397,7 @@ sub f_post {
 		# figure out our ping situation first
 		my $ping;
 		if (!$post->{id} || !$post->{status}) {
+			warn "pinging: id: $post->{id}\tst: $post->{status}\n";
 			$ping = 1;
 		}
 
@@ -406,6 +407,7 @@ sub f_post {
 		);
 
 		if ($ping) {
+			warn "really pinging\n";
 			my $pings = $class->load_pings;
 			$pings->ping_all;
 		}
@@ -841,6 +843,7 @@ sub get_post_information {
 			title,
 			timestamp,
 			user,
+			status,
 			parent
 		from 
 			$class->{headers}
@@ -852,7 +855,14 @@ sub get_post_information {
 
 	my $p = {};
 	$get_headers->bind_columns( 
-		\($p->{id},$p->{title},$p->{timestamp},$p->{user},$p->{parent}) 
+		\(
+			$p->{id},
+			$p->{title},
+			$p->{timestamp},
+			$p->{user},
+			$p->{status},
+			$p->{parent}
+		) 
 	);
 	$get_headers->fetch;
 

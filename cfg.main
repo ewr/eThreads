@@ -61,7 +61,11 @@ db_logging	=> 0,
 
 d_path		=> "",
 
-d_container	=> 1,
+default_domain	=> {
+	id		=> 0,
+	domain	=> "blog.ericrichardson.com",
+	path	=> "/",
+},
 
 format_module	=> "Markdown",
 

@@ -86,8 +86,8 @@ sub new {
 
 	# set our root...  this will set $class->{root} to be a Container 
 	# object for the root
-	$class->{root} = $class->determine_root();
-	$swb->register("root",$class->{root});
+	$class->{domain} = $class->determine_domain();
+	$swb->register("domain",$class->{domain});
 
 	# what we do here is a sort of tree shaped lookup to see what 
 	# all is going on.  We determine the mode, the mode determines the 
@@ -159,10 +159,27 @@ sub ap_request {
 
 #----------
 
+sub load_domains {
+	my $class = shift;
+
+	my $d = $class->{_}->cache->get(tbl=>"domains");
+
+	if (!$d) {
+		$d = $class->cache_domains();
+	}
+
+	return $d;
+}
+
+#----------
+
 sub load_containers {
 	my $class = shift;
 
-	my $c = $class->{_}->cache->get(tbl=>"containers");
+	my $c = $class->{_}->cache->get(
+		tbl		=> "containers",
+		first	=> $class->{_}->domain->id
+	);
 
 	if (!$c) {
 		$c = $class->{_}->instance->cache_containers();
@@ -204,16 +221,14 @@ sub determine_mode {
 
 #----------
 
-sub determine_root {
+sub determine_domain {
 	my $class = shift;
 
 	my $db = $class->{_}->core->get_dbh;
 
 	if (!$class->{_}->settings->{virtual_root}) {
-		my $root = $class->new_object("Container",
-			id		=> $class->{_}->core->get_default_id,
-			name	=> "",
-			path	=> $class->{_}->settings->{d_path},
+		my $root = $class->new_object("Domain",
+			%{$class->{_}->core->get_default_domain}
 		);
 
 		return $root;
@@ -228,33 +243,14 @@ sub determine_root {
 
 	my $domain = $ENV{SERVER_NAME};
 
-	my $get = $db->prepare("
-		select 
-			root,path 
-		from 
-			" . $class->{_}->tbl_name("domains") . "
-		where 
-			domain = ?
-	");
-
-	$get->execute($domain);
+	my $d = $class->load_domains;
 
 	my $croot;
-	if ($get->rows) {
-		# -- go ahead and root -- #
-
-		my ($root,$path) = $get->fetchrow_array;
-
-		$croot = $class->new_object("Container",
-			id		=> $root,
-			path	=> $path,
-		);
+	if ( my $dref = $d->{d}{ $domain } ) {
+		$croot = $class->new_object("Domain",%$dref);
 	} else {
-		# -- give default root -- #
-		$croot = $class->new_object("Container",
-			id		=> $class->{_}->get_default_id,
-			name	=> "",
-			path	=> $class->{_}->settings->{d_path},
+		$croot = $class->new_object("Domain",
+			%{$class->{_}->core->get_default_domain}
 		);
 	}
 
@@ -413,6 +409,41 @@ sub cache_glomule_data {
 
 #----------
 
+sub cache_domains {
+	my $class = shift;
+
+	my $get = $class->{_}->core->get_dbh->prepare("
+		select 
+			id,
+			domain,
+			path
+		from 
+			" . $class->{_}->core->tbl_name("domains") . "
+		
+	");
+
+	$get->execute 
+		or $class->{_}->bail->("cache_domains error: ".$get->errstr);
+
+	my ($id,$d,$p);
+	$get->bind_columns( \($id,$d,$p) );
+
+	my $domains = { id => {} , d => {} };
+	while ($get->fetch) {
+		my $h = {
+			id		=> $id,
+			domain	=> $d,
+			path	=> $p,
+		};
+
+		$domains->{id}{$id} = $domains->{d}{$d} = $h;
+	}
+
+	return $domains;
+}
+
+#----------
+
 sub cache_containers {
 	my $class = shift;
 
@@ -422,11 +453,13 @@ sub cache_containers {
 		select 
 			id,name 
 		from 
-			" . $class->{_}->core->tbl_name("containers") . "
+			" . $class->{_}->core->tbl_name("containers") . " 
+		where 
+			domain = ?
 	");
 
 	$class->{_}->bail("cache_glomule_hash error: ".$db->errstr) 
-		unless ($get_glomules->execute);
+		unless ($get_glomules->execute( $class->{_}->domain->id ));
 
 	my ($id,$name);
 	$get_glomules->bind_columns(\$id,\$name);
@@ -437,8 +470,9 @@ sub cache_containers {
 	}
 
 	$class->{_}->cache->set(
-		tbl	=> "containers",
-		ref	=> $g,
+		tbl		=> "containers",
+		first	=> $class->{_}->domain->id,
+		ref		=> $g,
 	);
 
 	return $g;

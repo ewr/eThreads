@@ -202,6 +202,31 @@ sub f_post {
 
 #----------
 
+sub f_delete {
+	my $class = shift;
+	my $fobj = shift;
+
+	my $id 		= $fobj->bucket->get("id");
+	my $confirm	= $fobj->bucket->get("confirm");
+
+	# -- load post information -- #
+
+	my $post = $class->load_and_format_post($id);
+
+	$class->{gholders}->register(
+		['post',$post]
+	);
+
+	# -- now figure an action -- #
+
+	if ($confirm) {
+		$class->{_}->gholders->register(['confirm',1]);
+		# they said to go ahead
+		$class->delete($id);
+	}
+}
+#----------
+
 sub handle_timestamp {
 	my $class = shift;
 	my $i = shift;
@@ -332,6 +357,30 @@ sub qopts_post {
 	];
 }
 
+#----------
+
+sub qopts_delete {
+	my $class = shift;
+
+	return [
+
+	{
+		opt		=> "id",
+		allowed	=> '\d+',
+		d_value	=> '',
+		desc	=> "Post ID",
+		persist	=> 1,
+	},
+	{
+		opt		=> "confirm",
+		allowed	=> '(?:1|true)',
+		d_value	=> '',
+		desc	=> "Confirm Delete",
+		persist	=> 1,
+	},
+
+	];
+}
 #----------
 
 sub fields {

@@ -24,6 +24,8 @@ use eThreads::Object::ContentType::HTML;
 use eThreads::Object::DB;
 use eThreads::Object::DB::mysql;
 
+use eThreads::Object::Domain;
+
 use eThreads::Object::Format::Markdown;
 
 use eThreads::Object::GHolders;
@@ -194,9 +196,9 @@ sub load_instance_from_notes {
 #----------
 
 
-sub get_default_id {
+sub get_default_domain {
 	my $class = shift;
-	return $class->{settings}{default_container};
+	return $class->{settings}{default_domain};
 }
 
 #----------

@@ -91,7 +91,7 @@ sub link {
 	# start with the basics...
 
 	my @pieces = (
-		$class->{_}->root->path,
+		$class->{_}->domain->path,
 		$class->{_}->mode->path,
 		$class->{_}->container->path,
 		$tmplt
