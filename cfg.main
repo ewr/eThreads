@@ -6,20 +6,21 @@ db	=> {
 	pass	=> "p3rlr0cks",
 
 	tbls	=> {
-		update_time		=> "update_time",
+		bindings		=> "bindings",
 		containers		=> "containers",
 		domains			=> "domains",
-		templates		=> "templates",
-		subtemplates	=> "subtemplates",
-		looks			=> "looks",
-		bindings		=> "bindings",
 		glomule_headers	=> "glomule_headers",
 		glomule_data	=> "glomule_data",
-		qopts			=> "qopts",
+		looks			=> "looks",
+		messages		=> "messages",
 		qkeys			=> "qkeys",
-		user_headers	=> "user_headers",
-		user_data		=> "user_data",
+		qopts			=> "qopts",
 		rights			=> "rights",
+		subtemplates	=> "subtemplates",
+		templates		=> "templates",
+		update_time		=> "update_time",
+		user_data		=> "user_data",
+		user_headers	=> "user_headers",
 	},
 },
 
@@ -39,6 +40,10 @@ modes		=> {
 
 content_types	=> {
 	HTML	=> "HTML",
+},
+
+ping_methods	=> {
+	XRPC	=> "XML/RPC",
 },
 
 cache_obj	=> "Cache::MultiServer",

@@ -198,6 +198,18 @@ sub pref {
 
 #----------
 
+sub load_pings {
+	my $class = shift;
+
+	my $obj = $class->{_}->instance->new_object(
+		"System::Ping",glomule=>$class->id
+	);
+
+	return $obj;
+}
+
+#----------
+
 sub cache_glomheaders {
 	my $class = shift;
 

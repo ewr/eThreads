@@ -242,7 +242,7 @@ sub f_view {
 	my $post = $class->get_post_information($id);
 
 	# FIXME -- temporary hack while i'm missing posts
-	if (!$post->{title} && ($id > 1413 && $id < 1620)) {
+	if (!$post->{title} && ($id > 1410 && $id < 1620)) {
 		$post = {
 			title	=> "It'll be a bit...",
 			intro	=> "The post you're looking for falls into the gap of posts that I'm still working to recover.  Sorry about that.  Come back in a week or two and maybe it'll be back.",
@@ -260,9 +260,11 @@ sub f_view {
 
 	# -- load user information -- #
 
-	my $user = $class->{_}->instance->new_object("User",id=>$post->{user});
+	if ($post->{user}) {
+		my $user = $class->{_}->instance->new_object("User",id=>$post->{user});
+		$post->{user} = $user->cachable;
+	}
 
-	$post->{user} = $user->cachable;
 
 	$class->{gholders}->register(
 		['post',$post]
@@ -366,6 +368,9 @@ sub f_post {
 			$post,
 			status => 1,
 		);
+
+		#my $pings = $class->load_pings;
+		#$pings->ping_all;
 
 		$class->gholders->register(["post",$post]);
 	} elsif ($fobj->bucket->get("post/preview")) {
