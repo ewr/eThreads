@@ -525,17 +525,10 @@ sub handle_template {
 
 	my $id = $tm->{ $name }{id};
 
-	my $t;
-	if ($t = $class->{_}->memcache->get("Template::Subtemplate",$id)) {
-		# we're cool
-	} else {
-		$t = $class->{_}->instance->new_object(
-			"Template::Subtemplate",
-			%{ $tm->{ $name } }
-		);
-
-		$class->{_}->memcache->set("Template::Subtemplate",$id,$t);
-	}
+	my $t = $class->{_}->instance->new_object(
+		"Template::Subtemplate",
+		%{ $tm->{ $name } }
+	);
 
 	return $class->{_}->gholders->handle_template_tree(
 		$t->get_tree,$_[0]

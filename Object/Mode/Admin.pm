@@ -129,8 +129,8 @@ sub load_admin_container {
 	# load an empty container
 	my $c = $class->{_}->instance->new_object("Container");
 
-	# load the container cache...  this should already be in mem
-	my $gh = $class->{_}->cache->load_cache_file(tbl=>"containers");
+	# load the container cache...  
+	my $gh = $class->{_}->cache->get(tbl=>"containers");
 
 	if (!$gh) {
 		$gh = $class->{_}->instance->cache_containers();

@@ -76,6 +76,8 @@ sub go {
 
 	my $r = $class->{_}->ap_request;
 
+	$r->set_last_modified( $class->{_}->last_modified->get );
+
 	$r->content_type( $class->{_}->template->type->type );
 	$r->print($content);
 

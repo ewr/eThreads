@@ -179,13 +179,11 @@ sub f_main {
 		my $days = [];
 
 		# -- divide posts into days -- #
-		my $max_ts;
-
 		my $cday = 0;
 		foreach my $p (@$posts) {
 			#$p->{categories} = $class->{categories}->get_cats_for_id($p->{id});
-			
-			$max_ts = $p->{timestamp} if ($p->{timestamp} > $max_ts);
+
+			$class->{_}->last_modified->nominate($p->{timestamp});
 
 			my $date = time2str("%x",$p->{timestamp});
 
@@ -638,12 +636,6 @@ sub post {
 		# FIXME - this is a MySQL specific hack
 		$post->{id} = $db->{'mysql_insertid'};
 	}
-
-	$class->{_}->cache->set_update_ts(
-		tbl		=> "glomheaders",
-		first	=> $class->id,
-		ts		=> time,
-	);
 
 	# now do data
 	foreach my $f (@{ $class->fields }) {

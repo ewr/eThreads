@@ -74,7 +74,7 @@ sub cache_template_map {
 		$m->{$name} = $t->cachable;
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "templates",
 		first	=> $class->id,
 		ref		=> $m,
@@ -116,7 +116,7 @@ sub cache_subtemplates {
 		};
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "subtemplates",
 		first	=> $class->id,
 		ref		=> $m,
@@ -163,17 +163,8 @@ sub determine_template {
 
 	my $id = $tm->{ $tpath }{id};
 
-	if (my $t = $class->{_}->memcache->get("Template",$id)) {
-		return $t;
-	} else {
-		my $t = $class->{_}->instance->new_object("Template",
-			%{$tm->{$tpath}}
-		);
-
-		$class->{_}->memcache->set("Template",$id,$t);
-
-		return $t;
-	}
+	my $t = $class->{_}->instance->new_object("Template", %{$tm->{$tpath}} );
+	return $t;
 }
 
 #----------
@@ -188,16 +179,16 @@ sub load_template_by_path {
 
 	my $tm = $class->get_templates;
 
+	my $ocache = $class->{_}->cache->objects;
+
 	if ($tm->{$path}) {
-		if (my $t = $class->{_}->memcache->get("Template",$tm->{$path}{id})) {
+		if (my $t = $ocache->get("Template",$tm->{$path}{id})) {
 			return $t;
 		} else {
 			my $t = $class->{_}->instance->new_object(
 				"Template",
 				%{$tm->{$path}}
 			);
-
-			$class->{_}->memcache->set("Template",$tm->{$path}{id},$t);
 
 			return $t;
 		}
@@ -229,18 +220,12 @@ sub load_template {
 		return undef;
 	}
 
-	if (my $t = $class->{_}->memcache->get("Template",$id)) {
-		return $t;
-	} else {
-		my $t = $class->{_}->instance->new_object( 
-			"Template", 
-			%{ $by_ids->{ $id } }
-		);
+	my $t = $class->{_}->instance->new_object( 
+		"Template", 
+		%{ $by_ids->{ $id } }
+	);
 
-		$class->{_}->memcache->set("Template",$id,$t);
-
-		return $t;
-	}
+	return $t;
 }
 
 #----------
@@ -264,19 +249,12 @@ sub load_subtemplate_by_path {
 
 	my $id = $tm->{ $path }{id};
 
-	if (my $t = $class->{_}->memcache->get("Template::Subtemplate",$id)) {
-		return $t;
-	} else {
-		my $t = $class->{_}->instance->new_object( 
-			"Template::Subtemplate", 
-			%{ $tm->{ $path } }
-		);
+	my $t = $class->{_}->instance->new_object( 
+		"Template::Subtemplate", 
+		%{ $tm->{ $path } }
+	);
 
-		$class->{_}->memcache->set("Template::Subtemplate",$id,$t);
-
-		return $t;
-	}
-
+	return $t;
 }
 
 #----------
@@ -302,19 +280,12 @@ sub load_subtemplate {
 		return undef;
 	}
 
-	if (my $t = $class->{_}->memcache->get("Template::Subtemplate",$id)) {
-		return $t;
-	} else {
-		my $t = $class->{_}->instance->new_object( 
-			"Template::Subtemplate", 
-			%{ $by_ids->{ $id } }
-		);
+	my $t = $class->{_}->instance->new_object( 
+		"Template::Subtemplate", 
+		%{ $by_ids->{ $id } }
+	);
 
-		$class->{_}->memcache->set("Template::Subtemplate",$id,$t);
-
-		return $t;
-	}
-
+	return $t;
 }
 
 #----------
@@ -322,22 +293,16 @@ sub load_subtemplate {
 sub get_templates {
 	my $class = shift;
 
-	if (my $tm = $class->{_}->memcache->get_raw("templates",$class->id)) {
-		return $tm;
-	} else {
-		my $tm = $class->{_}->cache->load_cache_file(
-			tbl		=> "templates",
-			first	=> $class->id,
-		);
+	my $tm = $class->{_}->cache->get(
+		tbl		=> "templates",
+		first	=> $class->id,
+	);
 
-		if (!$tm) {
-			$tm = $class->cache_template_map();
-		}
-
-		$class->{_}->memcache->set_raw("templates",$class->id,$tm);
-
-		return $tm;
+	if (!$tm) {
+		$tm = $class->cache_template_map();
 	}
+
+	return $tm;
 }
 
 #----------
@@ -345,22 +310,16 @@ sub get_templates {
 sub get_subtemplates {
 	my $class = shift;
 
-	if (my $tm = $class->{_}->memcache->get_raw("subtemplates",$class->id)) {
-		return $tm;
-	} else {
-		my $tm = $class->{_}->cache->load_cache_file(
-			tbl		=> "subtemplates",
-			first	=> $class->id,
-		);
+	my $tm = $class->{_}->cache->get(
+		tbl		=> "subtemplates",
+		first	=> $class->id,
+	);
 
-		if (!$tm) {
-			$tm = $class->cache_subtemplates();
-		}
-
-		$class->{_}->memcache->set_raw("subtemplates",$class->id,$tm);
-
-		return $tm;
+	if (!$tm) {
+		$tm = $class->cache_subtemplates();
 	}
+
+	return $tm;
 }
 
 #----------

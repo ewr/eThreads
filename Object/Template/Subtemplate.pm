@@ -21,7 +21,7 @@ sub load_from_sub {
 
 	my @keys = keys %{$class->{_}};
 
-	my $cache = $class->{_}->cache->load_cache_file(
+	my $cache = $class->{_}->cache->get(
 		tbl		=> "subtemplates",
 		first	=> $class->{_}->container->id,
 		second	=> $class->{_}->look->id,

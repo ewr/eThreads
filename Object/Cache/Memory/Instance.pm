@@ -30,34 +30,33 @@ sub DESTROY {
 
 sub set {
 	my $class = shift;
-	my $type = shift;
-	my $key = shift;
-	my $obj = shift;
+	my $c = shift;
+	my %a = @_;
 
-	$class->{_}->core->memcache->set($type,$key,$obj);
+	my $name = $class->{_}->cache->file_name(%a);
 
-	$class->{objects}{ $type }{ $key } = $obj;
+	$class->{_}->core->memcache->set($name,$c);
 }
 
 #----------
 
 sub get {
 	my $class = shift;
-	my $type = shift;
-	my $key = shift;
+	my %a = @_;
 
-	if (my $obj = $class->{objects}{ $type }{ $key }) {
-		return $obj;
+	my $name = $class->{_}->cache->file_name(%a);
+
+	my $data = $class->{_}->core->memcache->get($name);
+	return undef if (!$data);
+
+	# now compare update times
+	my $cts = $class->{_}->cache->update_times->get(%a);
+
+	if ($data->{u} >= $cts) {
+		return $data->{r};
+	} else {
+		return undef;
 	}
-
-	my $get = $class->{_}->core->memcache->get($type,$key);
-	return undef if (!$get);
-
-	my $obj = $class->{_}->instance->new_object($type,%{$get});
-
-	$class->{objects}{ $type }{ $key } = $obj;
-
-	return $obj;
 }
 
 #----------

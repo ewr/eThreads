@@ -72,6 +72,10 @@ sub new {
 		$class->new_object("GHolders");
 	});
 
+	$swb->register("last_modified",sub {
+		$class->new_object("LastModifiedTime");
+	});
+
 	# -- continue with initialization -- #
 
 	# set our root...  this will set $class->{root} to be a Container 
@@ -168,19 +172,13 @@ sub ap_request {
 sub load_containers {
 	my $class = shift;
 
-	if (my $c = $class->{_}->memcache->get_raw("containers")) {
-		return $c;
-	} else {
-		my $c = $class->{_}->cache->load_cache_file(tbl=>"containers");
-	
-		if (!$c) {
-			$c = $class->{_}->instance->cache_containers();
-		}
+	my $c = $class->{_}->cache->get(tbl=>"containers");
 
-		$class->{_}->memcache->set_raw("containers",undef,$c);
-
-		return $c;
+	if (!$c) {
+		$c = $class->{_}->instance->cache_containers();
 	}
+
+	return $c;
 }
 
 #--------------------#
@@ -304,7 +302,7 @@ sub cache_user_headers {
 		$headers->{u}{ $u } = $headers->{id}{ $id } = $user;
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "user_headers",
 		ref		=> $headers,
 	);
@@ -346,7 +344,7 @@ sub cache_looks {
 		$l->{$c}{DEFAULT} = $ref if ($d);
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl	=> "looks",
 		ref	=> $l,
 	);
@@ -393,7 +391,7 @@ sub cache_glomule_headers {
 		$gh->{name}{ $c }{ $n } = $data;
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "glomule_headers",
 		ref		=> $gh,
 	);
@@ -414,7 +412,7 @@ sub cache_glomule_data {
 		flat	=> 1,
 	);
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "glomule_data",
 		first	=> $id,
 		ref		=> $data,
@@ -448,7 +446,7 @@ sub cache_containers {
 		$g->{$name} = $id;
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl	=> "containers",
 		ref	=> $g,
 	);

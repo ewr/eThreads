@@ -11,6 +11,7 @@ sub new {
 	$class = bless({
 		_	=> $data,
 		o	=> [],
+		counts	=> {},
 	},$class);
 
 	return $class;
@@ -40,6 +41,16 @@ sub DESTROY {
 
 	@{$class->{o}} = ();
 
+	my @counts = 
+		map { $_ } 
+		sort { $a->[1] <=> $b->[1] } 
+		map { [$_,$class->{counts}{$_}] } 
+		keys %{$class->{counts}};
+
+#	foreach my $c (@counts) {
+#		warn "created $c->[1] objects of type $c->[0]\n";
+#	}
+
 	return 1;
 }
 
@@ -50,7 +61,8 @@ sub create {
 	my $type = shift;
 	my $data = shift;
 
-	
+	$class->{counts}{$type}++;
+
 	my $module = "eThreads::Object::$type";
 	my $obj = $module->new($data,@_);
 

@@ -145,7 +145,7 @@ sub f_looks {
 			$update->execute( 0 , $looks->{ DEFAULT }->{id} );
 			$update->execute( 1 , $id );
 
-			$class->{_}->cache->set_update_ts(
+			$class->{_}->cache->update_times->set(
 				tbl		=> "looks",
 				ts		=> time,
 			);
@@ -319,7 +319,7 @@ sub f_templates_new {
 		# FIXME - This should be a better interface
 		my $id = $class->{_}->core->{db}->get_message_id();
 
-		$class->{_}->cache->set_update_ts(
+		$class->{_}->cache->update_times->set(
 			tbl		=> "templates",
 			first	=> $look->id,
 			ts		=> time,
@@ -370,7 +370,7 @@ sub f_templates_edit {
 			value	=> $fobj->bucket->get("content")
 		);
 
-		$class->{_}->cache->set_update_ts(
+		$class->{_}->cache->update_times->set(
 			tbl		=> "templates",
 			first	=> $look->id,
 			ts		=> time,
@@ -435,7 +435,7 @@ sub f_subtemplates_new {
 		# FIXME - This should be a better interface
 		my $id = $class->{_}->core->{db}->get_message_id();
 
-		$class->{_}->cache->set_update_ts(
+		$class->{_}->cache->update_times->set(
 			tbl		=> "subtemplates",
 			first	=> $look->id,
 			ts		=> time,
@@ -473,7 +473,7 @@ sub f_subtemplates_edit {
 			value	=> $fobj->bucket->get("content")
 		);
 
-		$class->{_}->cache->set_update_ts(
+		$class->{_}->cache->update_times->set(
 			tbl		=> "subtemplates",
 			first	=> $look->id,
 			ts		=> time,
@@ -530,7 +530,7 @@ sub f_qopts {
 			value	=> $n,
 		);
 
-		$class->{_}->cache->set_update_ts(
+		$class->{_}->cache->update_times->set(
 			tbl		=> "qopts",
 			first	=> $template->id,
 			ts		=> time,
@@ -702,7 +702,7 @@ sub f_qkeys {
 	}
 
 	if ($fobj->bucket->get("add") || $fobj->bucket->get("edit")) {
-		$class->{_}->cache->set_update_ts(
+		$class->{_}->cache->update_times->set(
 			tbl		=> "qkeys",
 			first	=> $template->id,
 			ts		=> time,

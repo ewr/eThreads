@@ -23,19 +23,12 @@ sub load_info {
 
 	# -- load glomule headers -- #
 
-	my $gh;
-	if ($gh = $class->{_}->memcache->get_raw("glomule_headers")) {
-		# woo hoo!
-	} else {
-		$gh = $class->{_}->cache->load_cache_file(
-			tbl		=> "glomule_headers",
-		);
+	my $gh = $class->{_}->cache->get(
+		tbl		=> "glomule_headers",
+	);
 
-		if (!$gh) {
-			$gh = $class->{_}->instance->cache_glomule_headers();
-		}
-
-		$class->{_}->memcache->set_raw("glomule_headers",undef,$gh);
+	if (!$gh) {
+		$gh = $class->{_}->instance->cache_glomule_headers();
 	}
 
 	# -- figure out our id -- #
@@ -51,24 +44,17 @@ sub load_info {
 
 	# -- load glomule data -- #
 
-	my $gd;
-	if ($gd = $class->{_}->memcache->get_raw("glomule_data",$ghobj->{id})) {
-		# woo hoo!
-	} else {
-		$gd = $class->{_}->cache->load_cache_file(
-			tbl		=> "glomule_data",
-			first	=> $ghobj->{id},
+	my $gd = $class->{_}->cache->get(
+		tbl		=> "glomule_data",
+		first	=> $ghobj->{id},
+	);
+
+	if (!$gd) {
+		$gd = $class->{_}->instance->cache_glomule_data(
+			$ghobj->{id}
 		);
-
-		if (!$gd) {
-			$gd = $class->{_}->instance->cache_glomule_data(
-				$ghobj->{id}
-			);
-		}
-		
-		$class->{_}->memcache->set_raw("glomule_data",$ghobj->{id},$gd);
 	}
-
+		
 	# -- load these values into our object -- #
 
 	foreach my $h ($ghobj,$gd) {
@@ -169,7 +155,7 @@ sub load_prefs {
 
 	# -- first load glomule-wide prefs -- #
 
-	my $gp = $class->{_}->cache->load_cache_file(
+	my $gp = $class->{_}->cache->get(
 		tbl		=> "prefs",
 		first	=> $class->{id},
 	);
@@ -180,7 +166,7 @@ sub load_prefs {
 
 	# -- next load look-specific prefs -- #
 
-	my $lp = $class->{_}->cache->load_cache_file(
+	my $lp = $class->{_}->cache->get(
 		tbl		=> "prefs",
 		first	=> $class->{id},
 		second	=> $class->{_}->look->id
@@ -264,111 +250,6 @@ sub get_from_glomheaders {
 	}
 
 	return $posts;
-}
-
-#----------
-
-sub get_glomheaders {
-	my $class = shift;
-
-	if (my $h = $class->{_}->memcache->get_raw("glomheaders",$class->id)) {
-		return $h;
-	} else {
-		my $headers = $class->{_}->cache->load_cache_file(
-			tbl		=> "glomheaders",
-			first	=> $class->id,
-		);
-
-		if (!$headers) {
-			$headers = $class->cache_glomheaders;
-		}
-		
-		$class->{_}->memcache->set_raw("glomheaders",$class->id,$headers);
-
-		return $headers;
-	}
-}
-
-#----------
-
-sub cache_glomheaders {
-	my $class = shift;
-
-	my $core = $class->{_}->core;
-	my $db = $core->get_dbh;
-
-	my $get = $db->prepare("
-		select 
-			id,
-			title,
-			timestamp,
-			parent,
-			status,
-			user
-		from 
-			$class->{headers}
-	");
-
-	$get->execute or $core->bail("cache_glomheaders failure: ".$db->errstr);
-
-	my ($id,$t,$ts,$p,$s,$u);
-	$get->bind_columns( \($id,$t,$ts,$p,$s,$u) );
-
-	my $h = {};
-	while ($get->fetch) {
-		$h->{$id} = {
-			id			=> $id,
-			title		=> $t,
-			timestamp	=> $ts,
-			parent		=> $p,
-			status		=> $s,
-			user		=> $u
-		};
-	}
-
-	$class->{_}->cache->write_cache_file(
-		tbl		=> "glomheaders",
-		first	=> $class->{id},
-		ref		=> $h
-	);
-
-	return $h;
-}
-
-#----------
-
-sub cache_glomdata {
-	my $class = shift;
-
-	my $core = $class->{_}->core;
-	my $db = $core->get_dbh;
-
-	my $get = $db->prepare("
-		select 
-			id,
-			ident,
-			value
-		from 
-			$class->{data}
-	");
-
-	$get->execute or $core->bail("cache_glomdata failure: ".$db->errstr);
-
-	my ($id,$ident,$value);
-	$get->bind_columns( \($id,$ident,$value) );
-
-	my $d = {};
-	while ($get->fetch) {
-		$d->{ $id }{ $ident } = $value;
-	}
-
-	$core->{modules}{cache}->write_cache_file(
-		tbl		=> "glomdata",
-		first	=> $class->{id},
-		ref		=> $d,
-	);
-
-	return $d;
 }
 
 #----------

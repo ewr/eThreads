@@ -108,19 +108,13 @@ sub get_default_look {
 	$class->bail("Container has no default look") 
 		if (!$looks->{DEFAULT});
 
-	if (my $l = $class->{_}->memcache->get("Look",$looks->{DEFAULT}->{id})) {
-		return $l;
-	} else {
-		my $l = $class->{_}->instance->new_object(
-			"Look",
-			id		=> $looks->{DEFAULT}->{id},
-			name	=> $looks->{DEFAULT}->{name},
-		);
+	my $l = $class->{_}->instance->new_object(
+		"Look",
+		id		=> $looks->{DEFAULT}->{id},
+		name	=> $looks->{DEFAULT}->{name},
+	);
 
-		$class->{_}->memcache->set("Look",$l->id,$l);
-
-		return $l;
-	}
+	return $l;
 }
 
 #----------
@@ -128,19 +122,13 @@ sub get_default_look {
 sub get_looks {
 	my $class = shift;
 
-	if (my $l = $class->{_}->memcache->get_raw("looks")) {
-		return $l->{ $class->id };
-	} else {
-		my $looks = $class->{_}->cache->load_cache_file(tbl=>"looks");
+	my $looks = $class->{_}->cache->get(tbl=>"looks");
 
-		if (!$looks) {
-			$looks = $class->{_}->instance->cache_looks();
-		}
-
-		$class->{_}->memcache->set_raw("looks",undef,$looks);
-
-		return $looks->{ $class->id };
+	if (!$looks) {
+		$looks = $class->{_}->instance->cache_looks();
 	}
+
+	return $looks->{ $class->id };
 }
 
 #----------

@@ -46,7 +46,7 @@ sub authenticate {
 	# -- now check that the user is valid -- #
 
 	{
-		my $headers = $class->{_}->cache->load_cache_file(
+		my $headers = $class->{_}->cache->get(
 			tbl		=> "user_headers"
 		);
 

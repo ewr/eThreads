@@ -10,7 +10,6 @@ sub new {
 
 	$class = bless ( {
 		_	=> $data,
-		cache	=> {},
 	} , $class ); 
 
 	return $class;
@@ -20,37 +19,41 @@ sub new {
 
 sub DESTROY {
 	my $class = shift;
-	$class->{cache} = undef;
 	return 1;
 }
 
 #----------
 
-sub get_update_ts {
+sub update_times {
 	my $class = shift;
-	my %a = @_;
 
-	my $db = $class->{_}->core->get_dbh;
+	if (!$class->{update_times}) {
+		$class->{update_times} 
+			= $class->{_}->instance->new_object("Cache::UpdateTimes");
+	}
 
-	$a{first} = 0 if (!$a{first});
-	$a{second} = 0 if (!$a{second});
+	return $class->{update_times};
+}
 
-	my $get_updated = $db->prepare("
-		select 
-			ts 
-		from 
-			" . $class->{_}->core->tbl_name("update_time") . "
-		where 
-			tbl = ? 
-			and first = ?
-			and second = ?
-	"); 
+#----------
 
-	$get_updated->execute($a{tbl},$a{first},$a{second})
-		or $class->{_}->core->bail("get_update_ts: ".$db->errstr);
-	my ($ts) = $get_updated->fetchrow_array;
-    
-	return $ts;
+sub memory {
+	my $class = shift;
+
+	return $class->{_}->memcache;
+}
+
+#----------
+
+sub objects {
+	my $class = shift;
+
+	if (!$class->{objects}) {
+		$class->{objects} 
+			= $class->{_}->instance->new_object("Cache::Objects");
+	}
+
+	return $class->{objects};
 }
 
 #----------
@@ -94,35 +97,53 @@ sub get_max_update_ts {
 
 #----------
 
-sub set_update_ts {
+sub get {
 	my $class = shift;
 	my %a = @_;
 
-	# -- update the value in the db -- #
+	my $c;
+	if ( $c = $class->{_}->memcache->get(%a) ) {
+		# we're cool
+	} else {
+		# get from disk
+		$c = $class->load_cache_file(%a);
 
-	$class->{_}->core->set_value(
-		tbl		=> $class->{_}->core->tbl_name("update_time"),
-		keys	=> {
-			tbl		=> $a{tbl},
-			first	=> $a{first} || 0,
-			second	=> $a{second} || 0,
-		},
-		value_field	=> "ts",
-		value		=> $a{ts}
-	);
+		if ($c) {
+			# and cache to mem
+			$class->{_}->memcache->set($c,%a);
+		}
+	}
 
-	# -- also delete our cache file locally -- #
+	return $c;
+}
 
-	my $name = join(".",($a{tbl},$a{first},$a{second}));
-	$name =~ s/(?:^\.|\.\.|\.$)//g;
+#----------
 
-	$class->delete_cache_file($name);
+sub set {
+	my $class = shift;
+	my %a = @_;
 
-	# -- and delete in mem -- #
+	# write disk cache
+	$class->write_cache_file(%a);
 
-	undef $class->{cache}{ $a{tbl} }{ $a{first} }{ $a{second} };
+	# and stick in memcache
+	$class->memory->set($a{ref},%a);
 
 	return 1;
+}
+
+#----------
+
+sub file_name {
+	my $class = shift;
+	my %a = @_;
+
+	$a{first} = 0 if (!$a{first} && $a{second});
+
+	my $name = join("." , ($a{tbl},$a{first},$a{second}) );
+	$name =~ s/(?:^\.|\.\.|\.$)//g;
+
+	return $name;
 }
 
 #----------
@@ -131,44 +152,19 @@ sub load_cache_file {
 	my $class = shift;
 	my %a = @_;
 
-	my $name = join(".",($a{tbl},$a{first},$a{second}));
-	$name =~ s/(?:^\.|\.\.|\.$)//g;
-
-	if (my $c = $class->{cache}{ $a{tbl} }{ $a{first} }{ $a{second} }) {
-		return $c;
-	}
+	my $name = $class->file_name(%a);
 
 	# load the cached file if it exists
-	if (my $c = $class->get_cached_file($name)) {
-		my $ts = 
-			$a{ts} || $class->get_update_ts(
-				tbl			=> $a{tbl},
-				first		=> $a{first},
-				second	=> $a{second}
-			);
+	if (my $data = $class->get_cached_file($name)) {
+		my $ts = $class->update_times->get(%a);
 
-		my $cts;
-		if ( ref($c) eq "HASH" ) {
-			$cts = $c->{ ".updated" };
-
-			# and delete the update ts
-			delete $c->{ ".updated" };
-		} elsif ( ref($c) eq "ARRAY" ) {
-			$cts = pop @$c;
+		if ($ts > $data->{u}) {
+			return undef;
 		} else {
-			$class->{_}->core->bail("cache ref unknown type ".ref($a{ref}));
-		}
-
-		if ($ts > $cts) {
-			return 0;
-		} else {
-			# keep this cache object open in case we need it again later
-			$class->{cache}{ $a{tbl} }{ $a{first} }{ $a{second} } = $c;
-
-			return $c;
+			return $data->{r};
 		}
 	} else {
-		return 0;
+		return undef;
 	}
 }
 
@@ -178,9 +174,7 @@ sub load_cache_file {
 
 	$e{modules}{cache}->write_cache_file(
 		tbl		=> $tbl,
-		glomule	=> $glomule, (optional)
 		ref		=> $ref,
-		ts		=> $ts, (optional)
 	);
 
 =cut
@@ -189,33 +183,9 @@ sub write_cache_file {
 	my $class = shift;
 	my %a = @_;
 
-	my $ts = 
-		$a{ts} || $class->get_update_ts(
-			tbl		=> $a{tbl},
-			first	=> $a{first},
-			second	=> $a{second},
-		);
+	my $name = $class->file_name(%a);
 
-	if ( ref($a{ref}) eq "HASH" ) {
-		$a{ref}{ ".updated" } = $ts;
-	} elsif ( ref($a{ref}) eq "ARRAY" ) {
-		push @{ $a{ref} }, $ts;
-	} else {
-		$class->{_}->core->bail("cache ref unknown type ".ref($a{ref}));
-	}
-
-	my $name = join(".",($a{tbl},$a{first},$a{second}));
-	$name =~ s/(?:^\.|\.\.|\.$)//g;
-
-	$class->store($name , $a{ref});
-
-	if ( ref($a{ref}) eq "HASH" ) {
-		# delete the update ts
-		delete $a{ref}{ ".updated" };
-	} elsif ( ref($a{ref}) eq "ARRAY" ) {
-		# get ts back off the end
-		pop @{ $a{ref} };
-	}
+	$class->store($name , { u => time , r => $a{ref} } );
 }
 
 #----------

@@ -70,21 +70,15 @@ sub get_container {
 	my $class	= shift;
 	my $path 	= shift;
 
-	if (my $c = $class->{_}->memcache->get("Container",$path)) {
-		return $c;
-	} else {
-		my $gh = $class->{_}->instance->load_containers();
+	my $gh = $class->{_}->instance->load_containers();
 
-		my $c = $class->{_}->instance->new_object(
-			"Container",
-			path	=> $path,
-			id		=> $gh->{ $path },
-		);
+	my $c = $class->{_}->instance->new_object(
+		"Container",
+		path	=> $path,
+		id		=> $gh->{ $path },
+	);
 
-		$class->{_}->memcache->set("Container",$path,$c);
-
-		return $c;
-	}
+	return $c;
 }
 
 #----------

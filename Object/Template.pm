@@ -85,7 +85,7 @@ sub qkeys {
 		return $class->{qkeys};
 	}
 
-	my $q = $class->{_}->cache->load_cache_file(
+	my $q = $class->{_}->cache->get(
 		tbl		=> "qkeys",
 		first	=> $class->id,
 	);
@@ -112,7 +112,7 @@ sub qopts {
 
 	# -- otherwise we need to load them -- #
 
-	my $q = $class->{_}->cache->load_cache_file(
+	my $q = $class->{_}->cache->get(
 		tbl		=> "qopts",
 		first	=> $class->id,
 	);
@@ -155,7 +155,7 @@ sub cache_qkeys {
 		push @$qkeys, $n;
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "qkeys",
 		first	=> $class->id,
 		ref		=> $qkeys
@@ -197,7 +197,7 @@ sub cache_qopts {
 		};
 	}
 
-	$class->{_}->cache->write_cache_file(
+	$class->{_}->cache->set(
 		tbl		=> "qopts",
 		first	=> $class->id,
 		ref		=> $qopts

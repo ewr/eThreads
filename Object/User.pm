@@ -48,7 +48,7 @@ sub cachable {
 sub _validate_user {
 	my $class = shift;
 
-	my $headers = $class->{_}->cache->load_cache_file(
+	my $headers = $class->{_}->cache->get(
 		tbl		=> "user_headers",
 	);
 

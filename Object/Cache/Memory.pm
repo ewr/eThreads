@@ -28,15 +28,13 @@ sub new {
 
 sub set {
 	my $class = shift;
-	my $type = shift;
-	my $key = shift;
-	my $val = shift;
+	my $name = shift;
+	my $ref = shift;
 
-	my $ckey = $type . "WOOP" . $key;
+	# if they're caching it, it's current as of right now.  so we'll use 
+	# now as our updated time
 
-	#warn "$$ before insert, cache size is: ". $class->{cache}->Size() . "\n";
-
-	$class->{cache}->set($ckey,$val->cachable);
+	$class->{cache}->set($name, { u => time , r => $ref } );
 }
 
 #----------
@@ -58,12 +56,9 @@ sub set_raw {
 
 sub get {
 	my $class = shift;
-	my $type = shift;
-	my $key = shift;
+	my $name = shift;
 
-	my $ckey = $type . "WOOP" . $key;
-
-	my $data = $class->{cache}->get($ckey);
+	my $data = $class->{cache}->get($name);
 
 	return $data;
 }

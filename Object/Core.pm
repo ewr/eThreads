@@ -11,8 +11,10 @@ use eThreads::Object::Auth::Internal;
 use eThreads::Object::Cache;
 use eThreads::Object::Cache::Memory;
 use eThreads::Object::Cache::Memory::Instance;
-use eThreads::Object::Cache::SingleServer;
 use eThreads::Object::Cache::MultiServer;
+use eThreads::Object::Cache::SingleServer;
+use eThreads::Object::Cache::Objects;
+use eThreads::Object::Cache::UpdateTimes;
 
 use eThreads::Object::Container;
 
@@ -35,6 +37,8 @@ use eThreads::Object::Glomule::Type::Admin;
 use eThreads::Object::Glomule::Type::Blog;
 
 use eThreads::Object::Instance;
+
+use eThreads::Object::LastModifiedTime;
 
 use eThreads::Object::Look;
 
@@ -270,9 +274,19 @@ sub g_load_tbl {
 
 	my $db = $class->get_dbh;
 
+	my $where;
+	if ($args{get_all}) {
+		# $where stays null
+	} else {
+		$where = 
+			"where $args{ident} in (". 
+			join( "," , @{ $args{ids} } ). 
+			")";
+	}
+
 	my $get_tbl = $db->prepare("
 		select $args{ident},ident,value from $args{tbl} 
-		where $args{ident} in (".join(",",@{$args{ids}}).")
+		$where
 		$args{extra}
 	");
 
