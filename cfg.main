@@ -56,7 +56,7 @@ ping_methods	=> {
 },
 
 cache_obj	=> "Cache::MultiServer",
-auth_obj	=> "Auth::Cookies",
+auth_obj	=> "Auth::Internal",
 auth_name	=> "eThreads",
 db_logging	=> 0,
 
@@ -72,7 +72,7 @@ default_domain	=> {
 
 response_codes	=> {
 	OK					=> '200',
-	HTTP_UNAUTHORIZED	=> '301',
+	HTTP_UNAUTHORIZED	=> '401',
 	SERVER_ERROR		=> '500',
 },
 

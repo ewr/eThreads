@@ -203,7 +203,9 @@ sub tbl_name {
 #----------
 
 sub code {
-	return shift->settings->{response_codes}{ shift };
+	my $class = shift;
+	my $code = shift;
+	return $class->settings->{response_codes}{ $code };
 }
 
 #----------
