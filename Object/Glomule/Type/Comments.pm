@@ -86,6 +86,14 @@ sub activate_functions {
 				Auth	=> 1,
 			},
 		},
+		{
+			name	=> "delete",
+			sub		=> sub {$class->f_delete(@_)},
+			qopts	=> $class->qopts_delete,
+			modes	=> {
+				Auth	=> 1,
+			},
+		},
 	);
 
 	return $class;
@@ -211,10 +219,21 @@ sub f_delete {
 
 	# -- load post information -- #
 
-	my $post = $class->load_and_format_post($id);
+	my $c = $class->get_by_id($id);
+
+	my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
+
+	foreach my $f (@{ $class->fields }) {
+		if ($format && $f->{format}) {
+			$c->{ $f->{name} } 
+				= $class->{_}->format->format( $c->{ $f->{name} } );
+		} else {
+			# do nothing
+		}
+	}
 
 	$class->{gholders}->register(
-		['post',$post]
+		['comment',$c]
 	);
 
 	# -- now figure an action -- #
@@ -239,6 +258,37 @@ sub handle_timestamp {
 
 	$_[0] .= Date::Format::time2str($a,$c);
 	return 0;
+}
+
+#----------
+
+sub get_by_id {
+	my $class = shift;
+	my $id = shift;
+
+	my $results = $class->get_from_glomheaders(
+		"id = ?",
+		$id
+	);
+
+	my $posts = {};
+	%$posts = map { $_->{id} => $_ } @$results; 
+	
+	# -- now get post data -- #
+
+	my $data = $class->{_}->utils->g_load_tbl(
+		tbl		=> $class->{data},
+		ident	=> "id",
+		ids		=> [$id],
+	);
+
+	while ( my ($id,$d) = each %$data ) {
+		while ( my ($k,$v) = each %$d ) {
+			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
+		}
+	}
+
+	return $posts->{$id};
 }
 
 #----------

@@ -201,7 +201,7 @@ sub write_cache_file {
 	my $name = $class->file_name(%a);
 
 	# delete our file
-	$class->delete_cache_file($name);
+	# $class->delete_cache_file($name);
 
 	# and then rewrite it 
 	$class->store($name , { u => $a{ts} , r => $a{ref} } );

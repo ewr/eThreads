@@ -206,16 +206,9 @@ sub f_templates {
 	my $fobj = shift;
 
 	# -- get a list of templates -- #
-	my $look;
-	{
-		my $id = $fobj->bucket->get("templates/look");
-
-		$look = $class->{_}->instance->new_object("Look");
-		$look->{id} = $id;
-
-		# look wants the original container, not admin
-		$class->{_}->cswitchboard->reroute_calls_for($look);
-	}
+	my $look = $class->load_look(
+		$fobj->bucket->get("look")
+	);
 
 	# -- templates -- #
 
@@ -292,7 +285,7 @@ sub f_templates_new {
 
 	# -- load the look -- #
 	my $look = $class->load_look(
-		$fobj->bucket->get("templates/look")
+		$fobj->bucket->get("look")
 	);
 
 	if ($fobj->bucket->get("submit")) {
@@ -303,7 +296,7 @@ sub f_templates_new {
 		
 		# check if path is valid
 		$class->{_}->bail->("Invalid Path: $path") 
-			if ($path !~ m!^[\w/]+$!);
+			if ($path !~ m!^[\w/\.]+$!);
 
 		# make sure path doesn't already exist
 		my $tm = $look->get_templates;
@@ -361,11 +354,11 @@ sub f_templates_edit {
 
 	# -- load the template, but first the look -- #
 	my $look = $class->load_look(
-		$fobj->bucket->get("templates/look")
+		$fobj->bucket->get("look")
 	);
 
 	my $template = $look->load_template(
-		$fobj->bucket->get("templates/template")
+		$fobj->bucket->get("template")
 	);
 
 	$class->{_}->bail->("Invalid template") if (!$template);
@@ -386,7 +379,7 @@ sub f_templates_edit {
 		);
 	
 		$template = $look->load_template(
-			$fobj->bucket->get("templates/template")
+			$fobj->bucket->get("template")
 		);
 	
 		$class->gholders->register("message","updating content...");
@@ -413,7 +406,7 @@ sub f_subtemplates_new {
 
 	# -- load the look -- #
 	my $look = $class->load_look(
-		$fobj->bucket->get("templates/look")
+		$fobj->bucket->get("look")
 	);
 
 	if ($fobj->bucket->get("submit")) {
@@ -464,11 +457,11 @@ sub f_subtemplates_edit {
 
 	# -- load the template, but first the look -- #
 	my $look = $class->load_look(
-		$fobj->bucket->get("templates/look")
+		$fobj->bucket->get("look")
 	);
 
 	my $template = $look->load_subtemplate(
-		$fobj->bucket->get("templates/template")
+		$fobj->bucket->get("template")
 	);
 
 	$class->{_}->bail->("Invalid template") if (!$template);
@@ -489,7 +482,7 @@ sub f_subtemplates_edit {
 		);
 	
 		$template = $look->load_subtemplate(
-			$fobj->bucket->get("templates/template")
+			$fobj->bucket->get("template")
 		);
 	
 		$class->gholders->register("message","updating content...");
@@ -516,11 +509,11 @@ sub f_qopts {
 
 	# -- load the template, but first the look -- #
 	my $look = $class->load_look(
-		$fobj->bucket->get("templates/look")
+		$fobj->bucket->get("look")
 	);
 
 	my $template = $look->load_template(
-		$fobj->bucket->get("templates/template")
+		$fobj->bucket->get("template")
 	);
 
 	$class->{_}->bail->("Invalid template") if (!$template);
@@ -602,11 +595,11 @@ sub f_qkeys {
 
 	# -- load the template, but first the look -- #
 	my $look = $class->load_look(
-		$fobj->bucket->get("templates/look")
+		$fobj->bucket->get("look")
 	);
 
 	my $template = $look->load_template(
-		$fobj->bucket->get("templates/template")
+		$fobj->bucket->get("template")
 	);
 
 	$class->{_}->bail->("Invalid template") if (!$template);
@@ -823,6 +816,10 @@ sub _walk_glomule {
 sub load_look {
 	my $class = shift;
 	my $id = shift;
+
+	# validate this look
+	$class->{_}->ocontainer->is_valid_look($id)
+		or $class->{_}->bail->("Look not found/improper ownership: $id");
 
 	my $look = $class->{_}->instance->new_object("Look");
 	$look->{id} = $id;

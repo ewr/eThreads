@@ -197,6 +197,21 @@ sub get_default_look {
 
 #----------
 
+sub is_valid_look {
+	my $class = shift;
+	my $id = shift;
+
+	my $looks = $class->get_looks;
+
+	if (my $l = $looks->{ $id }) {
+		return 1;
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
 sub get_looks {
 	my $class = shift;
 
