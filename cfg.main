@@ -37,6 +37,7 @@ glomule_types	=> {
 
 plugins			=> {
 	CountBlogComments	=> "CountBlogComments",
+	RecentComments		=> "RecentComments",
 },
 
 modes		=> {

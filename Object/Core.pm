@@ -57,6 +57,7 @@ use eThreads::Object::Objects;
 
 use eThreads::Object::Plugin;
 use eThreads::Object::Plugin::CountBlogComments;
+use eThreads::Object::Plugin::RecentComments;
 
 use eThreads::Object::QueryOpts;
 use eThreads::Object::QueryOpts::Bucket;
