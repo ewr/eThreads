@@ -57,9 +57,9 @@ sub activate {
 	my ($id,$t,$p,$n);
 	$get->bind_columns( \($id,$t,$p,$n) );
 
-	my $comments = [];
+	my $recent = [];
 	while ($get->fetch) {
-		push @$comments, [ 'comments.' . $id , {
+		push @$recent, [ 'comments.' . $id , {
 			id		=> $id,
 			timestamp	=> $t,
 			parent	=> $p,
@@ -68,8 +68,8 @@ sub activate {
 	}
 
 	$class->{_}->rctx->register(
-		[ 'comments' , [ map { $_->[1]{id} } @$comments ] ],
-		@$comments,
+		[ 'comments' , [ map { $_->[1]{id} } @$recent ] ],
+		@$recent,
 	);
 
 	1;

@@ -3,6 +3,12 @@ package eThreads::Object::Glomule;
 use strict;
 use vars qw();
 
+use eThreads::Object::Glomule::Function;
+use eThreads::Object::Glomule::Pref;
+use eThreads::Object::Glomule::Type::Admin;
+use eThreads::Object::Glomule::Type::Blog;
+use eThreads::Object::Glomule::Type::Comments;
+
 #----------
 
 sub new {

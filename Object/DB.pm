@@ -1,5 +1,6 @@
 package eThreads::Object::DB;
 
+use DBI;
 use strict;
 
 #----------

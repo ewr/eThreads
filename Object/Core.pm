@@ -1,20 +1,14 @@
 package eThreads::Object::Core;
 
-use Data::Dumper;
 use Date::Format;
 use Time::ParseDate;
 use URI::Escape;
 
 use eThreads::Object::Auth;
+use eThreads::Object::Auth::Cookies;
 use eThreads::Object::Auth::Internal;
 
 use eThreads::Object::Cache;
-use eThreads::Object::Cache::Memory;
-use eThreads::Object::Cache::Memory::Instance;
-use eThreads::Object::Cache::MultiServer;
-use eThreads::Object::Cache::SingleServer;
-use eThreads::Object::Cache::Objects;
-use eThreads::Object::Cache::UpdateTimes;
 
 use eThreads::Object::Container;
 
@@ -29,70 +23,31 @@ use eThreads::Object::Domain;
 use eThreads::Object::Format::Markdown;
 
 use eThreads::Object::GHolders;
-use eThreads::Object::GHolders::GHolder;
-use eThreads::Object::GHolders::RegisterContext;
-
 use eThreads::Object::Glomule;
-use eThreads::Object::Glomule::Function;
-use eThreads::Object::Glomule::Pref;
-use eThreads::Object::Glomule::Type::Admin;
-use eThreads::Object::Glomule::Type::Blog;
-use eThreads::Object::Glomule::Type::Comments;
-
 use eThreads::Object::FakeRequestHandler;
-
 use eThreads::Object::Functions;
-use eThreads::Object::Functions::Glomule;
-
 use eThreads::Object::Instance;
-
 use eThreads::Object::LastModifiedTime;
-
 use eThreads::Object::Look;
-
 use eThreads::Object::Messages;
-
 use eThreads::Object::Mode;
-use eThreads::Object::Mode::Admin;
-use eThreads::Object::Mode::Auth;
-use eThreads::Object::Mode::Normal;
-
 use eThreads::Object::Objects;
-
 use eThreads::Object::Plugin;
-use eThreads::Object::Plugin::CountBlogComments;
-use eThreads::Object::Plugin::RecentComments;
-
 use eThreads::Object::QueryOpts;
-use eThreads::Object::QueryOpts::Bucket;
-use eThreads::Object::QueryOpts::QueryOption;
-
 use eThreads::Object::RequestURI;
-
 use eThreads::Object::Switchboard;
-use eThreads::Object::Switchboard::Custom;
 
 use eThreads::Object::System::Ping;
 use eThreads::Object::System::Ping::BaseMethod;
 use eThreads::Object::System::Ping::XMLRPC;
 
 use eThreads::Object::Template;
-use eThreads::Object::Template::Item;
-use eThreads::Object::Template::Subtemplate;
-use eThreads::Object::Template::Walker;
-
 use eThreads::Object::User;
-
 use eThreads::Object::Utils;
 
 use strict;
 
-use Storable;
-#use Date::Format;
-#use Time::ParseDate;
-use CGI;
-use Carp;
-use DBI;
+#----------
 
 sub new {
 	my $class = shift;
@@ -102,7 +57,7 @@ sub new {
 	# -- read in our settings -- #
 
 	{ 
-		my $cfg = "/web/ericrichardson.com/perl/eThreads/cfg.main";
+		my $cfg = "/etc/apache2/perl/eThreads/cfg.main";
 
 		my $s;
 		open(CFG,$cfg) or die "Couldn't open settings: $cfg";
@@ -247,6 +202,12 @@ sub tbl_name {
 
 #----------
 
+sub code {
+	return shift->settings->{response_codes}{ shift };
+}
+
+#----------
+
 sub bail {
 	my $class = shift;
 	my $text = shift;
@@ -349,3 +310,4 @@ should have received in your distribution.
 =cut
 
 1;
+

@@ -35,11 +35,11 @@ sub format {
 
 	my $sum = Digest::MD5::md5_hex($text);
 
-	if (my $ftxt = $class->{_}->memcache->get_raw("markdown",$sum)) {
+	if (my $ftxt = $class->{_}->cache->memory->get_raw("markdown",$sum)) {
 		return $ftxt;
 	} else {
 		my $ftxt = $class->Markdown($text);
-		$class->{_}->memcache->set_raw("markdown",$sum,$ftxt);
+		$class->{_}->cache->memory->set_raw("markdown",$sum,$ftxt);
 		return $ftxt;
 	}
 }

@@ -2,6 +2,9 @@ package eThreads::Object::Plugin;
 
 use strict;
 
+use eThreads::Object::Plugin::CountBlogComments;
+use eThreads::Object::Plugin::RecentComments;
+
 #----------
 
 sub new {
@@ -14,6 +17,21 @@ sub new {
 	} , $class ); 
 
 	return $class;
+}
+
+#----------
+
+sub load {
+	my $class = shift;
+	my $type = shift;
+
+	my $plugin = $class->{_}->settings->{plugins}{ $type };
+
+	return undef if (!$plugin);
+
+	my $pkg = "eThreads::Object::Plugin::$plugin";
+	eval "require $pkg";
+	return $class->{_}->switchboard->new_object('Plugin::'.$plugin,@_);
 }
 
 #----------

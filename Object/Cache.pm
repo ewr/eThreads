@@ -4,6 +4,15 @@ use strict;
 
 use Storable;
 
+use eThreads::Object::Cache::Memory;
+use eThreads::Object::Cache::Memory::Instance;
+use eThreads::Object::Cache::MultiServer;
+#use eThreads::Object::Cache::SingleServer;
+use eThreads::Object::Cache::Objects;
+use eThreads::Object::Cache::UpdateTimes;
+
+#----------
+
 sub new {
 	my $class = shift;
 	my $data = shift;
@@ -40,7 +49,12 @@ sub update_times {
 sub memory {
 	my $class = shift;
 
-	return $class->{_}->memcache;
+	if (!$class->{memcache}) {
+		$class->{memcache}
+			= $class->{_}->switchboard->new_object("Cache::Memory::Instance");
+	}
+
+	return $class->{memcache};
 }
 
 #----------
@@ -101,7 +115,7 @@ sub get {
 	my $class = shift;
 	my %a = @_;
 
-	if ( my $c = $class->{_}->memcache->get(%a) ) {
+	if ( my $c = $class->memory->get(%a) ) {
 		# memcache hit success
 		return $c;
 	} else {
@@ -110,7 +124,7 @@ sub get {
 
 		if ($c) {
 			# and cache to mem
-			$class->{_}->memcache->set(
+			$class->memory->set(
 				%a,
 				ref	=> $c,
 				ts	=> $class->update_times->get(%a)
@@ -164,7 +178,7 @@ sub file_name {
 
 	$a{first} = 0 if (!$a{first} && $a{second});
 
-	my $name = join("." , ($a{tbl},$a{first},$a{second}) );
+	my $name = join('.' , ($a{tbl},$a{first},$a{second}) );
 	$name =~ s/(?:^\.|\.\.|\.$)//g;
 
 	return $name;
@@ -229,13 +243,13 @@ sub get_cached_file {
 	my $class = shift;
 	my $name = shift;
 
-	my $file = $class->{_}->core->settings->{dir}{cache}."/cache.".$name;
+	my $file = $class->{_}->core->settings->{dir}{cache}.'/cache.'.$name;
 
-	if (-e $file) {
-		return $class->retrieve($file);
-	} else {
-		return 0;
-	}
+	return undef if (!-e $file);
+
+	return Storable::retrieve(
+		$file
+	) or $class->{_}->bail->("could not retrieve $file: $!");
 }
 
 #----------
@@ -246,7 +260,7 @@ sub store {
 	$class->{_}->bail->(0,"could not store in $file: $!") unless (
 		Storable::store(
 			$dref,
-			$class->{_}->core->settings->{dir}{cache} . "/cache." . $file
+			$class->{_}->core->settings->{dir}{cache} . '/cache.' . $file
 		)
 	);
 }
@@ -254,10 +268,7 @@ sub store {
 #----------
 
 sub retrieve {
-	my ($class,$file) = @_;
-	return Storable::retrieve($file) or $class->{_}->bail->(
-		0,"could not retrieve $file: $!"
-	);
+	# functionality moved into get_cached_file
 }
 
 #----------

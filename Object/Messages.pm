@@ -22,6 +22,7 @@ sub bail {
 	my $class = shift;
 	my $err = shift;
 
+	warn time . ": $err\n";
 	$class->print("ERROR",$err);
 }
 
@@ -46,13 +47,11 @@ sub print {
 	$msg =~ s!#TEXT#!$text!;
 
 	$class->{_}->ap_request->custom_response(
-		Apache::SERVER_ERROR,
+		$class->{_}->core->code('OK'),
 		$msg
 	);
 
-	my $ts = time;
-
-	die "$ts: $msg\n";
+	exit;
 }
 
 #----------

@@ -1,9 +1,9 @@
-package eThreads::Object::Auth::Internal;
+package eThreads::Object::Auth::Cookies;
 
 @ISA = qw( eThreads::Object::Auth );
 
-use Apache::Access ();
-#use Apache::Const -compile => qw(OK DECLINED HTTP_UNAUTHORIZED);
+use CGI::Cookie;
+use Digest::MD5;
 use strict;
 
 #----------
@@ -24,35 +24,41 @@ sub new {
 
 sub authenticate {
 	my $class = shift;
-	
-	my $r = $class->{_}->ap_request;
 
-	# -- set up our authentication -- #
-
-	$r->auth_type("Basic");
-	$r->auth_name($class->{_}->core->settings->{auth_name});
-
-	# -- try and get user/pass -- #
-
-	my ($status,$password) = $r->get_basic_auth_pw;
-	my $user = $r->user;
-
-	# -- if we get a status (most likely 401), send that to the browser -- #
-
-	if ($status) {
-		return undef;
+	my ($u,$p);
+	my $f = CGI::Cookie->fetch;
+	if ($class->{_}->raw_queryopts->get("cookie_user")) {
+		$u = $class->{_}->raw_queryopts->get("cookie_user");
+		$p = $class->{_}->raw_queryopts->get("cookie_pass");
+	} elsif ($f && $f->{user}) {
+		($u) = CGI::Cookie->fetch->{user} =~ /user=([^;]+);/;
+		($p) = CGI::Cookie->fetch->{pass} =~ /pass=([^;]+);/;
+	} else {
+		# we have nothing
 	}
 
-	# -- now check that the user is valid -- #
+	if (my $obj = $class->is_valid_login($u,$p)) {
+		if ($class->{_}->raw_queryopts->get("cookie_user")) {
+			# set our auth cookies
+			my $c_u = new CGI::Cookie(
+				-name	=> "user",
+				-value	=> $u
+			);
 
-	if (my $u = $class->is_valid_login($user,$password)) {
-		return $u;
+			my $c_p = new CGI::Cookie(
+				-name	=> "pass",
+				-value	=> $p
+			);
+
+			$class->{_}->ap_request->headers_out->set('Set-Cookie' => $c_u);
+			$class->{_}->ap_request->headers_out->set('Set-Cookie' => $c_p);
+		}
+
+		return $obj;
 	} else {
 		return undef;
 	}
-
-	# every possibility returns before this point, so this code will never 
-	# be reached
+	
 	return undef;
 }
 
@@ -61,12 +67,9 @@ sub authenticate {
 sub unauthorized {
 	my $class = shift;
 
-	my $r = $class->{_}->ap_request;
+	$class->{_}->messages->print("CookieLogin","");
 
-	# note that we failed
-	$r->note_basic_auth_failure;
-
-	return $class->{_}->core->code('HTTP_UNAUTHORIZED');
+	exit;
 }
 
 #----------
@@ -79,11 +82,11 @@ sub user {
 
 =head1 NAME
 
-eThreads::Object::Auth::Internal
+eThreads::Object::Auth::External
 
 =head1 SYNOPSIS
 
-	my $auth = $inst->new_object("Auth::Internal");
+	my $auth = $inst->new_object("Auth::External");
 
 	my $user = $auth->authenticate 
 		or return $auth->unauthorized;

@@ -28,7 +28,7 @@ db	=> {
 },
 
 dir		=> {
-	cache		=> "/web/ericrichardson.com/perl/eThreads/cached",
+	cache		=> "/etc/apache2/perl/eThreads/cached",
 },
 
 glomule_types	=> {
@@ -56,7 +56,7 @@ ping_methods	=> {
 },
 
 cache_obj	=> "Cache::MultiServer",
-auth_obj	=> "Auth::Internal",
+auth_obj	=> "Auth::Cookies",
 auth_name	=> "eThreads",
 db_logging	=> 0,
 
@@ -68,6 +68,12 @@ default_domain	=> {
 	id		=> 1,
 	domain	=> "blog.ericrichardson.com",
 	path	=> "/",
+},
+
+response_codes	=> {
+	OK					=> '200',
+	HTTP_UNAUTHORIZED	=> '301',
+	SERVER_ERROR		=> '500',
 },
 
 format_module	=> "Markdown",

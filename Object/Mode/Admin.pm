@@ -120,7 +120,7 @@ sub go {
 	$r->content_type( $class->{_}->content_type->type );
 	$r->print($content);
 
-	return Apache::OK;
+	return $class->{_}->core->code('OK');
 }
 
 #----------

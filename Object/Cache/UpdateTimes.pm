@@ -21,11 +21,10 @@ sub get {
 	my $class = shift;
 	my %a = @_;
 
-	my $times = $class->_get_times;
-
-	my $ts = $times->{ $a{tbl} }{ $a{first} || 0 }{ $a{second} || 0 };
-
-	return $ts;
+	return $class->_get_times
+		->{ $a{tbl} }
+		->{ $a{first} || 0 }
+		->{ $a{second} || 0 };
 }
 
 #----------

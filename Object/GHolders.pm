@@ -2,6 +2,9 @@ package eThreads::Object::GHolders;
 
 use strict;
 
+use eThreads::Object::GHolders::GHolder;
+use eThreads::Object::GHolders::RegisterContext;
+
 #----------
 
 sub new {
@@ -23,7 +26,7 @@ sub new_empty {
 
 	$class = bless ( $data , $class );
 
-	my $t = $class->{_}->instance->new_object("GHolders::GHolder");
+	my $t = $class->{_}->instance->new_object('GHolders::GHolder');
 	$class->{p} = $class->{context} = $t;
 
 	return $class;
@@ -75,16 +78,16 @@ sub gholder_init {
 
 	my $i = $class->{_}->instance;
 
-	my $t = $i->new_object("GHolders::GHolder");
+	my $t = $i->new_object('GHolders::GHolder');
 	$class->{p} = $class->{context} = $t;
 
-	my $raw 	= $i->new_object("GHolders::GHolder","raw",$t);
-	my $foreach = $i->new_object("GHolders::GHolder","foreach",$t);
-	my $if 		= $i->new_object("GHolders::GHolder","if",$t);
-	my $context	= $i->new_object("GHolders::GHolder","context",$t);
-	my $tmplt	= $i->new_object("GHolders::GHolder","template",$t);
-	my $link 	= $i->new_object("GHolders::GHolder","link",$t);
-	my $require	= $i->new_object("GHolders::GHolder","require",$t);
+	my $raw 	= $i->new_object('GHolders::GHolder','raw',$t);
+	my $foreach = $i->new_object('GHolders::GHolder','foreach',$t);
+	my $if 		= $i->new_object('GHolders::GHolder','if',$t);
+	my $context	= $i->new_object('GHolders::GHolder','context',$t);
+	my $tmplt	= $i->new_object('GHolders::GHolder','template',$t);
+	my $link 	= $i->new_object('GHolders::GHolder','link',$t);
+	my $require	= $i->new_object('GHolders::GHolder','require',$t);
 
 	$raw->sub(		sub { return $class->handle_raw(@_) }		);
 	$foreach->sub(	sub { return $class->handle_foreach(@_) }	);
@@ -103,7 +106,7 @@ sub register {
 	my $class = shift;
 
 	my @gholders;
-	if (ref($_[0]) eq "ARRAY") {
+	if (ref($_[0]) eq 'ARRAY') {
 		@gholders = @_;
 	} else {
 		@gholders = ( [ $_[0] , $_[1] ] );
@@ -122,7 +125,7 @@ sub register {
 					$var = $child;
 				} else {
 					$var = $class->{_}->instance->new_object(
-						"GHolders::GHolder",$k,$ref
+						'GHolders::GHolder',$k,$ref
 					);
 				}
 			} else {
@@ -133,18 +136,18 @@ sub register {
 						$parent = $child;
 					} else {
 						$parent = $class->{_}->instance->new_object(
-							"GHolders::GHolder",$l,$parent
+							'GHolders::GHolder',$l,$parent
 						);
 					}
 				}
 
 				$var = $class->{_}->instance->new_object(
-					"GHolders::GHolder",$k,$parent
+					'GHolders::GHolder',$k,$parent
 				);
 			}
 		} else {
 			$var = $class->{_}->instance->new_object(
-				"GHolders::GHolder",$gh->[0],$class->{p}
+				'GHolders::GHolder',$gh->[0],$class->{p}
 			);
 		}
 
@@ -152,12 +155,12 @@ sub register {
 		if ( !ref( $gh->[1] ) ) {
 			# flat value
 			$var->flat($gh->[1]);
-		} elsif (ref($gh->[1]) eq "HASH") {
+		} elsif (ref($gh->[1]) eq 'HASH') {
 			# hash ref...  needs to be cloned into our structure
 			$class->assimilate_hash($var,$gh->[1]);
-		} elsif (ref($gh->[1]) eq "ARRAY") {
+		} elsif (ref($gh->[1]) eq 'ARRAY') {
 			$var->array($gh->[1]);
-		} elsif (ref($gh->[1]) eq "CODE") {
+		} elsif (ref($gh->[1]) eq 'CODE') {
 			$var->sub($gh->[1]);
 		} else {
 			$class->bail(0,"Unsupported gholder value: $gh->[0]/$gh->[1]");
@@ -191,8 +194,8 @@ sub _assimilate_and_return_keys {
 	my ($class,$k,$a,$h) = @_;
 
 	while (my ($e,$v) = each %$h) {
-		my $abs = join(".",($k,$e));
-		if ( ref($v) eq "HASH" ) {
+		my $abs = join('.',($k,$e));
+		if ( ref($v) eq 'HASH' ) {
 			$class->_assimilate_and_return_keys($abs,$a,$v);
 		} else {
 			push @$a, [$abs,$v];
@@ -206,13 +209,13 @@ sub dump {
 	my $class = shift;
 	my $ref = shift;
 
-	if (1) {
-		use Data::Dumper;
+	if (0) {
+#		use Data::Dumper;
 		my $d = Data::Dumper->Dump($ref);
 
 		open(
 			DUMP,
-			">".$class->{_}->core->settings->{dir}{cache}."/gholder_dump"
+			'>'.$class->{_}->core->settings->{dir}{cache}.'/gholder_dump'
 		) or $class->{_}->instance->bail("couldn't dump: $!");
 
 		print DUMP $d;
@@ -225,43 +228,31 @@ sub dump {
 sub exists {
 	my ($class,$h) = @_;
 
-	my ($no_context,$force_context,$named_context);
+	my ($no,$force,$named,$h) = $h =~ m!^(?:(\./)|(/)|\$([^\.]+)\.?)?(.*)$!;
 
-	if ($h =~ s!^/!!) {
-		$no_context = 1;
-	} elsif ($h =~ s!^\./!!) {
-		$force_context = 1;
-	} elsif ($h =~ s!^\$([^\.]+)\.?!!) {
-		# named contextual prefix
-		$named_context = $1;
-		$force_context = 1;
-	} else {
-		# no context given or needed
-	}
-
-	if ($named_context) {
+	if ($named) {
 		# find the context for the given prefix and look only there
-		if ( my $ctx = $class->get_named_ctx($named_context) ) {
-			if ( !$h ) {
-				# they gave us a named context but nothing else
-				# we'll just return that
-				return $ctx;
-			} else {
-				return $class->_exists($h,$ctx);
-			}
+		if ( my $ctx = $class->get_named_ctx($named) ) {
+			# they gave us a named context but nothing else
+			# we'll just return that
+			return $ctx if ( !$h );
+
+			# otherwise look for $h under our context
+			return $class->_exists($h,$ctx);
 		} else {
 			return undef;
 		}
-	} else {
+	} elsif (!$force && !$no) {
 		# try current context, then try root
-
-		if (!$no_context) {
-			my $ref = $class->_exists($h,$class->{context});
-			return $ref if ($ref);
-		}
-
-		# look off the root
+		return 
+			$class->_exists($h,$class->{context})
+			|| $class->_exists($h,$class->{p});
+	} elsif ($force) {
 		return $class->_exists($h,$class->{p});
+	} elsif ($no) {
+		return $class->_exists($h,$class->{context});
+	} else {
+		return undef;
 	} 
 
 	# ummm, everybody returns, so we can't get here.
@@ -282,11 +273,7 @@ sub _exists {
 			}
 		}
 
-		if ($test) {
-			return $ctx;
-		} else {
-			return 0;
-		}
+		return ($test) ? $ctx : undef;
 	} else {
 		return $ctx->has_child($h);
 	}
@@ -300,8 +287,8 @@ sub get_unused_child {
 
 	my $ctx;
 	do {
-		my $key = $class->{_}->utils->random("4");
-		$ctx = $parent . "." . $key;
+		my $key = $class->{_}->utils->random('4');
+		$ctx = $parent . '.' . $key;
 	} until (!$class->exists($ctx));
 
 	return $ctx;
@@ -314,12 +301,12 @@ sub new_named_ctx {
 	my $name = shift;
 	my $ctx = shift;
 
-	if (ref($ctx) eq "CODE") {
+	if (ref($ctx) eq 'CODE') {
 		$class->{named}{ $name } = $ctx;
 		return 1;	
 	}
 
-	my $prefix = ( $ctx =~ m!^(?:\.?/|\$)! ) ? '' : "./";
+	my $prefix = ( $ctx =~ m!^(?:\.?/|\$)! ) ? '' : './';
 
 	if (my $ref = $class->exists($prefix . $ctx)) {
 		$class->{named}{ $name } = $ref;
@@ -358,7 +345,7 @@ sub set_context {
 		return 1;
 	}
 
-	my $prefix = ($context =~ m!^\.?/!) ? '' : "./";
+	my $prefix = ($context =~ m!^\.?/!) ? '' : './';
 
 	if (my $ref = $class->exists($prefix . $context)) {
 		$class->{context} = $ref;
@@ -417,7 +404,7 @@ sub handle_foreach {
 			foreach my $el ( @{ $gh->array } ) {
 				my $new_ctx = 
 						($el =~ m!^/!) 
-							? $el : ( $aname . "." . $el );
+							? $el : ( $aname . '.' . $el );
 
 				if ($i->args->{name}) {
 					$class->new_named_ctx($i->args->{name},$new_ctx);
@@ -449,7 +436,7 @@ sub handle_require {
 	my ($inv) = $level =~ s/^(!)//;
 
 	# if we don't have a user, we can't have any rights
-	if (!$class->{_}->switchboard->knows("user")) {
+	if (!$class->{_}->switchboard->knows('user')) {
 		# if normal, return 0... if inv return 1
 		return ($inv) ? 1 : 0;
 	}
@@ -507,10 +494,10 @@ sub handle_link_qopt {
 	my $opts = shift;
 
 	# only handle qopts
-	return 0 if ($i->type ne "qopt"); 
+	return 0 if ($i->type ne 'qopt'); 
 
 	# make sure we've got an opts hash to throw into
-	return 0 if (ref($opts) ne "HASH");
+	return 0 if (ref($opts) ne 'HASH');
 
 	my $name = $i->args->{name} || $i->args->{DEFAULT};
 	return 0 if (!$name);
@@ -564,7 +551,7 @@ sub handle_template {
 	my $id = $tm->{ $name }{id};
 
 	my $t = $class->{_}->instance->new_object(
-		"Template::Subtemplate",
+		'Template::Subtemplate',
 		%{ $tm->{ $name } }
 	);
 
@@ -590,11 +577,11 @@ sub _handle_unknown {
 
 	my $ret;
 
-	if ($i->type eq "raw") {
+	if ($i->type eq 'raw') {
 		$ret .= $i->content;
 	} else {
 		# start with the tag
-		$ret .= "{" . $i->type . " ";
+		$ret .= '{' . $i->type . ' ';
 	
 		# add our arguments
 		my @args;
@@ -602,17 +589,17 @@ sub _handle_unknown {
 			next if (!$k);
 			push @args, qq($k=>"$v");
 		}
-		$ret .= join(",",@args) . " ";
+		$ret .= join(',',@args) . ' ';
 
 		# opening tag or single?  single if no children
 		if (!@{ $i->children }) {
-			$ret .= "/}";
+			$ret .= '/}';
 		} else {
-			$ret .= "}";
+			$ret .= '}';
 			foreach my $c (@{ $i->children }) {
 				$ret .= $class->_handle_unknown($c);
 			}
-			$ret .= "{/" . $i->type . "}";
+			$ret .= '{/' . $i->type . '}';
 		}
 	}
 
@@ -632,7 +619,7 @@ sub handle {
 		} else {
 			my ($ltype) = $i->type =~ m!^.*\.([^\.]+)$!;
 			# check for a top-level handler
-			if ( my $href = $class->exists( "/".$ltype ) ) {
+			if ( my $href = $class->exists( '/'.$ltype ) ) {
 				if ($href->sub) {
 					return $href->sub->($i,$ref->flat,$_[0]);
 				} else {

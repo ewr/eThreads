@@ -16,6 +16,10 @@ sub new {
 #		"FakeRequestHandler::connection"
 #	);
 
+	$class->{headers_out} = $class->{_}->new_object(
+		"FakeRequestHandler::headers_out"
+	);
+
 	return $class;
 }
 
@@ -25,17 +29,45 @@ sub content_type {
 	my $class = shift;
 	my $type = shift;
 
-	if (!$class->{_ctype}++) {
-		print "Content-type: $type\n\n";
-	}
+	$class->{_ctype} = $type;
+#	if (!$class->{_ctype}++) {
+#		print "Content-type: $type\n\n";
+#	}
 
 	return 1;
 }
 
 #----------
 
+sub custom_response {
+	my $class = shift;
+	my $status = shift;
+	my $err = shift;
+
+	if (!$class->{_ctype}) {
+		$class->{_ctype} = "text/html";
+	}
+
+	$class->print($err);
+
+#	warn "error: $err\n";
+}
+
+#----------
+
 sub print {
-	print $_[1];
+	my $class = shift;
+
+	if (!$class->{_status}++) {
+		print "Content-type: " . ( $class->{_ctype} || "text/html" ) . "\n";
+		foreach my $h (@{$class->headers_out->get}) {
+			print $h . "\n";
+		}
+
+		print "\n";
+	}
+
+	print @_;
 }
 
 #----------
@@ -46,17 +78,42 @@ sub set_last_modified {
 
 #----------
 
-package eThreads::Object::FakeRequestHandler::connection;
+sub headers_out {
+	return shift->{headers_out};
+}
+
+#----------
+
+package eThreads::Object::FakeRequestHandler::headers_out;
 
 sub new {
 	my $class = shift;
 	my $data = shift;
 
 	$class = bless ( {
+		headers	=> [],
 		_		=> $data,
 	} , $class ); 
 
 	return $class;
+}
+
+#----------
+
+sub set {
+	my $class = shift;
+
+	push @{ $class->{headers} } , "$_[0]: $_[1]";
+
+	return 1;
+}
+
+#----------
+
+sub get {
+	my $class = shift;
+
+	return $class->{headers};
 }
 
 #----------
