@@ -61,8 +61,10 @@ db_logging	=> 0,
 
 d_path		=> "",
 
+virtual_root	=> 1,
+
 default_domain	=> {
-	id		=> 0,
+	id		=> 2,
 	domain	=> "blog.ericrichardson.com",
 	path	=> "/",
 },

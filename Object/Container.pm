@@ -183,7 +183,7 @@ sub get_default_look {
 
 	my $looks = $class->get_looks;
 
-	$class->bail("Container has no default look") 
+	$class->{_}->bail->("Container has no default look") 
 		if (!$looks->{DEFAULT});
 
 	my $l = $class->{_}->instance->new_object(

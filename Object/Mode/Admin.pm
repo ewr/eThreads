@@ -132,11 +132,9 @@ sub load_admin_container {
 	my $c = $class->{_}->instance->new_object("Container");
 
 	# load the container cache...  
-	my $gh = $class->{_}->cache->get(tbl=>"containers");
-
-	if (!$gh) {
-		$gh = $class->{_}->instance->cache_containers();
-	}
+	my $gh = $class->{_}->instance->load_containers(
+		$class->{_}->settings->{default_domain}{id}
+	);
 
 	$c->{id} = $gh->{".ADMIN"} 
 		or $class->{_}->bail->("Admin Container not found.");

@@ -175,14 +175,15 @@ sub load_domains {
 
 sub load_containers {
 	my $class = shift;
+	my $id = shift || $class->{_}->domain->id;
 
 	my $c = $class->{_}->cache->get(
 		tbl		=> "containers",
-		first	=> $class->{_}->domain->id
+		first	=> $id,
 	);
 
 	if (!$c) {
-		$c = $class->{_}->instance->cache_containers();
+		$c = $class->{_}->instance->cache_containers($id);
 	}
 
 	return $c;
@@ -439,6 +440,10 @@ sub cache_domains {
 		$domains->{id}{$id} = $domains->{d}{$d} = $h;
 	}
 
+	$class->{_}->cache->set(
+		tbl		=> "domains",
+	);
+
 	return $domains;
 }
 
@@ -446,6 +451,7 @@ sub cache_domains {
 
 sub cache_containers {
 	my $class = shift;
+	my $domain = shift;
 
 	my $db = $class->{_}->core->get_dbh;
 
@@ -459,7 +465,7 @@ sub cache_containers {
 	");
 
 	$class->{_}->bail("cache_glomule_hash error: ".$db->errstr) 
-		unless ($get_glomules->execute( $class->{_}->domain->id ));
+		unless ($get_glomules->execute( $domain ));
 
 	my ($id,$name);
 	$get_glomules->bind_columns(\$id,\$name);
@@ -471,7 +477,7 @@ sub cache_containers {
 
 	$class->{_}->cache->set(
 		tbl		=> "containers",
-		first	=> $class->{_}->domain->id,
+		first	=> $domain,
 		ref		=> $g,
 	);
 
