@@ -39,6 +39,8 @@ use eThreads::Object::Glomule::Type::Admin;
 use eThreads::Object::Glomule::Type::Blog;
 use eThreads::Object::Glomule::Type::Comments;
 
+use eThreads::Object::FakeRequestHandler;
+
 use eThreads::Object::Functions;
 use eThreads::Object::Functions::Glomule;
 
@@ -159,6 +161,30 @@ sub new_object {
 	my $obj = $module->new($class,@_);
 
 	return $obj;
+}
+
+#----------
+
+sub cgi_enable {
+	my $class = shift;
+
+	return 1;
+}
+
+#----------
+
+sub cgi_r_handler {
+	my $class = shift;
+
+	if (my $r = $class->{_cgi_r_handler}) {
+		return $r;
+	} else {
+		my $r = $class->{_cgi_r_handler} = $class->new_object(
+			"FakeRequestHandler"
+		);
+
+		return $r;
+	}
 }
 
 #----------
