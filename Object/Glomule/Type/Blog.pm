@@ -366,7 +366,7 @@ sub f_management {
 			push @o, $p->{id};
 		}
 
-		$class->gholders->register(["postponed",\@o]);
+		$class->gholders->register(["postponed",\@o]) if (@o);
 	}
 }
 

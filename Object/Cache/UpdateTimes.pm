@@ -70,21 +70,31 @@ sub _get_times {
 
 	my $data = $class->{_}->core->memcache->get("update_time");
 
-	if ($data && ( ($data->{u}+5) >= time ) ) {
+	# if we've got cached times, we want to check their timestamp once 
+	# per instance.  We'll do that by setting $class->{_checked}
+
+	if ($data && $class->{_checked} ) {
 		# we have the table and we've checked it in the last 5 secs
 		return $data->{r};
 	} elsif ($data) {
 		# we have the table, but we need to check its time
 		my $ts = $class->_get_table_ts;
 
-		if ($data->{u} > $ts) {
+		if ($data->{u} >= $ts) {
 			# we're current
+			$class->{_checked} = 1;
+			
 			return $data->{r};
 		} else {
 			return $class->_load_times;
 		}
 	} else {
 		# we don't have the table
+
+		# we'll consider loading the times from db to be the same as 
+		# checking the ts
+		$class->{_checked} = 2;
+		
 		return $class->_load_times;
 	}
 
@@ -137,7 +147,11 @@ sub _load_times {
 	}
 
 	# -- now throw this into the memcache -- #
-	$class->{_}->core->memcache->set("update_time",$times);
+	$class->{_}->core->memcache->set(
+		"update_time",
+		$times,
+		$times->{update_time}{0}{0}
+	);
 
 	return $times;
 }

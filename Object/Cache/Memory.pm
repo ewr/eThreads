@@ -30,12 +30,12 @@ sub set {
 	my $class = shift;
 	my $name = shift;
 	my $ref = shift;
-	my $ts = shift;
+	my $ts = shift || time;
 
 	# if they're caching it, it's current as of right now.  so we'll use 
 	# now as our updated time
 
-	$class->{cache}->set($name, { u => time , r => $ref } );
+	$class->{cache}->set($name, { u => $ts , r => $ref } );
 }
 
 #----------
