@@ -49,7 +49,7 @@ sub local {
 sub ping {
 	my $class = shift;
 
-	$class->{_}->core->bail("Cannot ping directly on base ping object");
+	$class->{_}->bail->("Cannot ping directly on base ping object");
 }
 
 #----------

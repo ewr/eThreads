@@ -26,7 +26,7 @@ sub register {
 	if ( ref($obj) ) {
 		push @{$class->{o}} , $obj;
 	} else {
-		$class->{_}->core->bail("Invalid object register: $obj\t".ref($obj));
+		$class->{_}->bail->("Invalid object register: $obj\t".ref($obj));
 	}
 }
 

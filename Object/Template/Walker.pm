@@ -35,7 +35,7 @@ sub register {
 		if (ref($gh->[1]) eq "CODE") {
 			$class->{registers}{ $gh->[0] } = $gh->[1];
 		} else {
-			$class->{_}->core->bail("Walker Must be Coderef");
+			$class->{_}->bail->("Walker Must be Coderef");
 		}
 	}
 }

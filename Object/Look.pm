@@ -156,7 +156,7 @@ sub determine_template {
 	# -- make sure we have that template -- #
 
 	if (!$tm->{$tpath}) {
-		$class->{_}->core->bail("No template found for $tpath.");
+		$class->{_}->bail->("No template found for $tpath.");
 	}
 
 	# -- load a template object -- #

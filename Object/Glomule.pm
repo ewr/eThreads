@@ -38,7 +38,7 @@ sub load_info {
 		if (my $r = $gh->{name}{$class->{_}->container->id}{$class->{name}}) {
 			$ghobj = $r;
 		} else {
-			$class->{_}->core->bail("Invalid Glomule: $class->{name}");
+			$class->{_}->bail->("Invalid Glomule: $class->{name}");
 		}
 	}
 
@@ -63,6 +63,33 @@ sub load_info {
 			$class->{$k} = $v;
 		}
 	}
+
+	return 1;
+}
+
+#----------
+
+sub register_data {
+	my $class = shift;
+	my $name = shift;
+	my $value = shift;
+
+	$class->{_}->core->set_value(
+		tbl		=> "glomule_data",
+		keys	=> {
+			ident	=> "ident",
+			id		=> $class->id,
+		},
+		value	=> $value,
+	);
+
+	$class->{_}->cache->update_times->set(
+		tbl		=> "glomule_data",
+		first	=> $class->id,
+		ts		=> time,
+	);
+
+	$class->{ $name } = $value;
 
 	return 1;
 }
@@ -230,7 +257,7 @@ sub get_from_glomheaders {
 	");
 
 	$get->execute(@_) 
-		or $class->{_}->core->bail("get_from_gh failed: " . $get->errstr);
+		or $class->{_}->bail->("get_from_gh failed: " . $get->errstr);
 
 	my ($id,$tit,$tim,$p,$s,$u);
 	$get->bind_columns( \($id,$tit,$tim,$p,$s,$u) );
@@ -276,7 +303,7 @@ sub flesh_out_post {
 	# fill in and check header fields
 	foreach my $f (@{$class->header_fields}) {
 		if ($f->{require} && !$post->{ $f->{name} }) {
-			$class->{_}->core->bail("missing required field: $f->{name}");
+			$class->{_}->bail->("missing required field: $f->{name}");
 		}
 
 		if (!$post->{ $f->{name} }) {
@@ -309,7 +336,7 @@ sub delete {
 	");
 
 	$delh->execute($id)
-		or $class->{_}->core->bail("delete headers failed: ".$delh->errstr);
+		or $class->{_}->bail->("delete headers failed: ".$delh->errstr);
 
 	# delete from data
 	my $deld = $class->{_}->core->get_dbh->prepare("
@@ -320,7 +347,7 @@ sub delete {
 	");
 
 	$deld->execute($id)
-		or $class->{_}->core->bail("delete data failed: ".$deld->errstr);
+		or $class->{_}->bail->("delete data failed: ".$deld->errstr);
 
 	return 1;
 }

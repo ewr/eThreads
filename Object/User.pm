@@ -21,7 +21,7 @@ sub new {
 	} , $class );
 
 	if (!$class->{id}) {
-		$class->{_}->core->bail("No id given to User module");
+		$class->{_}->bail->("No id given to User module");
 	}
 
 	$class->_validate_user;
@@ -59,7 +59,7 @@ sub _validate_user {
 	my $ref = $headers->{id}{ $class->id };
 
 	if (!$ref) {
-		$class->{_}->core->bail("Invalid id given to User");
+		$class->{_}->bail->("Invalid id given to User");
 	}
 
 	$class->{username} = $ref->{username};
@@ -98,7 +98,7 @@ sub get_user_info {
 	my $class = shift;
 
 	if (!$class->{id}) {
-		$class->{_}->core->bail("Can't get user info with no id.");
+		$class->{_}->bail->("Can't get user info with no id.");
 	}
 
 	my $user = $class->{_}->core->g_load_tbl(

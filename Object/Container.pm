@@ -50,7 +50,7 @@ sub name {
 	return $class->{name} if ($class->{name});
 
 	if (!$class->{id}) {
-		$class->{_}->core->bail("Can't get container name without id");
+		$class->{_}->bail->("Can't get container name without id");
 	}
 
 	my $db = $class->{_}->core->get_dbh;
@@ -79,7 +79,7 @@ sub id {
 	return $class->{id} if ($class->{id});
 
 	if (!$class->{name}) {
-		$class->{_}->core->bail("Can't get container id without name");
+		$class->{_}->bail->("Can't get container id without name");
 	}
 
 	my $get = $class->{_}{db}->prepare("

@@ -114,7 +114,7 @@ sub walk_glomule {
 	if ( my $ref = $g->is_function( $i->args->{function} ) ) {
 		$ref->activate->execute( $i->args );
 	} else {
-		$class->{_}->core->bail(
+		$class->{_}->bail->(
 			"Unknown glomule function: "
 			. $glomule
 			. "/"

@@ -112,7 +112,7 @@ sub set {
 sub toggle {
 	my $class = shift;
 
-	$class->{_}->core->bail(
+	$class->{_}->bail->(
 		"Tried to toggle untogglable query_opt: $class->{class}/$class->{name}"
 	) unless ($class->{toggle});
 

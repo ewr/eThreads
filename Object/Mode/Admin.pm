@@ -66,7 +66,7 @@ sub go {
 	# now check if they have rights
 
 	if (!$user->has_rights("admin")) {
-		$class->{_}->core->bail("Insufficient rights");
+		$class->{_}->bail->("Insufficient rights");
 	}
 
 	# if we made it this far, we're ok to be here and we can go ahead 
@@ -99,7 +99,7 @@ sub go {
 	if ( my $ref = $g->is_function( $class->{_}->template->path ) ) {
 		$ref->activate->execute();
 	} else {
-		$class->{_}->core->bail(
+		$class->{_}->bail->(
 			"Unknown admin glomule function: "
 			. $class->{_}->template->path
 		);
@@ -137,7 +137,7 @@ sub load_admin_container {
 	}
 
 	$c->{id} = $gh->{".ADMIN"} 
-		or $class->{_}->core->bail("Admin Container not found.");
+		or $class->{_}->bail->("Admin Container not found.");
 
 	return $c;
 }

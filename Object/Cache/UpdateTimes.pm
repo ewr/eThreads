@@ -58,7 +58,6 @@ sub set {
 		value		=> time
 	);
 
-
 	$class->_load_times;
 
 	return 1;
@@ -107,7 +106,7 @@ sub _get_table_ts {
 	");
 
 	$get->execute 
-		or $class->{_}->core->bail("get_table_ts failure: ".$get->errstr);
+		or $class->{_}->bail->("get_table_ts failure: ".$get->errstr);
 
 	my ($ts) = $get->fetchrow_array;
 
@@ -127,7 +126,7 @@ sub _load_times {
 	");
 
 	$get->execute() 
-		or $class->{_}->core->bail("_load_times failure: ".$get->errstr);
+		or $class->{_}->bail->("_load_times failure: ".$get->errstr);
 
 	my ($tbl,$f,$s,$ts);
 	$get->bind_columns( \($tbl,$f,$s,$ts) );

@@ -85,7 +85,7 @@ sub get_max_update_ts {
 			$ktree
 	");
 
-	$class->{_}->core->bail(0,"get_max_update_ts failure: ".$db->errstr) 
+	$class->{_}->bail->(0,"get_max_update_ts failure: ".$db->errstr) 
 		if (!$get_max->execute($a{tbl}));
 
 	my $ts;
@@ -207,7 +207,7 @@ sub write_cache_file {
 sub delete_cache_file {
 	my ($class,$name) = @_;
 
-	$class->{_}->core->bail(
+	$class->{_}->bail->(
 		"delete_cache_file: Improper characters in file name: $name"
 	) if ($name !~ m!^[\w\d\.]+$!);
 
@@ -238,7 +238,7 @@ sub get_cached_file {
 sub store {
 	my ($class,$file,$dref) = @_;
 
-	$class->{_}->core->bail(0,"could not store in $file: $!") unless (
+	$class->{_}->bail->(0,"could not store in $file: $!") unless (
 		Storable::store(
 			$dref,
 			$class->{_}->core->settings->{dir}{cache} . "/cache." . $file
@@ -250,7 +250,7 @@ sub store {
 
 sub retrieve {
 	my ($class,$file) = @_;
-	return Storable::retrieve($file) or $class->bail(
+	return Storable::retrieve($file) or $class->{_}->bail->(
 		0,"could not retrieve $file: $!"
 	);
 }

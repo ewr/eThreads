@@ -5,7 +5,7 @@ use vars qw( $core );
 
 use Apache::RequestRec ();
 use Apache::RequestIO ();
-use Apache::Const -compile => qw(OK DECLINED HTTP_UNAUTHORIZED);
+use Apache::Const -compile => qw(OK DECLINED HTTP_UNAUTHORIZED SERVER_ERROR);
 use ModPerl::Util;
 
 use eThreads::Object::Core;

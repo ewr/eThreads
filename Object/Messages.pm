@@ -18,12 +18,41 @@ sub new {
 
 #----------
 
+sub bail {
+	my $class = shift;
+	my $err = shift;
+
+	$class->print("ERROR",$err);
+}
+
+#----------
+
 sub print {
 	my $class = shift;
+	my $name = shift;
+	my $text = shift;
 
-	my $msgs = $class->{messages} || $class->load_messages;
+	# prevent recursion
+	if ($class->{STATUS}) {
+		die "recursion in message print.";
+	} else {
+		$class->{STATUS} = 1;
+	}
 
+	my $msgs = $class->load_messages;
 
+	my $msg = $msgs->{ $name } || $msgs->{ERROR};
+
+	$msg =~ s!#TEXT#!$text!;
+
+	$class->{_}->ap_request->custom_response(
+		Apache::SERVER_ERROR,
+		$msg
+	);
+
+	my $ts = time;
+
+	die "$ts: $msg\n";
 }
 
 #----------
@@ -31,8 +60,39 @@ sub print {
 sub load_messages {
 	my $class = shift;
 
-	
+	my $msgs = $class->{_}->cache->get(tbl=>"messages");
 
+	if (!$msgs) {
+		$msgs = $class->cache_messages;
+	}
+
+	return $msgs;
+}
+
+#----------
+
+sub cache_messages {
+	my $class = shift;
+
+	my $get = $class->{_}->core->get_dbh->prepare("
+		select 
+			ident,value
+		from 
+			" . $class->{_}->core->tbl_name("messages") . "
+	");
+
+	$get->execute() 
+		or die "error in cache_messages: " . $get->errstr . "\n";
+
+	my ($ident,$value);
+	$get->bind_columns( \($ident,$value) );
+
+	my $msgs = {};
+	while ($get->fetch) {
+		$msgs->{ $ident } = $value;
+	}
+
+	return $msgs;
 }
 
 #----------

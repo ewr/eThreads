@@ -507,7 +507,7 @@ sub load_and_format_post {
 	my $id = shift;
 
 	if (!$id) {
-		$class->{_}->core->bail("You must provide an ID");
+		$class->{_}->bail->("You must provide an ID");
 	}
 
 	my $post = $class->get_post_information($id);
@@ -652,7 +652,7 @@ sub post {
 		");
 
 		$update->execute(@hvalues,$post->{id}) 
-			or $class->{_}->core->bail("update post failure: " . $db->errstr);
+			or $class->{_}->bail->("update post failure: " . $db->errstr);
 	} else {
 		# insert 
 
@@ -664,7 +664,7 @@ sub post {
 		");
 
 		$insert->execute(@hvalues) 
-			or $class->{_}->core->bail("insert post failed: " . $db->errstr);
+			or $class->{_}->bail->("insert post failed: " . $db->errstr);
 
 		# FIXME - this is a MySQL specific hack
 		$post->{id} = $db->{'mysql_insertid'};
@@ -717,7 +717,7 @@ sub get_post_information {
 	# -- bail if we didn't get anything -- #
 	
 	if (!$p->{id}) {
-		$class->{_}->core->bail(
+		$class->{_}->bail->(
 			"get_post_information: Post does not exist: $id"
 		);
 	}
@@ -807,7 +807,7 @@ sub get_data_by_parent {
 	");
 
 	$count->execute($a{parent}) 
-		or $class->{_}->core->bail("count posts failed: ".$db->errstr);
+		or $class->{_}->bail->("count posts failed: ".$db->errstr);
 
 	my $num_posts = $count->fetchrow_array;
 
@@ -1023,6 +1023,7 @@ sub qopts_view {
 		allowed	=> '\d+',
 		d_value	=> '',
 		desc	=> "Post ID",
+		persist	=> 1,
 	},
 
 	];
@@ -1296,6 +1297,8 @@ sub fields {
 		},
 	];
 }
+
+#----------
 
 #----------
 

@@ -145,7 +145,7 @@ sub cache_qkeys {
 	");
 
 	$get->execute( $class->id ) or
-		$class->{_}->core->bail("cache_qkeys failure: ".$db->errstr);
+		$class->{_}->bail->("cache_qkeys failure: ".$db->errstr);
 
 	my ($n);
 	$get->bind_columns( \($n) );
@@ -183,7 +183,7 @@ sub cache_qopts {
 	");
 
 	$get->execute( $class->id ) or
-		$class->{_}->core->bail("cache_qopts failure: ".$db->errstr);
+		$class->{_}->bail->("cache_qopts failure: ".$db->errstr);
 
 	my ($g,$o,$n);
 	$get->bind_columns( \($g,$o,$n) );

@@ -45,6 +45,11 @@ sub new {
 	);
 	$swb->register("cache",$class->{cache});
 
+	# register our bail object
+	$swb->register("bail",sub {
+		sub { $class->new_object("Messages")->bail(@_); }
+	});
+
 	# register memory cache
 	$swb->register("memcache",sub {
 		$class->new_object("Cache::Memory::Instance");
@@ -153,7 +158,7 @@ sub check_rights_for_glomule {
 	if (1) {
 		return 1;
 	} else {
-		$class->bail(
+		$class->{_}->bail->(
 			"Cannot instantiate this glomule here.  Insufficient rights."
 		);
 	}
@@ -327,7 +332,7 @@ sub cache_looks {
 			" . $class->{_}->core->tbl_name("looks") . "
 	");
 
-	$class->bail("cache_looks failure: ".$db->errstr) 
+	$class->{_}->bail->("cache_looks failure: ".$db->errstr) 
 		unless ($get_looks->execute);
 
 	my ($id,$n,$c,$d);
@@ -370,7 +375,7 @@ sub cache_glomule_headers {
 	");
 
 	$get_h->execute() 
-		or $class->{_}->core->bail(
+		or $class->{_}->bail->(
 			"cache_glomule_headers failure: ".$db->errstr
 		);
 

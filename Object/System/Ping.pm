@@ -61,7 +61,7 @@ sub cache_pings {
 	");
 
 	$get->execute( $class->{_}->container->id ) 
-		or $class->{_}->core->bail("cache pings failure: ".$get->errstr);
+		or $class->{_}->bail->("cache pings failure: ".$get->errstr);
 
 	my ($id,$m,$u,$f,$t,$l);
 	$get->bind_columns( \($id,$m,$u,$f,$t,$l) );

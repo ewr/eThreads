@@ -60,6 +60,8 @@ use eThreads::Object::RequestURI;
 use eThreads::Object::Switchboard;
 use eThreads::Object::Switchboard::Custom;
 
+use eThreads::Object::System::Comments;
+
 use eThreads::Object::System::Ping;
 use eThreads::Object::System::Ping::BaseMethod;
 use eThreads::Object::System::Ping::XMLRPC;
@@ -344,10 +346,12 @@ sub tbl_name {
 
 sub bail {
 	my $class = shift;
+	my $text = shift;
 
-	
+	# ugh, bail called while we're still registered...  that means we're 
+	# just dying
 
-	die "bail: @_\n";
+	die "core bail: $text\n";
 }
 
 #----------

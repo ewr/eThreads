@@ -158,7 +158,7 @@ sub f_looks {
 			# now we need to re-retrieve the looks so we get the new default
 			$looks = $class->{_}->ocontainer->get_looks;
 		} else {
-			$class->{_}->core->bail("Attempted to make invalid look default.");
+			$class->{_}->bail->("Attempted to make invalid look default.");
 		}
 	}
 
@@ -293,16 +293,16 @@ sub f_templates_new {
 		my $content = $fobj->bucket->get("content");
 		
 		# check if path is valid
-		$class->{_}->core->bail("Invalid Path: $path") 
+		$class->{_}->bail->("Invalid Path: $path") 
 			if ($path !~ m!^[\w/]+$!);
 
 		# make sure path doesn't already exist
 		my $tm = $look->get_templates;
-		$class->{_}->core->bail("Path already exists: $path") 
+		$class->{_}->bail->("Path already exists: $path") 
 			if ($tm->{ $path });
 
 		# make sure content type is valid
-		$class->{_}->core->bail("Invalid content type: $type") 
+		$class->{_}->bail->("Invalid content type: $type") 
 			if (!$class->{_}->settings->{content_types}{ $type });
 
 		# now create the new template
@@ -314,7 +314,7 @@ sub f_templates_new {
 		");
 
 		$insert->execute($look->id,$path,$type,$content) 
-			or $class->{_}->core->bail("new template failed: ".$db->errstr);
+			or $class->{_}->bail->("new template failed: ".$db->errstr);
 
 		# FIXME - This should be a better interface
 		my $id = $class->{_}->core->{db}->get_message_id();
@@ -359,7 +359,7 @@ sub f_templates_edit {
 		$fobj->bucket->get("templates/template")
 	);
 
-	$class->{_}->core->bail("Invalid template") if (!$template);
+	$class->{_}->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
 		$class->{_}->core->set_value(
@@ -413,12 +413,12 @@ sub f_subtemplates_new {
 		my $content = $fobj->bucket->get("content");
 		
 		# check if path is valid
-		$class->{_}->core->bail("Invalid Path: $path") 
+		$class->{_}->bail->("Invalid Path: $path") 
 			if ($path !~ m!^[\w/]+$!);
 
 		# make sure path doesn't already exist
 		my $tm = $look->get_subtemplates;
-		$class->{_}->core->bail("Path already exists: $path") 
+		$class->{_}->bail->("Path already exists: $path") 
 			if ($tm->{ $path });
 
 		# now create the new template
@@ -430,7 +430,7 @@ sub f_subtemplates_new {
 		");
 
 		$insert->execute($look->id,$path,$content) 
-			or $class->{_}->core->bail("new template failed: ".$db->errstr);
+			or $class->{_}->bail->("new template failed: ".$db->errstr);
 
 		# FIXME - This should be a better interface
 		my $id = $class->{_}->core->{db}->get_message_id();
@@ -462,7 +462,7 @@ sub f_subtemplates_edit {
 		$fobj->bucket->get("templates/template")
 	);
 
-	$class->{_}->core->bail("Invalid template") if (!$template);
+	$class->{_}->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
 		$class->{_}->core->set_value(
@@ -504,7 +504,7 @@ sub f_qopts {
 		$fobj->bucket->get("templates/template")
 	);
 
-	$class->{_}->core->bail("Invalid template") if (!$template);
+	$class->{_}->bail->("Invalid template") if (!$template);
 
 	# now what we need is to know what glomules and functions are referenced 
 	# in the template, so that we can come up with a list of all qopts the 
@@ -590,7 +590,7 @@ sub f_qkeys {
 		$fobj->bucket->get("templates/template")
 	);
 
-	$class->{_}->core->bail("Invalid template") if (!$template);
+	$class->{_}->bail->("Invalid template") if (!$template);
 
 	# we need a list of names mapped to qopts so that we know what 
 	# names to allow qkeys to be pointed to.  qkey -> name -> qopt.
@@ -608,7 +608,7 @@ sub f_qkeys {
 		");
 
 		$get_names->execute($template->id)
-			or $class->{_}->core->bail("get_names failed: ".$get_names->errstr);
+			or $class->{_}->bail->("get_names failed: ".$get_names->errstr);
 
 		my $name;
 		$get_names->bind_columns(\$name);
@@ -628,7 +628,7 @@ sub f_qkeys {
 
 		# make sure this is a legal name
 		if (!$names->{ $name }) {
-			$class->{_}->core->bail("Invalid qkey name: $name");
+			$class->{_}->bail->("Invalid qkey name: $name");
 		}
 	
 		# we need to know what position to make this
@@ -652,7 +652,7 @@ sub f_qkeys {
 
 			# make sure this is a legal name
 			if (!$names->{ $name }) {
-				$class->{_}->core->bail("Invalid qkey name: $name");
+				$class->{_}->bail->("Invalid qkey name: $name");
 			}
 
 			$class->{_}->core->set_value(
@@ -789,7 +789,7 @@ sub _walk_glomule {
 			$qopts->{ $g->id }{ $q->{opt} } = 1;
 		}
 	} else {
-		$class->{_}->core->bail(
+		$class->{_}->bail->(
 			"Unknown glomule function: "
 			. $glomule
 			. "/"
