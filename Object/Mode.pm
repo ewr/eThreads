@@ -97,7 +97,7 @@ sub walk_glomule {
 	my $objname = $class->{_}->core->get_object_for_type($type);
 
 	if (!$objname) {
-		$class->{_}->bail("Couldn't find object name for $type");
+		$class->{_}->bail->("Couldn't find object name for $type");
 	}
 
 	my $rctx = $class->{_}->instance->new_object(

@@ -232,7 +232,6 @@ sub exists {
 
 	if ($named_context) {
 		# find the context for the given prefix and look only there
-
 		if ( my $ctx = $class->{named}{$named_context} ) {
 			return $class->_exists($h,$ctx);
 		} else {
@@ -246,9 +245,8 @@ sub exists {
 			return $ref if ($ref);
 		}
 
-		if (!$force_context && ( $class->{context} ne $class->{p}) ) {
-			return $class->_exists($h,$class->{p});
-		}
+		# look off the root
+		return $class->_exists($h,$class->{p});
 	} 
 
 	# ummm, everybody returns, so we can't get here.
@@ -287,7 +285,7 @@ sub new_named_ctx {
 		return 1;	
 	}
 
-	my $prefix = ($ctx =~ m!^(?:\.?/|\$)!) ? '' : "./";
+	my $prefix = ( $ctx =~ m!^(?:\.?/|\$)! ) ? '' : "./";
 
 	if (my $ref = $class->exists($prefix . $ctx)) {
 		$class->{named}{ $name } = $ref;
@@ -474,11 +472,8 @@ sub handle_link_qopt {
 	my $name = $i->args->{name} || $i->args->{DEFAULT};
 	return 0 if (!$name);
 
-	#warn "handle link qopt $name\n";
-
 	my $v;
 	$class->{_}->gholders->handle_template_tree($i,$v);
-	#warn "value: $v\n";
 
 	$opts->{$name} = $v;
 }

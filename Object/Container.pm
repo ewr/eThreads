@@ -100,6 +100,84 @@ sub id {
 
 #----------
 
+sub data {
+	my $class = shift;
+
+	if (!$class->{data}) {
+		$class->{data} = $class->load_data;
+	}
+
+	return $class->{data};
+}
+
+#----------
+
+sub register_data {
+	my $class = shift;
+	my $name = shift;
+	my $value = shift;
+
+	$class->{_}->utils->set_value(
+		tbl		=> "container_data",
+		keys	=> {
+			ident	=> "comments",
+			id		=> $class->id,
+		},
+		value	=> $value,
+	);
+
+	$class->{_}->cache->update_times->set(
+		tbl		=> "container_data",
+		first	=> $class->id,
+		ts		=> time,
+	);
+
+	$class->{ $name } = $value;
+
+	return 1;
+}
+
+#----------
+
+sub load_data {
+	my $class = shift;
+
+	my $data = $class->{_}->cache->get(
+		tbl 	=> "container_data",
+		first	=> $class->id
+	);
+
+	if (!$data) {
+		$data = $class->cache_data;
+	}
+
+	return $data;
+}
+
+#----------
+
+sub cache_data {
+	my $class = shift;
+
+	my $data = $class->{_}->utils->g_load_tbl(
+		tbl		=> $class->{_}->core->tbl_name("container_data"),
+		ident	=> "id",
+		ids		=> [ $class->id ],
+		flat	=> 1,
+	);
+
+	$class->{_}->cache->set(
+		tbl		=> "container_data",
+		first	=> $class->id,
+		ts		=> time,
+		ref		=> $data
+	);
+
+	return $data;
+}
+
+#----------
+
 sub get_default_look {
 	my $class = shift;
 

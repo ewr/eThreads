@@ -18,6 +18,14 @@ sub new {
 		id		=> undef,
 	} , $class);
 
+	# create our custom switchboard
+	my $custom = $class->{_}->switchboard->custom;
+	$custom->reroute_calls_for($class);
+
+	# -- register ourselves -- #
+
+	$custom->register("glomule",$class);
+
 	$class->load_info;
 
 	return $class;
@@ -33,12 +41,6 @@ sub DESTROY {
 
 sub activate {
 	my $class = shift;
-
-	# create our custom switchboard
-
-	my $custom = $class->{_}->switchboard->custom;
-	$custom->reroute_calls_for($class);
-	$custom->register("switchboard",$custom);
 
 	# -- register our functions -- #
 	$class->activate_functions;
@@ -1220,15 +1222,6 @@ sub _prefs {return [
 		allowed		=> '[10]',
 		descript	=> qq(
 			Put Previous/Next links in the button bar.
-		),
-		select		=> [["Yes","1"],["No","0"]],
-	},
-	{
-		name		=> "comments",
-		d_value		=> "1",
-		allowed		=> '[10]',
-		descript	=> qq(
-			Allow readers to comment on your posts.
 		),
 		select		=> [["Yes","1"],["No","0"]],
 	},

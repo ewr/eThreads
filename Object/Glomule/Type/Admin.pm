@@ -17,6 +17,15 @@ sub new {
 		id		=> undef,
 	} , $class);
 
+	# create our custom switchboard
+
+	my $custom = $class->{_}->switchboard->custom;
+	$custom->reroute_calls_for($class);
+
+	# -- register ourselves -- #
+
+	$custom->register("glomule",$class);
+
 	$class->load_info;
 
 	return $class;
@@ -486,7 +495,17 @@ sub f_subtemplates_edit {
 		$class->gholders->register("message","updating content...");
 	}
 
-	$class->gholders->register("template",$template->cachable);
+	my $safe_data = {};
+	my $data = $template->cachable;
+	while ( my ($k,$v) = each %$data ) {
+		$safe_data->{ $k } = $v;
+
+		$safe_data->{ $k } =~ s!&!&amp;!g;
+		$safe_data->{ $k } =~ s!<!&lt;!g;
+		$safe_data->{ $k } =~ s!>!&gt;!g;
+	}
+
+	$class->gholders->register("template",$safe_data);
 }
 
 #----------
@@ -776,17 +795,16 @@ sub _walk_glomule {
 		$class->{_}->bail("Couldn't find object name for $type");
 	}
 
-	my $g = $class->{_}->objects->create(
+	my $g = $class->{_}->cswitchboard->new_object(
 		"Glomule::Type::".$objname,
-		$class->{_}->cswitchboard->accessors,
 		$glomule
 	)->activate_functions;
 
-	if ( my $ref = $g->_is_function( $i->args->{function} ) ) {
+	if ( my $ref = $g->functions->knows( $i->args->{function} ) ) {
 		my $q = $ref->qopts;
 
 		foreach my $q (@{ $ref->qopts }) {
-			$qopts->{ $g->id }{ $q->{opt} } = 1;
+			$qopts->{ '--' }{ $g->id }{ $q->{opt} } = 1;
 		}
 	} else {
 		$class->{_}->bail->(

@@ -114,19 +114,23 @@ sub gholders {
 
 #----------
 
-sub register_functions {
+sub functions {
 	my $class = shift;
 
-	foreach my $f (@_) {
-		my $func = $class->{_}->instance->new_object(
-			"Glomule::Function",
-			$class,
-			$f
+	if (!$class->{f}) {
+		$class->{f} = $class->{_}->switchboard->new_object(
+			"Functions::Glomule"
 		);
-		$class->{f}{ $f->{name} } = $func;
 	}
 
-	return 1;
+	return $class->{f};
+}
+
+#----------
+
+sub register_functions {
+	my $class = shift;
+	$class->functions->register(@_);
 }
 
 #----------
@@ -135,28 +139,7 @@ sub is_function {
 	my $class = shift;
 	my $func = shift;
 
-	if (my $ref = $class->_is_function($func)) {
-		if ( $ref->mode( $class->{_}->mode->mode ) ) {
-			return $ref;
-		} else {
-			return undef;
-		}
-	} else {
-		return undef;
-	}
-}
-
-#----------
-
-sub _is_function {
-	my $class = shift;
-	my $func = shift;
-
-	if (my $ref = $class->{f}{ $func }) {
-		return $ref;
-	} else {
-		return undef;
-	}
+	$class->functions->knows($func);
 }
 
 #----------

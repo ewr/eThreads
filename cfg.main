@@ -8,6 +8,7 @@ db	=> {
 	tbls	=> {
 		bindings		=> "bindings",
 		containers		=> "containers",
+		container_data	=> "container_data",
 		domains			=> "domains",
 		glomule_headers	=> "glomule_headers",
 		glomule_data	=> "glomule_data",

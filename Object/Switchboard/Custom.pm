@@ -15,6 +15,9 @@ sub new {
 	$class->{accessors} = bless({},$class->_ac_pkg);
 	$class->{accessors}->{parent} = $class->{paccessors};
 
+	# register ourselves
+	$class->register("switchboard",$class);
+
 	return $class;
 }
 
@@ -32,6 +35,30 @@ sub reroute_calls_for {
 
 	# this is ugly, but i think it'll work
 	$obj->{_} = $class->accessors;
+
+	return 1;
+}
+
+#----------
+
+sub _create_accessor {
+	my $class = shift;
+	my $sub = shift;
+	my $name = shift;
+
+	*{$sub} = eval qq( sub {
+		my \$self = shift;
+
+		if (!\$self->{$name}) {
+			return \$self->{parent}->$name;
+		}
+		if (ref(\$self->{$name}) eq "CODE") {
+			\$self->{$name} = \$self->{$name}->();
+			return \$self->{$name};
+		} else {
+			return \$self->{$name};
+		}
+	} );
 
 	return 1;
 }

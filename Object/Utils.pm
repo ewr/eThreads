@@ -96,13 +96,19 @@ sub g_load_tbl {
 	my $db = $class->{_}->core->get_dbh;
 
 	my $where;
+	my @values;
 	if ($args{get_all}) {
 		# $where stays null
+	} elsif ( @{ $args{ids} } == 1 ) {
+		$where = 
+			"where $args{ident} = ?";
+			push @values, $args{ids}->[0];
 	} else {
 		$where = 
 			"where $args{ident} in (". 
-			join( "," , @{ $args{ids} } ). 
+			join( "," , map { "?" } @{ $args{ids} } ) . 
 			")";
+		push @values, @{ $args{ids} };
 	}
 
 	my $get_tbl = $db->prepare("
@@ -112,7 +118,7 @@ sub g_load_tbl {
 	");
 
 	$class->{_}->bail->("g_load_tbl: ".$db->errstr) unless (
-		$get_tbl->execute()
+		$get_tbl->execute(@values)
 	);
 
 	my ($id,$ident,$value);
