@@ -728,7 +728,7 @@ sub get_posts_by_status {
 			status = ? 
 			$datelimit->{sql}
 			order by 
-		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
+		) . $class->pref("sortby") . " " . $class->pref("sortdir");
 	
 
 	my $posts = $class->get_from_glomheaders(
