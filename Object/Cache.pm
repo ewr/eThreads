@@ -38,7 +38,7 @@ sub update_times {
 
 	if (!$class->{update_times}) {
 		$class->{update_times} 
-			= $class->{_}->instance->new_object("Cache::UpdateTimes");
+			= $class->{_}->new_object("Cache::UpdateTimes");
 	}
 
 	return $class->{update_times};

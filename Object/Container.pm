@@ -197,14 +197,41 @@ sub get_default_look {
 
 #----------
 
+sub is_valid_look_name {
+	my $class = shift;
+	my $name = shift;
+
+	my $looks = $class->get_looks;
+
+	if (my $l = $looks->{name}{ $name }) {
+		my $obj = $class->{_}->new_object(
+			'Look',
+			id		=> $l->{id},
+			name	=> $l->{name}
+		);
+	
+		return $obj;
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
 sub is_valid_look {
 	my $class = shift;
 	my $id = shift;
 
 	my $looks = $class->get_looks;
 
-	if (my $l = $looks->{ $id }) {
-		return 1;
+	if (my $l = $looks->{id}{ $id }) {
+		my $obj = $class->{_}->new_object(
+			'Look',
+			id		=> $l->{id},
+			name	=> $l->{name}
+		);
+	
+		return $obj;
 	} else {
 		return undef;
 	}
@@ -231,17 +258,17 @@ sub determine_look {
 
 	# -- figure out what look we're using -- #
 
-	my $look;
+	my $look = $class->{_}->raw_queryopts->get('look');
 
-	if (0) {
-
+	if ($look && (my $obj = $class->is_valid_look_name($look))) {
+		return $obj;
 	} else {
-		$look = $class->get_default_look;
+		return $class->get_default_look;
 	}
 
-	$class->{look} = $look;
+	#$class->{look} = $look;
 
-	return $look;
+	#return $look;
 }
 
 #----------

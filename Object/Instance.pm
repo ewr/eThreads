@@ -330,7 +330,8 @@ sub cache_looks {
 			id			=> $id,
 			container	=> $c,
 		};
-		$l->{$c}{$id} = $ref;
+		$l->{$c}{id}{$id} = $ref;
+		$l->{$c}{name}{$n} = $ref;
 		$l->{$c}{DEFAULT} = $ref if ($d);
 	}
 

@@ -51,6 +51,7 @@ modes		=> {
 
 content_types	=> {
 	HTML	=> "HTML",
+	XML		=> "XML",
 },
 
 ping_methods	=> {
