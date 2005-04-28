@@ -41,6 +41,7 @@ glomule_types	=> {
 plugins			=> {
 	CountBlogComments	=> "CountBlogComments",
 	RecentComments		=> "RecentComments",
+	FixUpURL			=> "FixUpURL",
 },
 
 modes		=> {
