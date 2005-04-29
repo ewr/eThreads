@@ -250,7 +250,7 @@ sub f_archive {
 			select 
 				timestamp 
 			from 
-				" . $class->{headers} . "
+				" . $class->data('headers') . "
 			where 
 				status = 1 
 				and parent = 0
@@ -322,15 +322,17 @@ sub f_management {
 
 	# -- get postponed posts -- #
 	{
-		my $posts = $class->get_posts_by_status(0);
+		my $posts = $class->posts_by_status(0);
 
-		my @o;
-		foreach my $p (@$posts) {
-			$class->gholders->register(["postponed.".$p->{id} , $p]);
-			push @o, $p->{id};
+		if ($posts) {
+			my @o;
+			foreach my $p (@{ $posts->posts }) {
+				$class->gholders->register(["postponed.".$p->{id} , $p]);
+				push @o, $p->{id};
+			}
+
+			$class->gholders->register(["postponed",\@o]) if (@o);
 		}
-
-		$class->gholders->register(["postponed",\@o]) if (@o);
 	}
 }
 
@@ -506,7 +508,7 @@ sub f_ondate {
 			select 
 				min(timestamp)
 			from 
-				" . $class->data("headers") . "
+				" . $class->data('headers') . "
 		");
 
 		$get->execute()
@@ -520,7 +522,7 @@ sub f_ondate {
 		select 
 			id 
 		from 
-			" . $class->data("headers") . "
+			" . $class->data('headers') . "
 		where 
 			timestamp >= ?
 			and timestamp < (? + 86400)
@@ -549,34 +551,34 @@ sub f_ondate {
 
 	# -- now get these ids -- #
 
-	my $results = $class->get_from_glomheaders(
+	my $posts = $class->posts_generic(
 		"id in (" 
 			. join(",",map { "?" } @$ids) .
 		") and parent = 0 order by timestamp desc",
 		@$ids
 	);
 
-	my $posts = {};
+#	my $posts = {};
 
-	%$posts = map { $_->{id} => $_ } @$results; 
+#	%$posts = map { $_->{id} => $_ } @$results; 
 	
 	# -- now get post data -- #
 
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
-		ident	=> "id",
-		ids		=> $ids,
-	);
+#	my $data = $class->{_}->utils->g_load_tbl(
+#		tbl		=> $class->data('data'),
+#		ident	=> "id",
+#		ids		=> $ids,
+#	);
 
-	while ( my ($id,$d) = each %$data ) {
-		while ( my ($k,$v) = each %$d ) {
-			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
-		}
-	}
+#	while ( my ($id,$d) = each %$data ) {
+#		while ( my ($k,$v) = each %$d ) {
+#			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
+#		}
+#	}
 
 	# -- now format and register -- #
 
-	$class->register_day_nav($results);
+	$class->register_day_nav($posts);
 }
 
 #----------
@@ -757,7 +759,7 @@ sub count_posts {
 		select 
 			count(id) 
 		from 
-			" . $class->{headers} . " 
+			" . $class->data('headers') . " 
 		where 
 			status = 1
 	");
@@ -784,7 +786,7 @@ sub get_post_information {
 			status,
 			parent
 		from 
-			$class->{headers}
+			" . $class->data('headers') . "
 		where 
 			id = ?
 	");
@@ -815,7 +817,7 @@ sub get_post_information {
 	# -- now load post data onto headers -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> [$id],
 		flat	=> 1,
@@ -838,7 +840,7 @@ sub get_data_lengths_for {
 		select 
 			id,ident,length(value)
 		from 
-			$class->{data} 
+			" . $class->data('data') . "
 		where 
 			id in (" . join( ',' , map {'?'} @{$posts->posts} ) . ")
 	");
@@ -864,24 +866,17 @@ sub posts_by_status {
 
 	my $datelimit = $class->set_up_datelimit;
 
-	my $sql = 
+	my $where = 
 		qq(
-			status = ? 
+			status = ?
 			$datelimit->{sql}
 			order by 
 		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
-	
 
-	my $posts = $class->get_from_glomheaders(
-		$sql,
+	return $class->posts_generic(
+		$where,
 		$status
 	);
-
-	my $obj = $class->{_}->new_object("Glomule::Data::Posts");
-	$obj->posts($posts);
-	$obj->count( scalar(@$posts) );
-
-	return $obj;
 }
 
 #----------
@@ -891,6 +886,35 @@ sub posts_by_id {
 	my %a = @_;
 
 
+}
+
+#----------
+
+sub posts_by_parent {
+	my $class = shift;
+	my %a = @_;
+
+	my $datelimit = $class->set_up_datelimit;
+
+	my $status;
+    if ($a{status}) {
+        $status = "and status = $a{status}";
+    }
+
+	my $where = 
+		qq(
+			parent = ?
+			$status
+			$datelimit->{sql}
+			order by 
+		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
+
+	return $class->posts_generic_w_limit(
+		$where,
+		$class->pref("start")->get,
+		$class->pref("limit")->get,
+		$a{parent}
+	);
 }
 
 #----------
@@ -923,46 +947,10 @@ sub posts_by_category {
 		. " " 
 		. $class->pref("sortdir")->get;
 
-	return $class->get_generic_w_limit(
-		$where,
-		$class->pref("start")->get,
-		$class->pref("limit")->get
-	);
-}
-
-#----------
-
-sub posts_by_parent {
-	my $class = shift;
-	my %a = @_;
-
-	my $status;
-	if ($a{status}) {
-		$status = "and status = $a{status}";
-	}
-
-	# -- datelimit? -- #
-
-	my $datelimit = $class->set_up_datelimit;
-
-	# -- put together our where clause -- #
-
-	my $where = 
-		qq(
-			parent = ? 
-			$status 
-			$datelimit->{sql} 
-			order by 
-		)  
-		. $class->pref("sortby")->get 
-		. " " 
-		. $class->pref("sortdir")->get;
-
 	return $class->posts_generic_w_limit(
 		$where,
-		$class->pref("start")->get,
-		$class->pref("limit")->get,
-		$a{parent}
+		$class->pref('start')->get,
+		$class->pref('limit')->get
 	);
 }
 

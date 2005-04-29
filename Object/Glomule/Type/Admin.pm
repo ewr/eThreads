@@ -91,6 +91,24 @@ sub activate {
 			qopts	=> $class->qopts_qkeys,
 			modes	=> { Admin => 1 },
 		},
+		{
+			name	=> "/maint",
+			sub		=> sub { $class->f_maint(undef,@_); },
+			qopts	=> $class->qopts_maint,
+			modes	=> { Admin => 1 },
+		},
+		{
+			name	=> "/maint/domains",
+			sub		=> sub { $class->f_maint_domains(@_); },
+			qopts	=> $class->qopts_domains,
+			modes	=> { Admin => 1 },
+		},
+		{
+			name	=> "/maint/containers",
+			sub		=> sub { $class->f_maint_containers(@_); },
+			qopts	=> $class->qopts_containers,
+			modes	=> { Admin => 1 },
+		},
 	);
 
 	return $class;
@@ -141,7 +159,7 @@ sub f_looks {
 
 	if ( my $id = $fobj->bucket->get("new_default") ) {
 		# first, make sure this is a legal value
-		if ($looks->{ $id }) {
+		if ($looks->{id}{ $id }) {
 			# it's legit...  set default
 			my $db = $class->{_}->core->get_dbh;
 
@@ -174,10 +192,7 @@ sub f_looks {
 	# -- list the looks for this container -- #
 
 	my @o;
-	while ( my ($id,$l) = each %$looks ) {
-		# this'll skip the DEFAULT look
-		next if ($id =~ /\D/);
-
+	while ( my ($id,$l) = each %{$looks->{id}} ) {
 		push @o, $l->{id};
 
 		if ($l->{id} == $looks->{DEFAULT}{id}) {
@@ -745,6 +760,54 @@ sub f_qkeys {
 
 #----------
 
+sub _check_maint_rights {
+	my $class = shift;
+
+	if (!$class->{_}->switchboard->knows('user')) {
+		$class->{_}->bail->("Invalid rights.");
+	}
+
+	if ( !$class->{_}->user->has_rights('maint') ) {
+		$class->{_}->bail->("Invalid rights.");
+	} 
+
+	return $class;
+}
+
+sub f_maint {
+	my $class = shift;
+	my $fobj = shift;
+
+	$class->_check_maint_rights;
+
+	# do nothing
+}
+
+#----------
+
+sub f_maint_containers {
+	my $class = shift;
+	my $fobj = shift;
+
+	$class->_check_maint_rights;
+
+	# -- get a list of containers -- #
+
+	my $c = $class->{_}->instance->load_containers(0);
+	$class->gholders->register(['containers',$c]);
+}
+
+#----------
+
+sub f_maint_domains {
+	my $class = shift;
+	my $fobj = shift;
+
+	$class->_check_maint_rights;
+}
+
+#----------
+
 sub list_available_qopts {
 	my $class = shift;
 	my $template = shift;
@@ -831,6 +894,30 @@ sub load_look {
 }
 
 #----------
+
+sub qopts_maint {
+	my $class = shift;
+
+	return [
+
+	];
+}
+
+sub qopts_domains {
+	my $class = shift;
+
+	return [
+
+	];
+}
+
+sub qopts_containers {
+	my $class = shift;
+
+	return [
+
+	];
+}
 
 sub qopts_main {
 	my $class = shift;

@@ -41,6 +41,8 @@ sub go {
 	my $user = $class->{_}->auth->authenticate
 		or return $class->{_}->auth->unauthorized;
 
+	$class->{_}->switchboard->register("user",$user);
+
 	# if we've gotten here they authenticated fine, now we need to figure 
 	# out what container we're accessing before we check admin rights
 

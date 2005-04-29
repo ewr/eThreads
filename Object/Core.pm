@@ -14,6 +14,7 @@ use eThreads::Object::Container;
 
 use eThreads::Object::ContentType;
 use eThreads::Object::ContentType::HTML;
+use eThreads::Object::ContentType::XML;
 
 use eThreads::Object::DB;
 use eThreads::Object::DB::mysql;
@@ -58,6 +59,7 @@ sub new {
 
 	{ 
 		my $cfg = "/etc/apache2/perl/eThreads/cfg.main";
+#		my $cfg = "/web/ericrichardson.com/eTdev/cfg.main";
 
 		my $s;
 		open(CFG,$cfg) or die "Couldn't open settings: $cfg";
@@ -140,6 +142,16 @@ sub cgi_r_handler {
 
 		return $r;
 	}
+}
+
+#----------
+
+sub standalone {
+	my $class = shift;
+
+	my $stand = $class->new_object("Standalone");
+
+	return $stand;
 }
 
 #----------

@@ -3,11 +3,15 @@ package eThreads::Object::Glomule;
 use strict;
 use vars qw();
 
+use eThreads::Object::Glomule::Data::Posts;
+
 use eThreads::Object::Glomule::Function;
 use eThreads::Object::Glomule::Pref;
+
 use eThreads::Object::Glomule::Type::Admin;
 use eThreads::Object::Glomule::Type::Blog;
 use eThreads::Object::Glomule::Type::Comments;
+use eThreads::Object::Glomule::Type::NCManagement;
 
 #----------
 
@@ -21,17 +25,16 @@ sub id {
 	my $class = shift;
 
 	if ($class->{id}) {
-		return $class->{id};
+		if ( wantarray ) {
+			my $gh = $class->load_glomule_headers;
+			return ( $class->{id} , $gh->{id}{ $class->{id} } );
+		} else {
+			return $class->{id};
+		}
 	} else {
 		# -- load glomule headers -- #
 
-		my $gh = $class->{_}->cache->get(
-			tbl		=> "glomule_headers",
-		);
-
-		if (!$gh) {
-			$gh = $class->{_}->instance->cache_glomule_headers();
-		}
+		my $gh = $class->load_glomule_headers;
 
 		if (
 			my $r = 
@@ -48,6 +51,19 @@ sub id {
 	}
 }
 
+sub load_glomule_headers {
+	my $class = shift;
+
+	my $gh = $class->{_}->cache->get(
+		tbl		=> "glomule_headers",
+	);
+
+	if (!$gh) {
+		$gh = $class->{_}->instance->cache_glomule_headers();
+	}
+
+	return $gh;
+}
 #----------
 
 sub load_info {
@@ -89,8 +105,8 @@ sub load_info {
 
 	foreach my $h ($gh,$gd) {
 		while ( my ($k,$v) = each %$h ) {
-			next if ($class->{$k});
-			$class->{$k} = $v;
+			next if ($class->{data}{$k});
+			$class->{data}{$k} = $v;
 		}
 	}
 
@@ -124,7 +140,19 @@ sub initialize {
 		ts	=> time,
 	);
 
-	# -- now create headers tbl -- #
+	# -- now create tables -- #
+
+	$class->create_tables;
+
+	return 1;
+}
+
+#----------
+
+sub create_tables {
+	my $class = shift;
+	
+	# -- create headers tbl -- #
 
 	my $headers = $class->{_}->utils->create_table(
 		$class->{_}->utils->get_unused_tbl_name("glomheaders"),
@@ -141,8 +169,6 @@ sub initialize {
 	);
 
 	$class->register_data("data",$data);
-
-	return 1;
 }
 
 #----------
@@ -167,7 +193,7 @@ sub register_data {
 		ts		=> time,
 	);
 
-	$class->{ $name } = $value;
+	$class->{data}{ $name } = $value;
 
 	return 1;
 }
@@ -177,8 +203,8 @@ sub register_data {
 sub data {
 	my $class = shift;
 	my $name = shift;
-	return $class->{$name};
-	#return $class->{data}{$name};
+	#return $class->{$name};
+	return $class->{data}{$name};
 }
 
 #----------
@@ -205,7 +231,7 @@ sub functions {
 	my $class = shift;
 
 	if (!$class->{f}) {
-		$class->{f} = $class->{_}->switchboard->new_object(
+		$class->{f} = $class->{_}->new_object(
 			"Functions::Glomule"
 		);
 	}
@@ -236,7 +262,7 @@ sub register_prefs {
 	my $prefs = shift;
 
 	foreach my $p (@$prefs) {
-		my $obj = $class->{_}->instance->new_object("Glomule::Pref")->init($p);
+		my $obj = $class->{_}->new_object("Glomule::Pref")->init($p);
 		$class->{prefs}{ $p->{name} } = $obj;
 	}
 
@@ -298,7 +324,7 @@ sub pref {
 sub load_pings {
 	my $class = shift;
 
-	my $obj = $class->{_}->instance->new_object(
+	my $obj = $class->{_}->new_object(
 		"System::Ping"
 	);
 
@@ -328,7 +354,7 @@ sub posts_generic {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> \@ids,
 	);
@@ -358,7 +384,7 @@ sub posts_generic_w_limit {
 		select 
 			count(id) 
 		from
-			$class->{headers}
+			" . $class->data('headers') . "
 		where 
 			$where
 	");
@@ -375,7 +401,7 @@ sub posts_generic_w_limit {
 		. " limit " 
 		. $start
 		. ","
-		. $limit
+		. $limit,
 		@_
 	);
 
@@ -387,7 +413,7 @@ sub posts_generic_w_limit {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> \@ids,
 	);
@@ -424,7 +450,7 @@ sub get_from_glomheaders {
 			status,
 			user
 		from 
-			" . $class->{headers} . "
+			" . $class->data('headers') . "
 		where 
 			$sql
 	");
@@ -471,9 +497,13 @@ sub cache_look_prefs {
 sub flesh_out_post {
 	my $class = shift;
 	my $post = shift;
+	my %a = @_;
+
+	my $h_fields = $a{h_fields} || $class->header_fields;
+	my $d_fields = $a{d_fields} || $class->fields;
 
 	# fill in and check header fields
-	foreach my $h ($class->header_fields,$class->fields) {
+	foreach my $h ($h_fields,$d_fields) {
 		foreach my $f (@{ $h }) {
 			if ($f->{require} && $post->{ $f->{name} } !~ /\S/) {
 				return (0,"Missing required field: $f->{name}");
@@ -495,10 +525,17 @@ sub post {
 	my $ipost = shift;
 	my %args = @_;
 
+	# allow for some special usage
+	my $headers 	= $args{headers}	|| $class->data('headers');
+	my $data 		= $args{data} 		|| $class->data('data');
+	my $h_fields	= $args{h_fields} 	|| $class->header_fields;
+	my $d_fields	= $args{d_fields} 	|| $class->fields;
+
 	my $post = {};
 	%$post = %$ipost;
 
 	while ( my ($k,$v) = each %args ) {
+		next if ($k =~ m!^(?:headers|data|h_fields|d_fields)$!);
 		$post->{ $k } = $v;
 	}
 
@@ -507,9 +544,9 @@ sub post {
 	# now we need to insert (or update) our headers entry.
 
 	my (@hfields,@hvalues);
-	foreach my $f (@{$class->header_fields}) {
-		next if ($f->{name} eq "id");
-		
+	foreach my $f (@$h_fields) {
+		next if ($f->{name} eq "id" || $f->{KEYS});
+
 		push @hfields, $f->{name};
 		push @hvalues, $post->{ $f->{name} };
 	}
@@ -519,7 +556,7 @@ sub post {
 
 		my $update = $db->prepare("
 			update 
-				" . $class->{headers} . " 
+				" . $headers . " 
 			set 
 				" . join("=\?,",@hfields) . "=? 
 			where 
@@ -533,7 +570,7 @@ sub post {
 
 		my $insert = $db->prepare("
 			insert into 
-				" . $class->{headers} . "
+				" . $headers . "
 			(" . join(",",@hfields) . ") 
 			values(" . join(",",split("","?"x@hfields)) . ")
 		");
@@ -546,9 +583,9 @@ sub post {
 	}
 
 	# now do data
-	foreach my $f (@{ $class->fields }) {
+	foreach my $f (@$d_fields) {
 		$class->{_}->utils->set_value(
-			tbl		=> $class->{data},
+			tbl		=> $data,
 			keys	=> {
 				id		=> $post->{id},
 				ident	=> $f->{name},
@@ -570,7 +607,7 @@ sub delete {
 	# delete from headers
 	my $delh = $class->{_}->core->get_dbh->prepare("
 		delete from 
-			" . $class->{headers} . "
+			" . $class->data('headers') . "
 		where 
 			id = ?
 	");
@@ -581,7 +618,7 @@ sub delete {
 	# delete from data
 	my $deld = $class->{_}->core->get_dbh->prepare("
 		delete from 
-			" . $class->{data} . "
+			" . $class->data('data') . "
 		where 
 			id = ?
 	");
@@ -617,10 +654,12 @@ sub header_fields {
 
 	return [
 
+	{ KEYS => [
+		'primary key(id)'
+	] },
 	{
 		name	=> "id",
 		def		=> "int(11) not null auto_increment",
-		primary	=> 1,
 		allowed	=> '\d+',
 		d_value	=> 0,
 	},
@@ -669,15 +708,16 @@ sub _data_tbl_fields {
 	my $class = shift;
 	return [
 
+	{ KEYS => [
+		'primary key(id,ident)'
+	] },
 	{
 		name	=> "id",
 		def		=> "int(11) not null",
-		primary	=> 1,
 	},
 	{
 		name	=> "ident",
 		def		=> "varchar(20) not null",
-		primary	=> 1,
 	},
 	{
 		name	=> "value",

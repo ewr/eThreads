@@ -181,20 +181,21 @@ sub create_table {
 	my $schema = shift;
 
 	my $sql;
-	my $primary = [];
-    
+	my $keys;
+
+	if (my $k = $schema->[0]{KEYS}) {
+		$keys = $k;
+	} 
+
 	foreach my $f (@$schema) {
+		next if ($f->{KEYS});
 		$sql .= "$f->{name} $f->{def},\n";
-		push @$primary, $f->{name} if ($f->{primary});
 	}
-    
-	$primary = join(",",@$primary);
     
 	if ($sql) {
 		my $c = $class->{_}->core->get_dbh->prepare("
 			create table $name (
-				$sql
-				" . ( $primary ? "primary key($primary)" : "" ). "
+				$sql " . join(',',@$keys) . "
 			)
 		");
 

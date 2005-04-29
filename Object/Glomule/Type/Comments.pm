@@ -129,6 +129,11 @@ sub f_view {
 			push @$comments, $p->{id};
 			push @data, ['comments.'.$p->{id} , $p ];
 		}
+
+		$class->gholders->register(
+			['count' , $posts->count],
+			@data
+		);
 	}
 
 	# create a blank compose hash
@@ -136,11 +141,10 @@ sub f_view {
 	%$compose = map { $_->{name} => "" } @{ $class->edit_fields };
 
 	$class->gholders->register(
-		['count' , $posts->count],
 		['comments' , $comments ],
-		['compose', $compose ],
-		@data
+		['compose', $compose ]
 	);
+
 
 	return 1;
 }
@@ -281,6 +285,11 @@ sub f_delete {
 	my $class = shift;
 	my $fobj = shift;
 
+	# -- register a timestamp handler -- #
+	$class->{_}->gholders->register(
+		["timestamp" , sub { $class->handle_timestamp(@_); }]
+	);
+
 	my $id 		= $fobj->bucket->get("id");
 	my $confirm	= $fobj->bucket->get("confirm");
 
@@ -331,10 +340,9 @@ sub handle_timestamp {
 
 sub get_by_id {
 	my $class = shift;
-	my $id = shift;
 
 	my $results = $class->get_from_glomheaders(
-		'id in (' . join('?',map{'?'} @_) .')'
+		'id in (' . join('?',map{'?'} @_) .')',
 		@_
 	);
 
@@ -344,7 +352,7 @@ sub get_by_id {
 	# -- now get post data -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{data},
+		tbl		=> $class->data('data'),
 		ident	=> "id",
 		ids		=> \@_,
 	);
@@ -520,10 +528,12 @@ sub header_fields {
 
 	return [
 
+	{ KEYS => [
+		'primary key(id)'
+	] },
 	{
 		name	=> "id",
 		def		=> "int(11) not null auto_increment",
-		primary	=> 1,
 		allowed	=> '\d+',
 		d_value	=> 0,
 	},

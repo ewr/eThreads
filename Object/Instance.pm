@@ -249,8 +249,6 @@ sub determine_domain {
 
 	my $d = $class->load_domains;
 
-	warn "domain: $domain\n";
-
 	my $croot;
 	if ( my $dref = $d->{d}{ $domain } ) {
 		$croot = $class->new_object("Domain",%$dref);
@@ -332,7 +330,8 @@ sub cache_looks {
 			id			=> $id,
 			container	=> $c,
 		};
-		$l->{$c}{$id} = $ref;
+		$l->{$c}{id}{$id} = $ref;
+		$l->{$c}{name}{$n} = $ref;
 		$l->{$c}{DEFAULT} = $ref if ($d);
 	}
 

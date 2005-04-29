@@ -37,6 +37,7 @@ glomule_types	=> {
 },
 
 plugins			=> {
+	FixUpURL			=> "FixUpURL",
 	CountBlogComments	=> "CountBlogComments",
 	RecentComments		=> "RecentComments",
 },
@@ -49,6 +50,7 @@ modes		=> {
 
 content_types	=> {
 	HTML	=> "HTML",
+	XML		=> "XML",
 },
 
 ping_methods	=> {
@@ -71,7 +73,8 @@ default_domain	=> {
 },
 
 response_codes	=> {
-	OK					=> '200',
+#	OK					=> '200',
+	OK					=> '',
 	HTTP_UNAUTHORIZED	=> '401',
 	SERVER_ERROR		=> '500',
 },

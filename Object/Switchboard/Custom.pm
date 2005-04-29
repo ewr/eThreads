@@ -80,6 +80,23 @@ sub knows {
 	}
 }
 
+sub new_object {
+	my $class = shift;
+	my $type = shift;
+
+	if (!$type) {
+		Carp::confess "no type given to new_object";
+	}
+
+	my $obj = $class->objects->create(
+		$type,
+		$class,
+		@_
+	);
+
+	return $obj;
+}
+
 sub AUTOLOAD {
 	my $class = shift;
 	our $AUTOLOAD;
