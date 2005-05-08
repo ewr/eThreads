@@ -178,7 +178,7 @@ sub list_link_qopts {
 			my $v = exists( $args->{ $n } ) ? 
 				$args->{ $n } : $opt->get;
 
-			next if (!$v || $v eq $opt->d_value);
+			next if (!$v || $v eq $opt->default);
 
 			push @$qopts, [ $n , $v ];
 		} elsif (my $v = $args->{ $n }) {

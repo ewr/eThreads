@@ -15,7 +15,7 @@ sub new {
 		class	=> undef,
 		value	=> undef,
 		allowed	=> undef,
-		d_value	=> undef,
+		default	=> undef,
 		toggle	=> undef,
 		select	=> undef,
 		persist	=> undef,
@@ -36,7 +36,7 @@ sub DESTROY {
 sub get {
 	my $class = shift;
 
-	return $class->{value} || $class->{d_value};
+	return $class->{value} || $class->{default};
 }
 
 #----------
@@ -70,8 +70,8 @@ sub name {
 
 #----------
 
-sub d_value {
-	return shift->{d_value};
+sub default {
+	return shift->{default};
 }
 
 #----------
@@ -100,8 +100,8 @@ sub set {
 
 	if ($val =~ m!$class->{allowed}! && $val ne $class->{value}) {
 		$class->{value} = $val;
-	} elsif ($val eq $class->{d_value}) {
-		$class->{value} = $class->{d_value};
+	} elsif ($val eq $class->{default}) {
+		$class->{value} = $class->{default};
 	}
 
 	return 1;

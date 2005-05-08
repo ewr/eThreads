@@ -12,6 +12,7 @@ sub new {
 
 	$class = bless ( {
 		f		=> {},
+		@_,
 		_		=> $data,
 	} , $class );
 

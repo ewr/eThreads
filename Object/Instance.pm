@@ -77,6 +77,8 @@ sub new {
 
 	$swb->register("gholders", $class->new_object("GHolders") );
 
+	$swb->register('glomule', $class->new_object('Glomule'));
+
 	$swb->register("last_modified",sub {
 		$class->new_object("LastModifiedTime");
 	});
@@ -84,6 +86,14 @@ sub new {
 	$swb->register("plugins",sub {
 		$class->new_object("Plugin");
 	});
+
+	# create system object
+	$swb->register('system',sub {
+		$class->{_}->new_object('System');
+	});
+
+	# point to core's controller object
+	$swb->register('controller',$class->{_}->core->controller);
 
 	# -- continue with initialization -- #
 

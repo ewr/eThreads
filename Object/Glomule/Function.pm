@@ -9,14 +9,17 @@ sub new {
 	my $func 	= shift;
 
 	$class = bless ({
-		_		=> $data,
-		name	=> $func->{name},
-		sub		=> $func->{sub},
-		qopts	=> $func->{qopts},
-		modes	=> $func->{modes},
-		g		=> $glomule,
-		type	=> ref($glomule),
-		bucket	=> undef,
+		_			=> $data,
+		gholders	=> $glomule->gholders,
+		name		=> $func->{name},
+		object		=> $func->{object},
+		system		=> $func->{system},
+		sub			=> $func->{sub},
+		qopts		=> $func->{qopts},
+		modes		=> $func->{modes},
+		g			=> $glomule,
+		type		=> ref($glomule),
+		bucket		=> undef,
 	},$class);
 
 	return $class;
@@ -44,7 +47,14 @@ sub activate {
 	# -- register qopts -- #
 
 	foreach my $q (@{$class->{qopts}}) {
-		$bucket->register(%$q);
+		my $d;
+		if ($q->{is_pref}) {
+			$d = $class->glomule->pref( $q->{default} )->get;
+		} else {
+			$d = $q->{default};
+		}
+		
+		$bucket->register(%$q,default=>$d);
 	}
 
 	$class->{bucket} = $bucket;
@@ -58,6 +68,11 @@ sub bucket {
 	my $class = shift;
 	return $class->{bucket};
 }
+
+#----------
+
+sub glomule { shift->{g} }
+sub gholders { shift->{gholders} }
 
 #----------
 
@@ -76,6 +91,20 @@ sub mode {
 
 sub execute {
 	my $class = shift;
+
+	if ($class->{object}) {
+		my $obj = $class->{_}->glomule->typeobj($class->{object})
+			or $class->{_}->bail->("Couldn't get typeobj for $class->{object}");
+
+		my $sub = $class->{sub};
+
+		return $obj->$sub($class,@_);
+
+	} elsif ($class->{system}) {
+
+	} else {
+		$class->{_}->bail->("Can't call function without object or system.");
+	}
 	return $class->{sub}->($class,@_);
 }
 

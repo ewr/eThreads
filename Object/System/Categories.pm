@@ -1,5 +1,7 @@
 package eThreads::Object::System::Categories;
 
+use eThreads::Object::System::Categories::Category;
+
 use strict;
 
 #----------
@@ -29,13 +31,13 @@ sub get_sql_for {
 
 #----------
 
-sub is_valid_cat {
+sub is_valid_cat_name {
 	my $class = shift;
 	my $cat = shift;
 
-	my $cache = $class->load_categories;
+	my $cache = $class->load_all;
 
-	if (my $c = $cache->{ c }{ $cat }) {
+	if (my $c = $cache->{ name }{ $cat }) {
 		# valid, create an object
 		return $class->load($c->{id});
 	} else {
@@ -49,10 +51,10 @@ sub load {
 	my $class = shift;
 	my $id = shift;
 
-	if (my $obj = $class->{_}->cache->objects->get("category",$id) {
+	if (my $obj = $class->{_}->cache->objects->get("category",$id)) {
 		return $obj;
 	} else {
-		my $cache = $class->load_categories;
+		my $cache = $class->load_all;
 
 		my $c = $cache->{id}{ $id };
 
@@ -67,7 +69,6 @@ sub load {
 
 		return $obj;
 	}
-
 }
 
 #----------
@@ -111,15 +112,15 @@ sub get_primary {
 
 #----------
 
-sub load_categories {
+sub load_all {
 	my $class = shift;
 
 	my $glomule = $class->_get_glomule;
 
-	my $c = $class->{_}->cache->get(tbl=>"categories",first=>$glomule);
+	my $c = $class->{_}->cache->get(tbl=>"cat_headers",first=>$glomule);
 
 	if (!$c) {
-		$c = $class->cache_categories($glomule);
+		$c = $class->cache_headers($glomule);
 	}
 
 	return $c;
@@ -127,45 +128,42 @@ sub load_categories {
 
 #----------
 
-sub cache_categories {
+sub cache_headers {
 	my $class = shift;
 	my $glomule = shift || $class->_get_glomule;
 
 	my $get = $class->{_}->core->get_dbh->prepare("
 		select 
 			id,
-			parent,
-			name,
-			descript
+			name
 		from 
-			" . $class->{_}->core->tbl_name('categories') . "
+			" . $class->{_}->core->tbl_name('cat_headers') . "
 		where 
 			glomule = ?
 	");
 
 	$get->execute($glomule)
-		or $class->{_}->bail->("cache_categories failure: " . $get->errstr);
+		or $class->{_}->bail->("cache_cat_headers failure: " . $get->errstr);
 
-	my ($id,$p,$n,$d);
-	$get->bind_columns( \($id,$p,$n,$d) );
+	my ($id,$n);
+	$get->bind_columns( \($id,$n) );
 
-	my $categories = { c = {} , id = {} };
+	my $cat = { name => {} , id => {} };
 	while ( $get->fetch ) {
-		$categories->{c}{ $n } = $categories->{id}{ $id } = {
+		$cat->{name}{ $n } = $cat->{id}{ $id } = {
 			id			=> $id,
-			parent		=> $p,
 			name		=> $n,
-			descript	=> $d,
+			glomule		=> $glomule
 		};
 	}
 
 	$class->{_}->cache->set(
-		tbl		=> "categories",
+		tbl		=> "cat_headers",
 		first	=> $glomule,
-		ref		=> $categories
+		ref		=> $cat
 	);
 
-	return $categories;
+	return $cat;
 }
 
 #----------
@@ -174,12 +172,48 @@ sub _get_glomule {
 	my $class = shift;
 
 	if ( my $g = $class->{_}->knows("glomule") ) {
-		$glomule = $g->id;
+		return $g->id;
 	} else {
 		$class->{_}->bail->("category functions require a glomule");
 	}
+}
 
-	return $glomule;
+#----------
+
+sub f_main {
+	my $class = shift;
+	my $fobj = shift;
+
+	
+}
+
+#----------
+
+sub f_edit {
+	my $class = shift;
+	my $fobj = shift;
+
+
+}
+
+#----------
+
+sub qopts_main {
+	return [
+
+	{
+		name	=> "name",
+		allowed	=> '.+',
+		d_value	=> undef,
+	},
+
+	];
+}
+
+#----------
+
+sub qopts_edit {
+	return [];
 }
 
 #----------

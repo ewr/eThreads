@@ -159,7 +159,7 @@ sub f_looks {
 
 	if ( my $id = $fobj->bucket->get("new_default") ) {
 		# first, make sure this is a legal value
-		if ($looks->{ $id }) {
+		if ($looks->{id}{ $id }) {
 			# it's legit...  set default
 			my $db = $class->{_}->core->get_dbh;
 

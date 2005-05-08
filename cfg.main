@@ -7,6 +7,10 @@ db	=> {
 
 	tbls	=> {
 		bindings		=> "bindings",
+		cat_headers		=> "cat_headers",
+		cat_data		=> "cat_data",
+		cat_bindings	=> "cat_bindings",
+		cat_primary		=> "cat_primary",
 		containers		=> "containers",
 		container_data	=> "container_data",
 		domains			=> "domains",
@@ -30,18 +34,18 @@ db	=> {
 dir		=> {
 #	cache		=> "/etc/apache2/perl/eThreads/cached",
 	cache		=> "/web/ericrichardson.com/eTdev/cached",
+	controllers	=> "/web/ericrichardson.com/eTdev/Controllers",
 },
 
 glomule_types	=> {
-	blog			=> "Blog",
-	comments		=> "Comments",
-	ncmanagement	=> "NCManagement",
+	blog		=> "Blog",
+	comments	=> "Comments",
 },
 
 plugins			=> {
+	FixUpURL			=> "FixUpURL",
 	CountBlogComments	=> "CountBlogComments",
 	RecentComments		=> "RecentComments",
-	FixUpURL			=> "FixUpURL",
 },
 
 modes		=> {
@@ -60,6 +64,7 @@ ping_methods	=> {
 },
 
 cache_obj	=> "Cache::MultiServer",
+#auth_obj	=> "Auth::Internal",
 auth_obj	=> "Auth::Cookies",
 auth_name	=> "eThreads",
 db_logging	=> 0,
@@ -75,7 +80,8 @@ default_domain	=> {
 },
 
 response_codes	=> {
-	OK					=> '200',
+#	OK					=> '200',
+	OK					=> '',
 	HTTP_UNAUTHORIZED	=> '401',
 	SERVER_ERROR		=> '500',
 },

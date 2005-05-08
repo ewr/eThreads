@@ -24,6 +24,11 @@ sub new {
 	my $swb = $class->{switchboard} = new eThreads::Object::Switchboard;
 	$class->{_} = $class->{switchboard}->accessors;
 
+	# register our own bail
+	$swb->register('bail',sub { 
+		sub { $class->bail(@_); } 
+	});
+
 	$swb->register('core',$core);
 	$swb->register('settings',$core->settings);
 
@@ -41,7 +46,27 @@ sub new {
 	);
 	$swb->register('cache',$class->{cache});
 
+	# create system object
+	$swb->register('system',sub {
+		$class->{_}->new_object('System');
+	});
+
+	# point to core's controller object
+	$swb->register('controller',$class->{_}->core->controller);
+
 	return $class;
+}
+
+#----------
+
+sub bail {
+	my $class = shift;
+	my $err = shift;
+
+	my @caller = caller;
+	warn "caller: @caller\n";
+
+	die "bail: $err\n";
 }
 
 #----------
