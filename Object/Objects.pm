@@ -35,21 +35,17 @@ sub register {
 sub DESTROY {
 	my $class = shift;
 
+#	warn "in objects destroy\n";
+
 	foreach my $obj (@{$class->{o}}) {
+#		find_cycle($obj);
+#		print "destroying $obj\n";
 		$obj->DESTROY if ( $obj->can("DESTROY") );
 	}
 
+#	warn "done with object destroy\n";
+
 	@{$class->{o}} = ();
-
-#	my @counts = 
-#		map { $_ } 
-#		sort { $a->[1] <=> $b->[1] } 
-#		map { [$_,$class->{counts}{$_}] } 
-#		keys %{$class->{counts}};
-
-#	foreach my $c (@counts) {
-#		warn "created $c->[1] objects of type $c->[0]\n";
-#	}
 
 	return 1;
 }

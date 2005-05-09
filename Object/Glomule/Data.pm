@@ -35,6 +35,19 @@ sub new {
 
 #----------
 
+sub DESTROY {
+	my $class = shift;
+
+	undef $class->{controller};
+	%{$class->{system}} = ();
+	undef $class->{system};
+	%{$class->{prefs}} = ();
+	undef $class->{prefs};
+	
+}
+
+#----------
+
 sub activate {
 	my $class = shift;
 

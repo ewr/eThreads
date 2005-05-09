@@ -619,7 +619,7 @@ sub register_navigation {
 
 		$prev = { href => $link , num => $p_posts };
 	} else {
-		$prev = {};
+		$prev = undef;
 	}
 
 	if ($count > $f_start) {
@@ -639,7 +639,7 @@ sub register_navigation {
 
 		$next = { href => $link , num => $r_posts };
 	} else {
-		$next = {};
+		$next = undef;
 	}
 
 	# -- register gholders -- #

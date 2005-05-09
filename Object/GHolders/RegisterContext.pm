@@ -43,11 +43,10 @@ sub get {
 
 sub register {
 	my $class = shift;
+	my @f = @_;
 
-	my @f;
-	foreach my $r (@_) {
+	foreach my $r (@f) {
 		$r->[0] = $class->{ctx} . $r->[0];
-		push @f, $r;
 	}
 
 	$class->{_}->gholders->register(@f);

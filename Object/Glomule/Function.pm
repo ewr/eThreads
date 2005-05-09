@@ -18,7 +18,6 @@ sub new {
 		qopts		=> $func->{qopts},
 		modes		=> $func->{modes},
 		g			=> $glomule,
-		type		=> ref($glomule),
 		bucket		=> undef,
 	},$class);
 
@@ -29,7 +28,8 @@ sub new {
 
 sub DESTROY {
 	my $class = shift;
-	undef $class->{sub};
+	undef $class->{g};
+	undef $class->{bucket};
 }
 
 #----------
@@ -56,6 +56,9 @@ sub activate {
 		
 		$bucket->register(%$q,default=>$d);
 	}
+
+	# we don't need these any more
+	undef $class->{qopts};
 
 	$class->{bucket} = $bucket;
 

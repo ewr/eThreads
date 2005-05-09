@@ -13,28 +13,22 @@ sub new {
 	$class = bless ( 
 		{ 
 			_			=> undef,
-			container	=> undef,
-			look		=> undef,
-			template	=> undef,
-			gholders	=> undef,
-			input		=> undef,
-			ap_request	=> $r,
-			# etc...
 		} , $class );
 
 	# create objects object
 	$class->{objects} = eThreads::Object::Objects->new($class);
 
 	# create switchboard object
-	my $swb = $class->{switchboard} = new eThreads::Object::Switchboard;
-	$class->{_} = $class->{switchboard}->accessors;
+	my $swb = new eThreads::Object::Switchboard;
+	$swb->reroute_calls_for($class);
+	$class->{objects}->register($swb);
 
 	$swb->register('core',$core);
 	$swb->register('settings',$core->settings);
 
 	# register ourself with switchboard
 	$swb->register('instance',$class);
-	$swb->register('ap_request',$class->{ap_request});
+	$swb->register('ap_request',$r);
 
 	# register objects with switchboard
 	$swb->register('objects',$class->{objects});
@@ -45,10 +39,9 @@ sub new {
 	});
 
 	# create cache object
-	$class->{cache} 	= $class->new_object(
+	$swb->register('cache',$class->new_object(
 		$class->{_}->settings->{cache_obj}
-	);
-	$swb->register('cache',$class->{cache});
+	));
 
 	$swb->register('messages',sub {
 		$class->new_object('Messages');
@@ -99,8 +92,7 @@ sub new {
 
 	# set our root...  this will set $class->{root} to be a Container 
 	# object for the root
-	$class->{domain} = $class->determine_domain();
-	$swb->register("domain",$class->{domain});
+	$swb->register("domain",$class->determine_domain());
 
 	# what we do here is a sort of tree shaped lookup to see what 
 	# all is going on.  We determine the mode, the mode determines the 
@@ -108,8 +100,7 @@ sub new {
 	# look determines the template
 
 	# figure out our mode
-	$class->{mode}		= $class->determine_mode();
-	$swb->register("mode",$class->{mode});
+	$swb->register("mode",$class->determine_mode());
 
 	# -- now return -- #
 
@@ -130,6 +121,7 @@ sub DESTROY {
 	my $class = shift;
 
 	$class->{objects}->DESTROY;
+	undef $class->{objects};
 }
 
 #----------

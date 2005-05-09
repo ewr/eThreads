@@ -20,20 +20,6 @@ sub new {
 
 #----------
 
-sub new_empty {
-	my $class = shift;
-	my $data = shift;
-
-	$class = bless ( $data , $class );
-
-	my $t = $class->{_}->instance->new_object('GHolders::GHolder');
-	$class->{p} = $class->{context} = $t;
-
-	return $class;
-}
-
-#----------
-
 sub DESTROY {
 	my ($class) = @_;
 
@@ -76,7 +62,7 @@ sub _alienate_gholders {
 sub gholder_init {
 	my $class = shift;
 
-	my $i = $class->{_}->instance;
+	my $i = $class->{_};
 
 	my $t = $i->new_object('GHolders::GHolder');
 	$class->{p} = $class->{context} = $t;
@@ -124,7 +110,7 @@ sub register {
 				if ( my $child = $ref->has_child($k) ) {
 					$var = $child;
 				} else {
-					$var = $class->{_}->instance->new_object(
+					$var = $class->{_}->new_object(
 						'GHolders::GHolder',$k,$ref
 					);
 				}
@@ -135,18 +121,18 @@ sub register {
 					if ( my $child = $parent->has_child($l) ) {
 						$parent = $child;
 					} else {
-						$parent = $class->{_}->instance->new_object(
+						$parent = $class->{_}->new_object(
 							'GHolders::GHolder',$l,$parent
 						);
 					}
 				}
 
-				$var = $class->{_}->instance->new_object(
+				$var = $class->{_}->new_object(
 					'GHolders::GHolder',$k,$parent
 				);
 			}
 		} else {
-			$var = $class->{_}->instance->new_object(
+			$var = $class->{_}->new_object(
 				'GHolders::GHolder',$gh->[0],$class->{p}
 			);
 		}
@@ -210,15 +196,14 @@ sub dump {
 	my $ref = shift;
 
 	if (0) {
-#		use Data::Dumper;
-		my $d = Data::Dumper->Dump($ref);
+		use Data::Dumper;
 
 		open(
 			DUMP,
-			'>'.$class->{_}->core->settings->{dir}{cache}.'/gholder_dump'
+			'>/tmp/gholder_dump2'
 		) or $class->{_}->instance->bail("couldn't dump: $!");
 
-		print DUMP $d;
+		print DUMP Data::Dumper::Dumper($ref);
 		close DUMP;
 	}
 }

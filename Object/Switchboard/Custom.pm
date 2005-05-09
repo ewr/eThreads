@@ -23,6 +23,17 @@ sub new {
 
 #----------
 
+sub DESTROY {
+	my $class = shift;
+
+	$class->{accessors}->DESTROY;
+	undef $class->{accessors};
+
+	return 1;
+}
+
+#----------
+
 sub _ac_pkg {
 	return 'eThreads::Object::Switchboard::Custom::Accessors';
 }
@@ -102,6 +113,13 @@ sub AUTOLOAD {
 	our $AUTOLOAD;
 	my ($func) = $AUTOLOAD =~ m!::([^:]+)$!;
 	return $class->{parent}->$func;
+}
+
+#----------
+
+sub DESTROY {
+	my $class = shift;
+	%$class = ();
 }
 
 #----------
