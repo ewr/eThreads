@@ -76,6 +76,9 @@ sub has_function {
 	my $class = shift;
 	my $func = shift;
 
+	# strip any leading slashes
+	$func =~ s!^/!!;
+
 	if (my $f = $class->controller->has_function($func)) {
 		my $fobj = $class->{_}->new_object(
 			'Glomule::Function',
@@ -180,7 +183,7 @@ sub id {
 
 	if ($class->{id}) {
 		if ( wantarray ) {
-			my $gh = $class->load_glomule_headers;
+			my $gh = $class->{_}->glomule->load_headers;
 			return ( $class->{id} , $gh->{id}{ $class->{id} } );
 		} else {
 			return $class->{id};
@@ -188,7 +191,7 @@ sub id {
 	} else {
 		# -- load glomule headers -- #
 
-		my $gh = $class->load_glomule_headers;
+		my $gh = $class->{_}->glomule->load_headers;
 
 		if (
 			my $r = 
@@ -203,22 +206,6 @@ sub id {
 			return undef;
 		}
 	}
-}
-
-#----------
-
-sub load_glomule_headers {
-	my $class = shift;
-
-	my $gh = $class->{_}->cache->get(
-		tbl		=> "glomule_headers",
-	);
-
-	if (!$gh) {
-		$gh = $class->{_}->instance->cache_glomule_headers();
-	}
-
-	return $gh;
 }
 
 #----------
@@ -252,7 +239,7 @@ sub load_info {
 	);
 
 	if (!$gd) {
-		$gd = $class->{_}->instance->cache_glomule_data(
+		$gd = $class->{_}->glomule->cache_data(
 			$id
 		);
 	}

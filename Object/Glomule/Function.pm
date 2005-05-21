@@ -97,7 +97,7 @@ sub execute {
 
 	if ($class->{object}) {
 		my $obj = $class->{_}->glomule->typeobj($class->{object})
-			or $class->{_}->bail->("Couldn't get typeobj for $class->{object}");
+			or $class->{_}->bail->("couldn't get typeobj for $class->{object}");
 
 		my $sub = $class->{sub};
 

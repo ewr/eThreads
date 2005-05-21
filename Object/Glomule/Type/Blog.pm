@@ -1,6 +1,6 @@
 package eThreads::Object::Glomule::Type::Blog;
 
-@ISA = qw( eThreads::Object::Glomule );
+@ISA = qw( eThreads::Object::Glomule::Type );
 
 use strict;
 use Date::Format;
