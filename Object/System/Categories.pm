@@ -21,9 +21,10 @@ sub new {
 
 sub get_sql_for {
 	my $class = shift;
+	my $glomule = shift;
 	my $cat = shift;
 	
-	my $obj = $class->is_valid_cat($cat)
+	my $obj = $class->is_valid_cat($glomule,$cat)
 		or $class->{_}->bail->("Invalid category: $cat");
 
 	return $obj->sql;
@@ -31,15 +32,16 @@ sub get_sql_for {
 
 #----------
 
-sub is_valid_cat_name {
+sub is_valid_name {
 	my $class = shift;
+	my $glomule = shift;
 	my $cat = shift;
 
-	my $cache = $class->load_all;
+	my $cache = $class->load_all($glomule);
 
 	if (my $c = $cache->{ name }{ $cat }) {
 		# valid, create an object
-		return $class->load($c->{id});
+		return $class->load($glomule,$c->{id});
 	} else {
 		return undef;
 	}
@@ -49,42 +51,34 @@ sub is_valid_cat_name {
 
 sub load {
 	my $class = shift;
+	my $glomule = shift;
 	my $id = shift;
 
-	if (my $obj = $class->{_}->cache->objects->get("category",$id)) {
-		return $obj;
-	} else {
-		my $cache = $class->load_all;
+	my $cache = $class->load_all($glomule);
 
-		my $c = $cache->{id}{ $id };
+	my $c = $cache->{id}{ $id };
 
-		return undef if (!$c);
+	return undef if (!$c);
 
-		my $obj = $class->{_}->new_object(
-			"System::Categories::Category",
-			%$c
-		);
+	my $obj = $class->{_}->new_object(
+		"System::Categories::Category",
+		%$c
+	);
 
-		$class->{_}->cache->objects->set("category",$c->{id},$obj);
-
-		return $obj;
-	}
+	return $obj;
 }
 
 #----------
 
 sub get_primary {
 	my $class = shift;
+	my $glomule = shift;
 	my $id = shift;
 
 	# -- make sure we have an id -- #
 
 	$class->{_}->bail->("Category get_primary called with no id.")
 		if (!$id);
-
-	# -- make sure we have a glomule -- #
-
-	my $glomule = $class->_get_glomule;
 
 	# -- look up primary category -- #
 
@@ -114,8 +108,7 @@ sub get_primary {
 
 sub load_all {
 	my $class = shift;
-
-	my $glomule = $class->_get_glomule;
+	my $glomule = shift;
 
 	my $c = $class->{_}->cache->get(tbl=>"cat_headers",first=>$glomule);
 
@@ -130,7 +123,7 @@ sub load_all {
 
 sub cache_headers {
 	my $class = shift;
-	my $glomule = shift || $class->_get_glomule;
+	my $glomule = shift;
 
 	my $get = $class->{_}->core->get_dbh->prepare("
 		select 
@@ -168,23 +161,25 @@ sub cache_headers {
 
 #----------
 
-sub _get_glomule {
-	my $class = shift;
-
-	if ( my $g = $class->{_}->knows("glomule") ) {
-		return $g->id;
-	} else {
-		$class->{_}->bail->("category functions require a glomule");
-	}
-}
-
-#----------
-
 sub f_main {
 	my $class = shift;
 	my $fobj = shift;
 
-	
+	if (my $name = $fobj->bucket->get('name')) {
+		# -- create a new category -- #
+
+		# check to make sure it doesn't exist
+		if ($class->is_valid_name($fobj->glomule->id,$name)) {
+			$fobj->gholders->register("message","Category exists: $name");
+		} else {
+			my $cat = $class->{_}->new_object("System::Categories::Category",
+				name	=> $name,
+				glomule	=> $fobj->glomule->id
+			)->activate;
+		
+			$fobj->gholders->register("message","Created category $name");
+		}
+	}
 }
 
 #----------

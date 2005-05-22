@@ -43,7 +43,14 @@ sub get {
 
 sub register {
 	my $class = shift;
-	my @f = @_;
+	
+	my @f;
+	
+	if (ref($_[0]) eq "ARRAY") {
+		@f = @_;
+	} else {
+		@f = ([ $_[0] , $_[1] ]);
+	}
 
 	foreach my $r (@f) {
 		$r->[0] = $class->{ctx} . $r->[0];

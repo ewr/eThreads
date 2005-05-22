@@ -21,7 +21,13 @@ sub load {
 	my $class = shift;
 	my $sys = shift;
 
-	return $class->{_}->new_object("System::" . $sys);
+	if (my $obj = $class->{_}->cache->objects->get("systemobj",$sys)) {
+		return $obj;
+	} else {
+		my $obj = $class->{_}->new_object("System::" . $sys);
+		$class->{_}->cache->objects->set("systemobj",$sys,$obj);
+		return $obj;
+	}
 }
 
 #----------

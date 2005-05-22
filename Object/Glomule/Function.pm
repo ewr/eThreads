@@ -104,11 +104,14 @@ sub execute {
 		return $obj->$sub($class,@_);
 
 	} elsif ($class->{system}) {
+		my $obj = $class->glomule->system( $class->{system} );
+	
+		my $sub = $class->{sub};
 
+		return $obj->$sub($class,@_);
 	} else {
 		$class->{_}->bail->("Can't call function without object or system.");
 	}
-	return $class->{sub}->($class,@_);
 }
 
 #----------

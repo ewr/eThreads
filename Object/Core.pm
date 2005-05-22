@@ -97,7 +97,13 @@ sub new {
 
 sub get_dbh {
 	my $class = shift;
-	return $class->{db}->get_dbh || $class->{db}->connect();
+	my $db = $class->{db}->get_dbh;
+
+	if ($db->ping) {
+		return $db;
+	} else {
+		$class->{db}->connect;
+	}
 }
 
 #----------

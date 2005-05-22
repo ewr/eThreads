@@ -189,22 +189,7 @@ sub id {
 			return $class->{id};
 		}
 	} else {
-		# -- load glomule headers -- #
-
-		my $gh = $class->{_}->glomule->load_headers;
-
-		if (
-			my $r = 
-				$gh
-					->{name}
-					->{ $class->{_}->container->id }
-					->{ $class->{name} }
-		) {
-			$class->{id} = $r->{id};
-			return wantarray ? ($r->{id},$r) : $r->{id};
-		} else {
-			return undef;
-		}
+		$class->{_}->glomule->name2id($class->{name});
 	}
 }
 

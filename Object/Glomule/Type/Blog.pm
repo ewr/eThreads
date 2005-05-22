@@ -80,7 +80,7 @@ sub f_main {
 	my $posts;
 	if ($category) {
 		# see if this is a valid category
-		my $cat = $class->{_}->categories->is_valid_cat_name($category)
+		my $cat = $class->{_}->categories->is_valid_name($category)
 			or $class->{_}->bail->("Invalid category: $category");
 
 		$fobj->gholders->register(['category', $cat->registerable ]);
@@ -218,7 +218,7 @@ sub f_management {
 
 	# -- get postponed posts -- #
 	{
-		my $posts = $class->posts_by_status(0);
+		my $posts = $class->posts_by_status($fobj,0);
 
 		if ($posts) {
 			my @o;
@@ -776,7 +776,7 @@ sub posts_by_status {
 	my $fobj = shift;
 	my $status = shift;
 
-	my $datelimit = $class->set_up_datelimit;
+	my $datelimit = $class->set_up_datelimit($fobj);
 
 	my $where = 
 		qq(
