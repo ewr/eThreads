@@ -1,6 +1,6 @@
-package eThreads::Object::Format::Markdown;
+package eThreads::Object::System::Format::Markdown;
 
-@ISA = qw( eThreads::Object::Format );
+@ISA = qw( eThreads::Object::System::Format );
 
 use strict;
 

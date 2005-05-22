@@ -36,9 +36,9 @@ sub activate_walk {
 	# for now we don't have a way to know if a glomule's valid.  we use it 
 	# and if it doesn't exist it'll get created
 
-	my $cobj = $class->{_}->switchboard->new_object(
-		"Glomule::Type::Comments",
-		$comments
+	my $cobj = $class->{_}->glomule->load(
+		type	=> "comments",
+		name	=> $comments
 	);
 
 	my $htbl = $cobj->data('headers');

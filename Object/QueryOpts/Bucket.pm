@@ -61,7 +61,7 @@ sub register {
 	if (
 		$input && 
 		$input =~ m!^$args{allowed}$!s && 
-		$input ne $args{d_value}
+		$input ne $args{default}
 	) {
 		$obj->set( $input );
 	} else {

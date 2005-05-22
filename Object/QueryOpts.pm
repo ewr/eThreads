@@ -173,12 +173,12 @@ sub list_link_qopts {
 
 	foreach my $n (keys %$fnames) {
 		if (my $opt = $class->names->{ $n }) {
-			next if (!$opt->persist);
+			next if (!$opt->persist && !$args->{$n});
 
 			my $v = exists( $args->{ $n } ) ? 
 				$args->{ $n } : $opt->get;
 
-			next if (!$v || $v eq $opt->d_value);
+			next if (!$v || $v eq $opt->default);
 
 			push @$qopts, [ $n , $v ];
 		} elsif (my $v = $args->{ $n }) {

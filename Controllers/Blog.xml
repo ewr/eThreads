@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- DOCTYPE Controller PUBLIC "-//eThreads//eThreads Controller DTD//EN" "http://ethreads.com/xml/Controller.dtd" -->
+<glomule type="blog" object="Blog">
+  <system name="categories" object="Categories"/>
+  <system name="format" object="Format::Markdown"/>
+  <function name="">
+    <object>blog</object>
+    <sub>f_main</sub>
+    <qopts>
+      <opt key="category" allowed="\w+" default="" persist="1"/>
+      <opt key="start" allowed="\d+" persist="1">
+        <default>
+          <pref>start</pref>
+        </default>
+      </opt>
+      <opt key="limit" allowed="\d+" persist="1">
+        <default>
+          <pref>limit</pref>
+        </default>
+      </opt>
+      <opt key="sortby" allowed="\w+" persist="1">
+        <default>
+          <pref>sortby</pref>
+        </default>
+      </opt>
+      <opt key="sortdir" allowed="(?:asc|desc)" persist="1">
+        <default>
+          <pref>sortdir</pref>
+        </default>
+      </opt>
+      <opt key="year" allowed="\d+" persist="1">
+        <default>
+          <pref>year</pref>
+        </default>
+      </opt>
+      <opt key="month" allowed="\d+" persist="1">
+        <default>
+          <pref>month</pref>
+        </default>
+      </opt>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+      <mode name="Normal" value="1"/>
+    </modes>
+  </function>
+  <function name="view">
+    <object>blog</object>
+    <sub>f_view</sub>
+    <qopts>
+      <opt key="id" allowed="\d+" default="" persist="1"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+      <mode name="Normal" value="1"/>
+    </modes>
+  </function>
+  <function name="archive">
+    <object>blog</object>
+    <sub>f_archive</sub>
+    <qopts>
+      <opt allowed="\w+" key="category" persist="1"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+      <mode name="Normal" value="1"/>
+    </modes>
+  </function>
+  <function name="ondate">
+    <object>blog</object>
+    <sub>f_ondate</sub>
+    <qopts>
+      <opt allowed="[\w\/]+" key="date"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+      <mode name="Normal" value="1"/>
+    </modes>
+  </function>
+  <function name="management">
+    <object>blog</object>
+    <sub>f_management</sub>
+    <qopts/>
+    <modes>
+      <mode name="Auth" value="1"/>
+    </modes>
+  </function>
+  <function name="compose_post">
+    <object>blog</object>
+    <sub>f_compose_post</sub>
+    <qopts>
+      <opt allowed="\d+" key="id" persist="1"/>
+      <opt allowed=".+" key="title" persist="1"/>
+      <opt allowed=".+" key="intro" persist="1"/>
+      <opt allowed=".+" key="body" persist="1"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+    </modes>
+  </function>
+  <function name="post">
+    <object>blog</object>
+    <sub>f_post</sub>
+    <qopts>
+      <opt allowed=".+" key="title" persist="1"/>
+      <opt allowed=".+" key="intro" persist="1"/>
+      <opt allowed=".+" key="body" persist="1"/>
+      <opt allowed=".+" key="preview" persist="1"/>
+      <opt allowed=".+" key="postpone" persist="1"/>
+      <opt allowed=".+" key="post" persist="1"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+    </modes>
+  </function>
+  <function name="delete">
+    <object>blog</object>
+    <sub>f_delete</sub>
+    <qopts>
+        <opt key="id" allowed="\d+" persist="1"/>
+        <opt key="confirm" allowed="(?:1|true)" persist="1"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+    </modes>
+  </function>
+  <function name="cat_main">
+    <system>categories</system>
+    <sub>f_main</sub>
+    <qopts>
+        <opt key="name" allowed=".+"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+    </modes>
+  </function>
+	<prefs>
+		<pref name="datetime_format" default="%D %I:%M%p" allowed=".*"/>
+		<pref name="limit" default="10" allowed="\d+"/>
+		<pref name="sortby" default="timestamp" allowed="\w+" hidden="1"/>
+		<pref name="sortdir" default="desc" allowed="(?:asc|desc)" hidden="1"/>
+		<pref name="start" allowed="\d+" default="0" hidden="1"/>
+		<pref name="year" allowed="\d{4}" hidden="1"/>
+		<pref name="month" allowed="\d\d" hidden="1"/>
+		<pref name="day" allowed="\d\d?" hidden="1"/>
+		<pref name="archive_years" default="1" allowed="[10]">
+			<toggle>
+				<option name="Yes" value="1"/>
+				<option name="No" value="0"/>
+			</toggle>
+		</pref>
+	</prefs>
+</glomule>

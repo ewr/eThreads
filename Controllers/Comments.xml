@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- DOCTYPE Controller PUBLIC "-//eThreads//eThreads Controller DTD//EN" "http://ethreads.com/xml/Controller.dtd" -->
+<glomule type="comments" object="Comments" default="comments">
+    <function name="view">
+        <object>comments</object>
+        <sub>f_view</sub>
+        <qopts>
+            <opt key="id" allowed="\d+" persist="1"/>
+        </qopts>
+        <modes>
+            <mode name="Normal" value="1"/>
+            <mode name="Auth" value="1"/>
+        </modes>
+    </function>
+    <function name="post">
+        <object>comments</object>
+        <sub>f_post</sub>
+        <qopts>
+            <opt key="id" allowed="\d+" persist="1"/>
+            <opt key="title" allowed=".+"/>
+            <opt key="name" allowed=".+"/>
+            <opt key="url" allowed=".+"/>
+            <opt key="email" allowed=".+"/>
+            <opt key="comment" allowed=".+"/>
+            <opt key="post" allowed=".+"/>
+            <opt key="preview" allowed=".+"/>
+        </qopts>
+        <modes>
+            <mode name="Normal" value="1"/>
+            <mode name="Auth" value="1"/>
+        </modes>
+    </function>
+    <function name="delete">
+        <object>comments</object>
+        <sub>f_delete</sub>
+        <qopts>
+            <opt key="id" allowed="\d+" persist="1"/>
+            <opt key="confirm" allowed="(?:1|true)"/>
+        </qopts>
+        <modes>
+            <mode name="Auth" value="1"/>
+        </modes>
+    </function>
+	<prefs>
+		<pref name="datetime_format" default="%D %I:%M%p" allowed=".*"/>
+	</prefs>
+</glomule>

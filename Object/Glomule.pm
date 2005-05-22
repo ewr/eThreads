@@ -3,10 +3,13 @@ package eThreads::Object::Glomule;
 use strict;
 use vars qw();
 
+use eThreads::Object::Glomule::Data;
 use eThreads::Object::Glomule::Data::Posts;
 
 use eThreads::Object::Glomule::Function;
 use eThreads::Object::Glomule::Pref;
+
+use eThreads::Object::Glomule::Type;
 
 use eThreads::Object::Glomule::Type::Admin;
 use eThreads::Object::Glomule::Type::Blog;
@@ -16,42 +19,86 @@ use eThreads::Object::Glomule::Type::NCManagement;
 #----------
 
 sub new {
-	die "Cannot directly load base Glomule Object\n";
+	my $class = shift;
+	my $data = shift;
+
+	$class = bless ( {
+		_		=> $data,
+	} , $class ); 
+
+	return $class;
 }
 
 #----------
 
-sub id {
+sub load {
 	my $class = shift;
+	my %a = @_;
+	
+	# -- make sure type is valid -- #
 
-	if ($class->{id}) {
-		if ( wantarray ) {
-			my $gh = $class->load_glomule_headers;
-			return ( $class->{id} , $gh->{id}{ $class->{id} } );
-		} else {
-			return $class->{id};
-		}
+	my $controller = $class->{_}->controller->get( $a{type} )
+		or $class->{_}->bail->("Invalid glomule type: $a{type}");
+
+	my $g = $class->{_}->new_object(
+		"Glomule::Data",
+		name		=> $a{name},
+		type		=> $a{type},
+		controller	=> $controller,
+	)->activate;
+
+	return $g;
+}
+
+#----------
+
+sub typeobj {
+	my $class = shift;
+	my $type = shift;
+
+	if (my $obj = $class->{_}->cache->objects->get('glomuletype',$type)) {
+		return $obj;
 	} else {
-		# -- load glomule headers -- #
+		my $c = $class->{_}->controller->get($type)
+			or return undef;
+	
+		my $obj = $class->{_}->new_object(
+			"Glomule::Type::" . $c->object
+		);
 
-		my $gh = $class->load_glomule_headers;
+		$class->{_}->cache->objects->set('glomuletype',$type,$obj);
 
-		if (
-			my $r = 
-				$gh
-					->{name}
-					->{ $class->{_}->container->id }
-					->{ $class->{name} }
-		) {
-			$class->{id} = $r->{id};
-			return wantarray ? ($r->{id},$r) : $r->{id};
-		} else {
-			return undef;
-		}
+		return $obj;
+	}
+	
+}
+
+#----------
+
+sub name2id {
+	my $class = shift;
+	my $name = shift;
+	my $container = shift || $class->{_}->container->id;
+
+	my $gh = $class->load_headers;
+
+	if (
+		my $r = 
+			$gh
+				->{name}
+				->{ $container }
+				->{ $name }
+	) {
+		$class->{id} = $r->{id};
+		return wantarray ? ($r->{id},$r) : $r->{id};
+	} else {
+		return undef;
 	}
 }
 
-sub load_glomule_headers {
+#----------
+
+sub load_headers {
 	my $class = shift;
 
 	my $gh = $class->{_}->cache->get(
@@ -59,672 +106,79 @@ sub load_glomule_headers {
 	);
 
 	if (!$gh) {
-		$gh = $class->{_}->instance->cache_glomule_headers();
+		$gh = $class->cache_headers();
 	}
 
 	return $gh;
 }
+
 #----------
 
-sub load_info {
+sub cache_headers {
 	my $class = shift;
-
-	if (!$class->{name}) {
-		# if we don't have a name we're going to skip all of this
-		return 1;
-	}
-
-
-	# -- figure out our id -- #
-
-	my ($id,$gh) = $class->id;
-
-	if (!$id) {
-		# we need to create our glomule
-		$class->initialize;
-
-		# now we get this again, since we're too lazy to get the 
-		# object elsewise
-		($id,$gh) = $class->id;
-	}
-
-	# -- load glomule data -- #
-
-	my $gd = $class->{_}->cache->get(
-		tbl		=> "glomule_data",
-		first	=> $id,
-	);
-
-	if (!$gd) {
-		$gd = $class->{_}->instance->cache_glomule_data(
-			$id
-		);
-	}
-		
-	# -- load these values into our object -- #
-
-	foreach my $h ($gh,$gd) {
-		while ( my ($k,$v) = each %$h ) {
-			next if ($class->{data}{$k});
-			$class->{data}{$k} = $v;
-		}
-	}
-
-	return 1;
-}
-
-#----------
-
-sub initialize {
-	my $class = shift;
-
-	# ok, we need to create an entry in glomule_headers and get an id 
-	# for our efforts
-
-	my $ins = $class->{_}->core->get_dbh->prepare("
-		insert into 
-			" . $class->{_}->core->tbl_name("glomule_headers") . "
-		(id,container,name,natural_type,parent) 
-		values(0,?,?,?,?)
-	");
-
-	$ins->execute(
-		$class->{_}->container->id,
-		$class->{name},
-		$class->TYPE,
-		0
-	) or $class->{_}->bail->("couldn't init glomule: " . $ins->errstr);
-
-	$class->{_}->cache->update_times->set(
-		tbl	=> "glomule_headers",
-		ts	=> time,
-	);
-
-	# -- now create tables -- #
-
-	$class->create_tables;
-
-	return 1;
-}
-
-#----------
-
-sub create_tables {
-	my $class = shift;
-	
-	# -- create headers tbl -- #
-
-	my $headers = $class->{_}->utils->create_table(
-		$class->{_}->utils->get_unused_tbl_name("glomheaders"),
-		$class->header_fields
-	);
-
-	$class->register_data("headers",$headers);
-
-	# -- now create data tbl -- #
-
-	my $data = $class->{_}->utils->create_table(
-		$class->{_}->utils->get_unused_tbl_name("glomdata"),
-		$class->_data_tbl_fields,
-	);
-
-	$class->register_data("data",$data);
-}
-
-#----------
-
-sub register_data {
-	my $class = shift;
-	my $name = shift;
-	my $value = shift;
-
-	$class->{_}->utils->set_value(
-		tbl		=> "glomule_data",
-		keys	=> {
-			ident	=> $name,
-			id		=> scalar $class->id,
-		},
-		value	=> $value,
-	);
-
-	$class->{_}->cache->update_times->set(
-		tbl		=> "glomule_data",
-		first	=> scalar $class->id,
-		ts		=> time,
-	);
-
-	$class->{data}{ $name } = $value;
-
-	return 1;
-}
-
-#----------
-
-sub data {
-	my $class = shift;
-	my $name = shift;
-	#return $class->{$name};
-	return $class->{data}{$name};
-}
-
-#----------
-
-sub connect_to_gholders {
-	my $class = shift;
-	my $gholders = shift;
-
-	$class->{gholders} = $gholders;
-
-	return 1;
-}
-
-#----------
-
-sub gholders {
-	my $class = shift;
-	return $class->{gholders};
-}
-
-#----------
-
-sub functions {
-	my $class = shift;
-
-	if (!$class->{f}) {
-		$class->{f} = $class->{_}->new_object(
-			"Functions::Glomule"
-		);
-	}
-
-	return $class->{f};
-}
-
-#----------
-
-sub register_functions {
-	my $class = shift;
-	$class->functions->register(@_);
-}
-
-#----------
-
-sub is_function {
-	my $class = shift;
-	my $func = shift;
-
-	$class->functions->knows($func);
-}
-
-#----------
-
-sub register_prefs {
-	my $class = shift;
-	my $prefs = shift;
-
-	foreach my $p (@$prefs) {
-		my $obj = $class->{_}->new_object("Glomule::Pref")->init($p);
-		$class->{prefs}{ $p->{name} } = $obj;
-	}
-
-	return $class;
-}
-
-#----------
-
-sub load_prefs {
-	my $class = shift;
-
-	my $core = $class->{_}->core;
-
-	# -- first load glomule-wide prefs -- #
-
-	my $gp = $class->{_}->cache->get(
-		tbl		=> "prefs",
-		first	=> $class->{id},
-	);
-
-	if (!$gp) {
-		$gp = $class->cache_glomule_prefs;
-	}
-
-	# -- next load look-specific prefs -- #
-
-	my $lp = $class->{_}->cache->get(
-		tbl		=> "prefs",
-		first	=> $class->{id},
-		second	=> $class->{_}->look->id
-	);
-
-	if (!$lp) {
-		$lp = $class->cache_look_prefs;
-	}
-
-	foreach my $ps ($gp,$lp) {
-		while ( my ($k,$v) = each %$ps ) {
-			my $obj = $class->pref($k);
-			next if (!$obj);
-			$obj->set($v);
-		}
-	}
-
-	return $class;
-}
-
-#----------
-
-sub pref {
-	my $class = shift;
-	my $pref = shift;
-
-	return $class->{prefs}{ $pref };
-}
-
-#----------
-
-sub load_pings {
-	my $class = shift;
-
-	my $obj = $class->{_}->new_object(
-		"System::Ping"
-	);
-
-	return $obj;
-}
-
-#----------
-
-sub posts_generic {
-	my $class = shift;
-	my $where = shift;
-
-	my ($results,$count) = $class->get_from_glomheaders(
-		$where,
-		@_
-	);
-
-	my $posts = {};
-
-	# if we didn't get anything, short-circuit here
-	return undef 
-		if (!$count);
-
-	my @ids = map { $_->{id} } @$results;
-	%$posts = map { $_->{id} => $_ } @$results; 
-	
-	# -- now get post data -- #
-
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->data('data'),
-		ident	=> "id",
-		ids		=> \@ids,
-	);
-
-	while ( my ($id,$d) = each %$data ) {
-		while ( my ($k,$v) = each %$d ) {
-			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
-		}
-	}
-
-	my $obj = $class->{_}->new_object("Glomule::Data::Posts");
-	$obj->posts($results);
-	$obj->count($count);
-
-	return $obj;
-}
-
-#----------
-
-sub posts_generic_w_limit {
-	my $class = shift;
-	my $where = shift;
-	my $start = shift;
-	my $limit = shift;
-
-	my $count = $class->{_}->core->get_dbh->prepare("
-		select 
-			count(id) 
-		from
-			" . $class->data('headers') . "
-		where 
-			$where
-	");
-
-	$count->execute(@_)
-		or $class->{_}->bail->("count posts failed: ".$count->errstr);
-
-	my $num_posts = $count->fetchrow_array;
-
-	# now actually get our limited rows
-
-	my $results = $class->get_from_glomheaders(
-		$where
-		. " limit " 
-		. $start
-		. ","
-		. $limit,
-		@_
-	);
-
-	my $posts = {};
-
-	my @ids = map { $_->{id} } @$results;
-	%$posts = map { $_->{id} => $_ } @$results; 
-	
-	# -- now get post data -- #
-
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->data('data'),
-		ident	=> "id",
-		ids		=> \@ids,
-	);
-
-	while ( my ($id,$d) = each %$data ) {
-		while ( my ($k,$v) = each %$d ) {
-			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
-		}
-	}
-
-	# -- now return this as an object -- #
-
-	my $obj = $class->{_}->switchboard->new_object("Glomule::Data::Posts");
-
-	$obj->posts($results);
-	$obj->count($num_posts);
-
-	return $obj;
-}
-
-#----------
-
-sub get_from_glomheaders {
-	my $class = shift;
-	my $sql = shift;
-	# the rest of @_ should be bind vars
-
-	my $get = $class->{_}->core->get_dbh->prepare("
-		select 
-			id,
-			title,
-			timestamp,
-			parent,
-			status,
-			user
-		from 
-			" . $class->data('headers') . "
-		where 
-			$sql
-	");
-
-	$get->execute(@_) 
-		or $class->{_}->bail->("get_from_gh failed: " . $get->errstr);
-
-	my $count = $get->rows;
-
-	my ($id,$tit,$tim,$p,$s,$u);
-	$get->bind_columns( \($id,$tit,$tim,$p,$s,$u) );
-
-	my $posts = [];
-	while ($get->fetch) {
-		my $post = {
-			id			=> $id,
-			title		=> $tit,
-			timestamp	=> $tim,
-			parent		=> $p,
-			status		=> $s,
-			user		=> $u
-		};
-
-		push @$posts, $post;
-	}
-
-	return wantarray ? ($posts,$count) : $posts;
-}
-
-#----------
-
-sub cache_glomule_prefs {
-	return {};
-}
-
-#----------
-
-sub cache_look_prefs {
-	return {};
-}
-
-#----------
-
-sub flesh_out_post {
-	my $class = shift;
-	my $post = shift;
-	my %a = @_;
-
-	my $h_fields = $a{h_fields} || $class->header_fields;
-	my $d_fields = $a{d_fields} || $class->fields;
-
-	# fill in and check header fields
-	foreach my $h ($h_fields,$d_fields) {
-		foreach my $f (@{ $h }) {
-			if ($f->{require} && $post->{ $f->{name} } !~ /\S/) {
-				return (0,"Missing required field: $f->{name}");
-			}
-
-			if (!$post->{ $f->{name} }) {
-				$post->{ $f->{name} } = $f->{d_value};
-			}
-		}
-	}
-
-	return 1;
-}
-
-#----------
-
-sub post {
-	my $class = shift;
-	my $ipost = shift;
-	my %args = @_;
-
-	# allow for some special usage
-	my $headers 	= $args{headers}	|| $class->data('headers');
-	my $data 		= $args{data} 		|| $class->data('data');
-	my $h_fields	= $args{h_fields} 	|| $class->header_fields;
-	my $d_fields	= $args{d_fields} 	|| $class->fields;
-
-	my $post = {};
-	%$post = %$ipost;
-
-	while ( my ($k,$v) = each %args ) {
-		next if ($k =~ m!^(?:headers|data|h_fields|d_fields)$!);
-		$post->{ $k } = $v;
-	}
 
 	my $db = $class->{_}->core->get_dbh;
 
-	# now we need to insert (or update) our headers entry.
+	my $get_h = $db->prepare("
+		select 
+			id,
+			name,
+			container,
+			natural_type
+		from
+			" . $class->{_}->core->tbl_name("glomule_headers") . "
+	");
 
-	my (@hfields,@hvalues);
-	foreach my $f (@$h_fields) {
-		next if ($f->{name} eq "id" || $f->{KEYS});
-
-		push @hfields, $f->{name};
-		push @hvalues, $post->{ $f->{name} };
-	}
-	
-	if ($post->{id}) {
-		# update
-
-		my $update = $db->prepare("
-			update 
-				" . $headers . " 
-			set 
-				" . join("=\?,",@hfields) . "=? 
-			where 
-				id = ?
-		");
-
-		$update->execute(@hvalues,$post->{id}) 
-			or $class->{_}->bail->("update post failure: " . $db->errstr);
-	} else {
-		# insert 
-
-		my $insert = $db->prepare("
-			insert into 
-				" . $headers . "
-			(" . join(",",@hfields) . ") 
-			values(" . join(",",split("","?"x@hfields)) . ")
-		");
-
-		$insert->execute(@hvalues) 
-			or $class->{_}->bail->("insert post failed: " . $db->errstr);
-
-		# FIXME - this is a MySQL specific hack
-		$post->{id} = $db->{'mysql_insertid'};
-	}
-
-	# now do data
-	foreach my $f (@$d_fields) {
-		$class->{_}->utils->set_value(
-			tbl		=> $data,
-			keys	=> {
-				id		=> $post->{id},
-				ident	=> $f->{name},
-			},
-			value	=> $post->{ $f->{name} },
-			set_zero_value	=> 1,
+	$get_h->execute() 
+		or $class->{_}->bail->(
+			"glomule cache_headers failure: ".$db->errstr
 		);
+
+	my ($id,$n,$c,$t);
+	$get_h->bind_columns( \($id,$n,$c,$t) );
+
+	my $gh = {};
+	while ($get_h->fetch) {
+		my $data = {
+			id			=> $id,
+			name		=> $n,
+			container	=> $c,
+			natural		=> $t,
+		};
+
+		$gh->{id}{ $id } = $data;
+		$gh->{container}{ $c }{ $id } = $data;
+		$gh->{name}{ $c }{ $n } = $data;
 	}
 
-	return $post;
+	$class->{_}->cache->set(
+		tbl		=> "glomule_headers",
+		ref		=> $gh,
+	);
+
+	return $gh;
 }
 
 #----------
 
-sub delete {
+sub cache_data {
 	my $class = shift;
 	my $id = shift;
 
-	# delete from headers
-	my $delh = $class->{_}->core->get_dbh->prepare("
-		delete from 
-			" . $class->data('headers') . "
-		where 
-			id = ?
-	");
+	my $data = $class->{_}->utils->g_load_tbl(
+		tbl		=> $class->{_}->core->tbl_name("glomule_data"),
+		ident	=> "id",
+		ids		=> [$id],
+		flat	=> 1,
+	);
 
-	$delh->execute($id)
-		or $class->{_}->bail->("delete headers failed: ".$delh->errstr);
+	$class->{_}->cache->set(
+		tbl		=> "glomule_data",
+		first	=> $id,
+		ref		=> $data,
+	);
 
-	# delete from data
-	my $deld = $class->{_}->core->get_dbh->prepare("
-		delete from 
-			" . $class->data('data') . "
-		where 
-			id = ?
-	");
-
-	$deld->execute($id)
-		or $class->{_}->bail->("delete data failed: ".$deld->errstr);
-
-	return 1;
-}
-
-#----------
-
-sub edit_fields {
-	my $class = shift;
-
-	my $fields = [];
-
-	foreach my $f (@{ $class->header_fields }) {
-		push @$fields, $f if ($f->{edit});
-	}
-
-	foreach my $f (@{ $class->fields }) {
-		push @$fields, $f if ($f->{edit});
-	}
-
-	return $fields;
-}
-
-#----------
-
-sub header_fields {
-	my $class = shift;
-
-	return [
-
-	{ KEYS => [
-		'primary key(id)'
-	] },
-	{
-		name	=> "id",
-		def		=> "int(11) not null auto_increment",
-		allowed	=> '\d+',
-		d_value	=> 0,
-	},
-	{
-		name	=> "title",
-		def		=> "varchar(100) not null",
-		allowed	=> '.*',
-		require	=> 1,
-		edit	=> 1,
-	},
-	{
-		name	=> "parent",
-		def		=> "int(11) not null",
-		allowed	=> '\d+',
-		d_value	=> 0,
-	},
-	{
-		name	=> "timestamp",
-		def		=> "int(11) not null",
-		allowed	=> '\d+',
-		d_value	=> time,
-	},
-	{
-		name	=> "user",
-		def		=> "int(11)",
-		allowed	=> '\d+',
-		d_value	=> 
-			( $class->{_}->switchboard->knows("user") 
-				? $class->{_}->user->id
-				: 0 ),
-		require	=> 0,
-	},
-	{
-		name	=> "status",
-		def		=> "tinyint not null",
-		allowed	=> '\d+',
-		d_value	=> 0,
-	},
-
-	];
-}
-
-#----------
-
-sub _data_tbl_fields {
-	my $class = shift;
-	return [
-
-	{ KEYS => [
-		'primary key(id,ident)'
-	] },
-	{
-		name	=> "id",
-		def		=> "int(11) not null",
-	},
-	{
-		name	=> "ident",
-		def		=> "varchar(20) not null",
-	},
-	{
-		name	=> "value",
-		def		=> "text"
-	}
-
-	];
+	return $data;
 }
 
 #----------

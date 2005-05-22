@@ -91,7 +91,7 @@ sub prewalk_plugin {
 
 	my $type = $i->args->{type} || $i->args->{DEFAULT};
 	my $named = $i->args->{ctx};
-	
+
 	my $obj = $class->{_}->plugins->load($type,i=>$i)
 		or $class->{_}->bail->("Plugin didn't load: $type");
 
@@ -156,11 +156,13 @@ sub prewalk_glomule {
 	my $glomule = $i->args->{name} || $i->args->{glomule};
 	my $named = $i->args->{ctx};
 
-	my $objname = $class->{_}->settings->{glomule_types}{ $type };
+	# -- try to load the glomule -- #
 
-	if (!$objname) {
-		$class->{_}->bail->("Couldn't find object name for $type");
-	}
+	my $g = $class->{_}->glomule->load(
+		type	=> $type,
+		name	=> $glomule,
+		i		=> $i
+	);
 
 	# -- get an empty context under the plugin space -- #
 
@@ -170,19 +172,13 @@ sub prewalk_glomule {
 		"GHolders::RegisterContext"
 	)->set($ctx);
 
+	$g->connect_to_gholders($rctx);
+
 	$class->{_}->gholders->register([$ctx,1]);
 
 	if ($named) {
 		$class->{_}->gholders->new_named_ctx($named,$ctx);
 	}
-
-	my $g = $class->{_}->instance->new_object(
-		"Glomule::Type::".$objname,
-		$glomule,
-		$i
-	)->activate;
-
-	$g->connect_to_gholders($rctx);
 
 	# set our object in the ObjectTree
 	$i->note("object",$g);
@@ -203,8 +199,8 @@ sub walk_glomule {
 	my $g = $i->note("object")
 		or $class->{_}->bail->("Couldn't find object in walk");
 
-	if ( my $ref = $g->functions->knows( $i->args->{function} ) ) {
-		$ref->activate->execute( $i->args );
+	if ( my $func = $g->has_function( $i->args->{function} ) ) {
+		$func->execute( $i->args );
 	} else {
 		$class->{_}->bail->(
 			"Unknown glomule function: "

@@ -18,6 +18,10 @@ sub new {
 		children	=> {},
 	} , $class);
 
+#	if (!$key) {
+#		Carp::cluck "gholder with no key\n";
+#	}
+
 	if ($parent) {
 		$parent->add_child($class);
 	}
@@ -30,8 +34,8 @@ sub new {
 sub DESTROY {
 	my $class = shift;
 
-#	$class->{parent} = undef;
-#	%{$class->{children}} = ();
+	$class->{parent} = undef;
+	%{$class->{children}} = ();
 
 	return 1;
 }
@@ -42,6 +46,11 @@ sub add_child {
 	my $class = shift;
 	my $child = shift;
 
+	if (!$child->{key}) {
+		my @caller = caller;
+		warn "bad key from: @caller\n";
+	}
+
 	$class->{children}{ $child->{key} } = $child;
 }
 
@@ -50,7 +59,7 @@ sub add_child {
 sub children {
 	my $class = shift;
 
-	return $class->{children};
+	$class->{children};
 }
 
 #----------

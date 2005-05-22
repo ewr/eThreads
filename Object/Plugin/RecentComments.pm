@@ -20,9 +20,9 @@ sub activate {
 	# for now we don't have a way to know if a glomule's valid.  we use it 
 	# and if it doesn't exist it'll get created
 
-	my $cobj = $class->{_}->switchboard->new_object(
-		"Glomule::Type::Blog",
-		$comments
+	my $cobj = $class->{_}->glomule->load(
+		name	=> $comments,
+		type	=> "comments",
 	);
 
 	my $htbl = $cobj->data("headers");

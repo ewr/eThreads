@@ -12,7 +12,7 @@ sub new {
 		_			=> $data,
 		name		=> undef,
 		allowed		=> undef,
-		d_value		=> undef,
+		default		=> undef,
 		select		=> undef,
 		descript	=> undef,
 		value		=> undef,
@@ -44,7 +44,7 @@ sub init {
 
 sub get {
 	my $class = shift;
-	return $class->{value} || $class->{d_value};
+	return $class->{value} || $class->{default};
 }
 
 #----------

@@ -64,7 +64,7 @@ sub objects {
 
 	if (!$class->{objects}) {
 		$class->{objects} 
-			= $class->{_}->instance->new_object("Cache::Objects");
+			= $class->{_}->new_object("Cache::Objects");
 	}
 
 	return $class->{objects};

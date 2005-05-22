@@ -16,9 +16,11 @@ use eThreads::Object::Core;
 	my $core = new eThreads::Object::Core;
 	$core->cgi_enable;
 
-	for (0..100) {
+	for (0..100) 
+	{
 		my $inst = $core->new_object("Instance",$core->cgi_r_handler);
 		$inst->go();
+		$inst->DESTROY;
 	}
 }
 
@@ -26,5 +28,6 @@ use eThreads::Object::Core;
 
 sub eThreads::Object::FakeRequestHandler::print {
 	return 1;
+#	print @_;
 }
 

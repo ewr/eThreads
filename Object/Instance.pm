@@ -13,28 +13,22 @@ sub new {
 	$class = bless ( 
 		{ 
 			_			=> undef,
-			container	=> undef,
-			look		=> undef,
-			template	=> undef,
-			gholders	=> undef,
-			input		=> undef,
-			ap_request	=> $r,
-			# etc...
 		} , $class );
 
 	# create objects object
 	$class->{objects} = eThreads::Object::Objects->new($class);
 
 	# create switchboard object
-	my $swb = $class->{switchboard} = new eThreads::Object::Switchboard;
-	$class->{_} = $class->{switchboard}->accessors;
+	my $swb = new eThreads::Object::Switchboard;
+	$swb->reroute_calls_for($class);
+	$class->{objects}->register($swb);
 
 	$swb->register('core',$core);
 	$swb->register('settings',$core->settings);
 
 	# register ourself with switchboard
 	$swb->register('instance',$class);
-	$swb->register('ap_request',$class->{ap_request});
+	$swb->register('ap_request',$r);
 
 	# register objects with switchboard
 	$swb->register('objects',$class->{objects});
@@ -45,10 +39,9 @@ sub new {
 	});
 
 	# create cache object
-	$class->{cache} 	= $class->new_object(
+	$swb->register('cache',$class->new_object(
 		$class->{_}->settings->{cache_obj}
-	);
-	$swb->register('cache',$class->{cache});
+	));
 
 	$swb->register('messages',sub {
 		$class->new_object('Messages');
@@ -77,6 +70,8 @@ sub new {
 
 	$swb->register("gholders", $class->new_object("GHolders") );
 
+	$swb->register('glomule', $class->new_object('Glomule'));
+
 	$swb->register("last_modified",sub {
 		$class->new_object("LastModifiedTime");
 	});
@@ -85,12 +80,19 @@ sub new {
 		$class->new_object("Plugin");
 	});
 
+	# create system object
+	$swb->register('system',sub {
+		$class->{_}->new_object('System');
+	});
+
+	# point to core's controller object
+	$swb->register('controller',$class->{_}->core->controller);
+
 	# -- continue with initialization -- #
 
 	# set our root...  this will set $class->{root} to be a Container 
 	# object for the root
-	$class->{domain} = $class->determine_domain();
-	$swb->register("domain",$class->{domain});
+	$swb->register("domain",$class->determine_domain());
 
 	# what we do here is a sort of tree shaped lookup to see what 
 	# all is going on.  We determine the mode, the mode determines the 
@@ -98,8 +100,7 @@ sub new {
 	# look determines the template
 
 	# figure out our mode
-	$class->{mode}		= $class->determine_mode();
-	$swb->register("mode",$class->{mode});
+	$swb->register("mode",$class->determine_mode());
 
 	# -- now return -- #
 
@@ -120,6 +121,7 @@ sub DESTROY {
 	my $class = shift;
 
 	$class->{objects}->DESTROY;
+	undef $class->{objects};
 }
 
 #----------
@@ -341,75 +343,6 @@ sub cache_looks {
 	);
 
 	return $l;
-}
-
-#----------
-
-sub cache_glomule_headers {
-	my $class = shift;
-
-	my $db = $class->{_}->core->get_dbh;
-
-	my $get_h = $db->prepare("
-		select 
-			id,
-			name,
-			container,
-			natural_type
-		from
-			" . $class->{_}->core->tbl_name("glomule_headers") . "
-	");
-
-	$get_h->execute() 
-		or $class->{_}->bail->(
-			"cache_glomule_headers failure: ".$db->errstr
-		);
-
-	my ($id,$n,$c,$t);
-	$get_h->bind_columns( \($id,$n,$c,$t) );
-
-	my $gh = {};
-	while ($get_h->fetch) {
-		my $data = {
-			id			=> $id,
-			name		=> $n,
-			container	=> $c,
-			natural		=> $t,
-		};
-
-		$gh->{id}{ $id } = $data;
-		$gh->{container}{ $c }{ $id } = $data;
-		$gh->{name}{ $c }{ $n } = $data;
-	}
-
-	$class->{_}->cache->set(
-		tbl		=> "glomule_headers",
-		ref		=> $gh,
-	);
-
-	return $gh;
-}
-
-#----------
-
-sub cache_glomule_data {
-	my $class = shift;
-	my $id = shift;
-
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{_}->core->tbl_name("glomule_data"),
-		ident	=> "id",
-		ids		=> [$id],
-		flat	=> 1,
-	);
-
-	$class->{_}->cache->set(
-		tbl		=> "glomule_data",
-		first	=> $id,
-		ref		=> $data,
-	);
-
-	return $data;
 }
 
 #----------

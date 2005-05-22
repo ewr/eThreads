@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- DOCTYPE Controller PUBLIC "-//eThreads//eThreads Controller DTD//EN" "http://ethreads.com/xml/Controller.dtd" -->
+<glomule type="admin" object="Admin">
+	<function name="">
+		<object>admin</object>
+		<sub>f_main</sub>
+		<qopts/>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="looks">
+		<object>admin</object>
+		<sub>f_looks</sub>
+		<qopts>
+			<opt key="new_default" allowed="\d+"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="templates">
+		<object>admin</object>
+		<sub>f_templates</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="templates/new">
+		<object>admin</object>
+		<sub>f_templates_new</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+			<opt key="path" allowed=".*"/>
+			<opt key="type" allowed=".*"/>
+			<opt key="content" allowed=".*"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="templates/edit">
+		<object>admin</object>
+		<sub>f_templates_edit</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+			<opt key="submit" allowed=".*"/>
+			<opt key="content" allowed=".*"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="subtemplates/new">
+		<object>admin</object>
+		<sub>f_subtemplates_new</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+			<opt key="path" allowed=".*"/>
+			<opt key="type" allowed=".*"/>
+			<opt key="content" allowed=".*"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="subtemplates/edit">
+		<object>admin</object>
+		<sub>f_subtemplates_edit</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+			<opt key="submit" allowed=".*"/>
+			<opt key="content" allowed=".*"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="qopts">
+		<object>admin</object>
+		<sub>f_qopts</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+			<opt key="edit" allowed=".*"/>
+			<opt key="add" allowed=".*"/>
+			<opt key="glomule" allowed="\d+" persist="1"/>
+			<opt key="opt" allowed="\w+" persist="1"/>
+			<opt key="name" allowed="\w+"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="qkeys">
+		<object>admin</object>
+		<sub>f_qkeys</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist="1"/>
+			<opt key="template" allowed="\d+" persist="1"/>
+			<opt key="edit" allowed=".*"/>
+			<opt key="add" allowed=".*"/>
+			<opt key="name" allowed="\w+"/>
+			<opt key="pos" allowed="\d+"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="maint">
+		<object>admin</object>
+		<sub>f_maint</sub>
+		<qopts/>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="maint/domains">
+		<object>admin</object>
+		<sub>f_maint_domains</sub>
+		<qopts/>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+	<function name="maint/containers">
+		<object>admin</object>
+		<sub>f_maint_containers</sub>
+		<qopts/>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
+</glomule>
+

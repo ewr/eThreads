@@ -17,6 +17,17 @@ sub new {
 
 #----------
 
+sub DESTROY {
+	my $class = shift;
+
+	$class->{accessors}->DESTROY;
+	undef $class->{accessors};
+
+	return 1;
+}
+
+#----------
+
 sub _ac_pkg {
 	return "eThreads::Object::Switchboard::Accessors";
 }
@@ -88,6 +99,18 @@ sub register {
 
 #----------
 
+sub reroute_calls_for {
+	my $class = shift;
+	my $obj = shift;
+
+	# this is ugly, but i think it'll work
+	$obj->{_} = $class->accessors;
+
+	return 1;
+}
+
+#----------
+
 sub _create_accessor {
 	my $class = shift;
 	my $sub = shift;
@@ -148,6 +171,13 @@ sub AUTOLOAD {
 	my ($func) = $AUTOLOAD =~ m!::([^:]+)$!;
 	my @caller = caller;
 	die "invalid accessor access attempted: $func by @caller\n";
+}
+
+#----------
+
+sub DESTROY {
+	my $class = shift;
+	%$class = ();
 }
 
 #----------

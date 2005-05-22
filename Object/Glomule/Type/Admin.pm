@@ -1,6 +1,6 @@
 package eThreads::Object::Glomule::Type::Admin;
 
-@ISA = qw( eThreads::Object::Glomule );
+@ISA = qw( eThreads::Object::Glomule::Type );
 
 use strict;
 
@@ -17,17 +17,6 @@ sub new {
 		id		=> undef,
 	} , $class);
 
-	# create our custom switchboard
-
-	my $custom = $class->{_}->switchboard->custom;
-	$custom->reroute_calls_for($class);
-
-	# -- register ourselves -- #
-
-	$custom->register("glomule",$class);
-
-	$class->load_info;
-
 	return $class;
 }
 
@@ -35,81 +24,6 @@ sub new {
 
 sub activate {
 	my $class = shift;
-
-	$class->register_functions(
-		{
-			name	=> "/",
-			sub		=> sub { $class->f_main(@_); },
-			qopts	=> $class->qopts_main,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/looks",
-			sub		=> sub { $class->f_looks(@_); },
-			qopts	=> $class->qopts_looks,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/templates",
-			sub		=> sub { $class->f_templates(@_); },
-			qopts	=> $class->qopts_templates,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/templates/new",
-			sub		=> sub { $class->f_templates_new(@_); },
-			qopts	=> $class->qopts_templates_new,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/templates/edit",
-			sub		=> sub { $class->f_templates_edit(@_); },
-			qopts	=> $class->qopts_templates_edit,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/subtemplates/new",
-			sub		=> sub { $class->f_subtemplates_new(@_); },
-			qopts	=> $class->qopts_templates_new,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/subtemplates/edit",
-			sub		=> sub { $class->f_subtemplates_edit(@_); },
-			qopts	=> $class->qopts_templates_edit,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/qopts",
-			sub		=> sub { $class->f_qopts(@_); },
-			qopts	=> $class->qopts_qopts,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/qkeys",
-			sub		=> sub { $class->f_qkeys(@_); },
-			qopts	=> $class->qopts_qkeys,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/maint",
-			sub		=> sub { $class->f_maint(undef,@_); },
-			qopts	=> $class->qopts_maint,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/maint/domains",
-			sub		=> sub { $class->f_maint_domains(@_); },
-			qopts	=> $class->qopts_domains,
-			modes	=> { Admin => 1 },
-		},
-		{
-			name	=> "/maint/containers",
-			sub		=> sub { $class->f_maint_containers(@_); },
-			qopts	=> $class->qopts_containers,
-			modes	=> { Admin => 1 },
-		},
-	);
 
 	return $class;
 }
@@ -120,7 +34,7 @@ sub f_main {
 	my $class = shift;
 	my $fobj = shift;
 
-	$class->gholders->register(
+	$fobj->gholders->register(
 		[
 			"function", 
 			['looks','prefs']
@@ -177,7 +91,7 @@ sub f_looks {
 				ts		=> time,
 			);
 
-			$class->gholders->register(
+			$fobj->gholders->register(
 				"message",
 				"Successfully set default look to " . $looks->{$id}->{name}
 			);
@@ -201,7 +115,7 @@ sub f_looks {
 			$l->{is_default} = 1;
 		}
 
-		$class->gholders->register( "look.".$l->{id} , $l );
+		$fobj->gholders->register( "look.".$l->{id} , $l );
 	}
 
 	# order the list by look name
@@ -211,7 +125,7 @@ sub f_looks {
 		map { [$_ , $looks->{ $_ }->{name}] } 
 		@o;
 
-	$class->gholders->register("look",\@o);
+	$fobj->gholders->register("look",\@o);
 }
 
 #----------
@@ -239,7 +153,7 @@ sub f_templates {
 				template	=> $obj->{id},
 			});
 
-			$class->gholders->register("template.".$obj->{id} , {
+			$fobj->gholders->register("template.".$obj->{id} , {
 				id		=> $obj->{id},
 				path	=> $obj->{path},
 				type	=> $obj->{type},
@@ -255,7 +169,7 @@ sub f_templates {
 			map { [ $_->[0] , $_->[1] ] } 
 			@o;
 
-		$class->gholders->register("template",\@o);
+		$fobj->gholders->register("template",\@o);
 	}
 
 	# -- subtemplates -- #
@@ -272,7 +186,7 @@ sub f_templates {
 				template	=> $obj->{id},
 			});
 
-			$class->gholders->register("subtemplate.".$obj->{id} , {
+			$fobj->gholders->register("subtemplate.".$obj->{id} , {
 				id		=> $obj->{id},
 				path	=> $obj->{path},
 				type	=> $obj->{type},
@@ -288,7 +202,7 @@ sub f_templates {
 			map { [ $_->[0] , $_->[1] ] } 
 			@o;
 
-		$class->gholders->register("subtemplate",\@o);
+		$fobj->gholders->register("subtemplate",\@o);
 	}
 }
 
@@ -342,14 +256,14 @@ sub f_templates_new {
 			ts		=> time,
 		);
 	
-		$class->gholders->register("message","created new template");
+		$fobj->gholders->register("message","created new template");
 	} else {
 		# prepare a list of content types
 
 		my @o;
 		while ( my ($k,$v) = each %{$class->{_}->settings->{content_types}} ) {
 			push @o, $k;
-			$class->gholders->register(
+			$fobj->gholders->register(
 				"content_type." . $k, 
 				{ name => $v , value=> $k }
 			);
@@ -357,7 +271,7 @@ sub f_templates_new {
 
 		@o = sort @o;
 
-		$class->gholders->register("content_type",\@o);
+		$fobj->gholders->register("content_type",\@o);
 	}
 }
 
@@ -397,7 +311,7 @@ sub f_templates_edit {
 			$fobj->bucket->get("template")
 		);
 	
-		$class->gholders->register("message","updating content...");
+		$fobj->gholders->register("message","updating content...");
 	}
 
 	my $safe_data = {};
@@ -410,7 +324,7 @@ sub f_templates_edit {
 		$safe_data->{ $k } =~ s!>!&gt;!g;
 	}
 
-	$class->gholders->register("template",$safe_data);
+	$fobj->gholders->register("template",$safe_data);
 }
 
 #----------
@@ -458,7 +372,7 @@ sub f_subtemplates_new {
 			ts		=> time,
 		);
 	
-		$class->gholders->register("message","created new template");
+		$fobj->gholders->register("message","created new template");
 	} else {
 		# do nothing!
 	}
@@ -500,7 +414,7 @@ sub f_subtemplates_edit {
 			$fobj->bucket->get("template")
 		);
 	
-		$class->gholders->register("message","updating content...");
+		$fobj->gholders->register("message","updating content...");
 	}
 
 	my $safe_data = {};
@@ -513,7 +427,7 @@ sub f_subtemplates_edit {
 		$safe_data->{ $k } =~ s!>!&gt;!g;
 	}
 
-	$class->gholders->register("template",$safe_data);
+	$fobj->gholders->register("template",$safe_data);
 }
 
 #----------
@@ -571,17 +485,28 @@ sub f_qopts {
 		def	=> [],
 		all	=> [],
 	};
+
 	while ( my ($g,$gref) = each %$all_qopts ) {
-		my @keys = keys(%{$def_qopts->{$g}});
+		# $g is the glomule name...  make it an id
+		my $id = $class->{_}->glomule->name2id($g,$class->{_}->ocontainer->id);
+
 		while ( my ($opt,$oref) = each %$gref ) {
-			if ( my $d = $def_qopts->{ $g }{ $opt } ) {
-				$class->gholders->register("qopt.".$g.".".$opt , $d);
-				push @{$o->{def}}, [ "$g".".".$opt , $g , $opt ];
-			} else {
-				$class->gholders->register(
-					"unregistered.$g.$opt" , {glomule=>$g,opt=>$opt}
+			if ( my $d = $def_qopts->{ $id }{ $opt } ) {
+				$fobj->gholders->register(
+					"qopt.".$id.".".$opt , {
+						gname => $g, 
+						gid => $id, 
+						opt => $opt, 
+						name => $d->{name}
+					}
 				);
-				push @{$o->{all}}, [ "$g".".".$opt , $g , $opt ];
+
+				push @{$o->{def}}, [ $id.".".$opt , $g , $opt ];
+			} else {
+				$fobj->gholders->register(
+					"unregistered.$id.$opt" , {gname=>$g,gid=>$id,opt=>$opt}
+				);
+				push @{$o->{all}}, [ $id.".".$opt , $g , $opt ];
 			}
 		}
 	}
@@ -596,7 +521,7 @@ sub f_qopts {
 			@{$o->{$l}};
 	}
 
-	$class->gholders->register(
+	$fobj->gholders->register(
 		["qopt",$o->{def}],
 		["unregistered",$o->{all}]
 	);
@@ -744,17 +669,17 @@ sub f_qkeys {
 		my @o;
 		my $i = 1;
 		foreach my $n (@$qkeys) {
-			$class->gholders->register(
+			$fobj->gholders->register(
 				["qkey.".$i , { pos => $i , name => $n }]
 			);
 			push @o, $i;
 			$i++;
 		}
 
-		$class->gholders->register(["qkey",\@o]);
+		$fobj->gholders->register(["qkey",\@o]);
 	}
 
-	$class->gholders->register("name_options",$name_options);
+	$fobj->gholders->register("name_options",$name_options);
 
 }
 
@@ -794,7 +719,7 @@ sub f_maint_containers {
 	# -- get a list of containers -- #
 
 	my $c = $class->{_}->instance->load_containers(0);
-	$class->gholders->register(['containers',$c]);
+	$fobj->gholders->register(['containers',$c]);
 }
 
 #----------
@@ -845,22 +770,11 @@ sub _walk_glomule {
 
 	my $glomule = $i->args->{name} || $i->args->{glomule};
 
-	my $objname = $class->{_}->core->get_object_for_type($type);
+	my $gc = $class->{_}->controller->get($type);
 
-	if (!$objname) {
-		$class->{_}->bail("Couldn't find object name for $type");
-	}
-
-	my $g = $class->{_}->cswitchboard->new_object(
-		"Glomule::Type::".$objname,
-		$glomule
-	)->activate_functions;
-
-	if ( my $ref = $g->functions->knows( $i->args->{function} ) ) {
-		my $q = $ref->qopts;
-
-		foreach my $q (@{ $ref->qopts }) {
-			$qopts->{ $g->id }{ $q->{opt} } = 1;
+	if ( my $func = $gc->has_function( $i->args->{function} ) ) {
+		foreach my $q (@{ $func->qopts }) {
+			$qopts->{ $glomule }{ $q->{key} } = 1;
 		}
 	} else {
 		$class->{_}->bail->(
@@ -891,273 +805,6 @@ sub load_look {
 	$class->{_}->cswitchboard->reroute_calls_for($look);
 
 	return $look;
-}
-
-#----------
-
-sub qopts_maint {
-	my $class = shift;
-
-	return [
-
-	];
-}
-
-sub qopts_domains {
-	my $class = shift;
-
-	return [
-
-	];
-}
-
-sub qopts_containers {
-	my $class = shift;
-
-	return [
-
-	];
-}
-
-sub qopts_main {
-	my $class = shift;
-
-	return [
-
-	];
-}
-
-sub qopts_looks {
-	my $class = shift;
-
-	return [
-		{
-			opt		=> "new_default",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "New Default Look ID",
-		},
-	];
-}
-
-#----------
-
-sub qopts_templates {
-	my $class = shift;
-
-	return [
-		{
-			opt		=> "look",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Look",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "template",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Template",
-			class	=> "templates",
-			persist	=> 1,
-		},
-	];
-}
-
-#----------
-
-sub qopts_templates_new {
-	my $class = shift;
-
-	return [
-		{
-			opt		=> "look",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Look",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "submit",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Submit New Template",
-			persist	=> 0,
-		},
-		{
-			opt		=> "path",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Path",
-			persist	=> 0,
-		},
-		{
-			opt		=> "type",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Type",
-			persist	=> 0,
-		},
-		{
-			opt		=> "content",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Content",
-			persist	=> 0,
-		},
-	];
-}
-
-#----------
-
-sub qopts_templates_edit {
-	my $class = shift;
-
-	return [
-		{
-			opt		=> "look",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Look",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "template",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Template",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "submit",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Submit Edited Template",
-			persist	=> 0,
-		},
-		{
-			opt		=> "content",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Content of Edited Template",
-			persist	=> 0,
-		},
-	];
-}
-
-#----------
-
-sub qopts_qopts {
-	my $class = shift;
-	return [
-		{
-			opt		=> "look",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Look",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "template",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Template",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "edit",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Edit Query Option",
-			persist	=> 0,
-		},
-		{
-			opt		=> "add",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Add Query Option",
-			persist	=> 0,
-		},
-		{
-			opt		=> "glomule",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Option",
-			persist	=> 1,
-		},
-		{
-			opt		=> "opt",
-			allowed	=> '\w+',
-			d_value	=> undef,
-			desc	=> "Option",
-			persist	=> 1,
-		},
-		{
-			opt		=> "name",
-			allowed	=> '\w+',
-			d_value	=> undef,
-			desc	=> "Option",
-			persist	=> 0,
-		},
-	];
-}
-
-#----------
-
-sub qopts_qkeys {
-	my $class = shift;
-	return [
-		{
-			opt		=> "look",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Look",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "template",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Template",
-			class	=> "templates",
-			persist	=> 1,
-		},
-		{
-			opt		=> "add",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Add Query Key",
-			persist	=> 0,
-		},
-		{
-			opt		=> "edit",
-			allowed	=> '.*',
-			d_value	=> undef,
-			desc	=> "Edit Query Key",
-			persist	=> 0,
-		},
-		{
-			opt		=> "name",
-			allowed	=> '\w+',
-			d_value	=> undef,
-			desc	=> "Name",
-			persist	=> 0,
-		},
-		{
-			opt		=> "pos",
-			allowed	=> '\d+',
-			d_value	=> undef,
-			desc	=> "Position",
-			persist	=> 0,
-		},
-	];
 }
 
 #----------

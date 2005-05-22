@@ -94,14 +94,15 @@ sub go {
 
 	# now let our content run so there'll be something to run through
 
-	my $g = $class->{_}->instance->new_object(
-		"Glomule::Type::Admin",'.ADMIN'
-	)->activate;
+	my $g = $class->{_}->glomule->load(
+		type	=> 'admin',
+		name	=> '.ADMIN',
+	);
 
 	$g->connect_to_gholders($class->{_}->gholders);
 
-	if ( my $ref = $g->is_function( $class->{_}->template->path ) ) {
-		$ref->activate->execute();
+	if ( my $func = $g->has_function( $class->{_}->template->path ) ) {
+		$func->execute();
 	} else {
 		$class->{_}->bail->(
 			"Unknown admin glomule function: "

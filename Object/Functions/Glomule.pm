@@ -32,7 +32,7 @@ sub register {
     foreach my $f (@_) {
         my $func = $class->{_}->instance->new_object(
             "Glomule::Function",
-            $class->{_}->glomule,
+            $class->{glomule},
             $f
         );
         $class->{f}{ $f->{name} } = $func;

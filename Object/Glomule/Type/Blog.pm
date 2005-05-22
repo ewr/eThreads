@@ -1,6 +1,6 @@
 package eThreads::Object::Glomule::Type::Blog;
 
-@ISA = qw( eThreads::Object::Glomule );
+@ISA = qw( eThreads::Object::Glomule::Type );
 
 use strict;
 use Date::Format;
@@ -15,23 +15,10 @@ sub TYPE { "blog" }
 sub new {
 	my $class = shift;
 	my $data = shift;
-	my $name = shift;
 
 	$class = bless( { 
 		_		=> $data,
-		name	=> $name || undef,
-		id		=> undef,
 	} , $class);
-
-	# create our custom switchboard
-	my $custom = $class->{_}->switchboard->custom;
-	$custom->reroute_calls_for($class);
-
-	# -- register ourselves -- #
-
-	$custom->register("glomule",$class);
-
-	$class->load_info;
 
 	return $class;
 }
@@ -47,103 +34,6 @@ sub DESTROY {
 sub activate {
 	my $class = shift;
 
-	# -- register our functions -- #
-	$class->activate_functions;
-
-	# -- load the categories system -- #
-	$class->{_}->switchboard->register("categories" , sub {
-		$class->{_}->new_object("System::Categories")
-	} );
-
-	# -- load our format module -- #
-	$class->{_}->switchboard->register("format" , sub {
-		$class->{_}->new_object("Format::Markdown")
-	} );
-
-	$class->{_}->objects->activate($class->{_}->format);
-
-	return $class;
-}
-
-#----------
-
-sub activate_functions {
-	my $class = shift;
-
-	# -- load our prefs -- #
-	$class->register_prefs( $class->_prefs )->load_prefs;
-
-	$class->register_functions(
-		{
-			name	=> "",
-			sub		=> sub {$class->f_main(@_)},
-			qopts	=> $class->qopts_main,
-			modes	=> {
-				Normal	=> 1,
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "view",
-			sub		=> sub {$class->f_view(@_)},
-			qopts	=> $class->qopts_view,
-			modes	=> {
-				Normal	=> 1,
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "archive",
-			sub		=> sub {$class->f_archive(@_)},
-			qopts	=> $class->qopts_archive,
-			modes	=> {
-				Normal	=> 1,
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "ondate",
-			sub		=> sub {$class->f_ondate(@_)},
-			qopts	=> $class->qopts_ondate,
-			modes	=> {
-				Normal	=> 1,
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "management",
-			sub		=> sub {$class->f_management(@_)},
-			qopts	=> $class->qopts_management,
-			modes	=> {
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "compose_post",
-			sub		=> sub {$class->f_compose_post(@_)},
-			qopts	=> $class->qopts_compose_post,
-			modes	=> {
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "post",
-			sub		=> sub {$class->f_post(@_)},
-			qopts	=> $class->qopts_post,
-			modes	=> {
-				Auth	=> 1,
-			},
-		},
-		{
-			name	=> "delete",
-			sub		=> sub {$class->f_delete(@_)},
-			qopts	=> $class->qopts_delete,
-			modes	=> {
-				Auth	=> 1,
-			},
-		},
-	);
-
 	return $class;
 }
 
@@ -151,13 +41,14 @@ sub activate_functions {
 
 sub handle_timestamp {
 	my $class = shift;
+	my $fobj = shift;
 	my $i = shift;
 	my $c = shift;
 
 	my $a = 
 		$i->args->{format} 
 		|| $i->args->{DEFAULT} 
-		|| $class->pref("datetime_format")->get;
+		|| $fobj->glomule->pref("datetime_format")->get;
 
 	$_[0] .= Date::Format::time2str($a,$c);
 	return 0;
@@ -169,9 +60,10 @@ sub f_main {
 	my $class = shift;
 	my $fobj = shift;
 
+
 	# -- register a timestamp handler -- #
 	$class->{_}->gholders->register(
-		["timestamp" , sub { $class->handle_timestamp(@_); }]
+		["timestamp" , sub { $class->handle_timestamp($fobj,@_); }]
 	);
 
 	# -- get our query options -- #
@@ -180,31 +72,35 @@ sub f_main {
 
 	foreach my $qo ('start','limit','sortby','sortdir','month','year','day') {
 		my $v = $fobj->bucket->get($qo);
-		$class->pref($qo)->set($v) if ($v);
+		$fobj->glomule->pref($qo)->set($v) if ($v);
 	}
 
 	# -- figure out what posts we're getting, and, uh, get em -- #
 
 	my $posts;
 	if ($category) {
-		$posts = $class->posts_by_category(
-			category	=> $category,
-			status		=> 1,
-		);
+		# see if this is a valid category
+		my $cat = $class->{_}->categories->is_valid_name($category)
+			or $class->{_}->bail->("Invalid category: $category");
+
+		$fobj->gholders->register(['category', $cat->registerable ]);
+
+#		$posts = $class->posts_by_category(
+#			category	=> $category,
+#			status		=> 1,
+#		);
 	} else {
-		$posts = $class->posts_by_parent(
+		$posts = $class->posts_by_parent($fobj,
 			parent	=> 0,
 			status	=> 1,
 		);
 	}
 
-	$class->register_navigation($posts->count);
+	$class->register_navigation($fobj,$posts->count);
 	
 	# -- register our posts -- #
 
-	if ($class->pref("day_based_display")->get) {
-		$class->register_day_nav($posts);
-	}
+	$class->register_day_nav($fobj,$posts);
 
 	return 1;
 }
@@ -217,16 +113,16 @@ sub f_view {
 
 	# -- register a timestamp handler -- #
 	$class->{_}->gholders->register(
-		["timestamp" , sub { $class->handle_timestamp(@_); }]
+		["timestamp" , sub { $class->handle_timestamp($fobj,@_); }]
 	);
 
 	my $id = $fobj->bucket->get("id");
 
-	my $post = $class->load_and_format_post($id);
+	my $post = $class->load_and_format_post($fobj,$id);
 
 	$class->{_}->last_modified->nominate($post->{timestamp});
 
-	$class->{gholders}->register(
+	$fobj->gholders->register(
 		['post',$post]
 	);
 
@@ -250,13 +146,13 @@ sub f_archive {
 			select 
 				timestamp 
 			from 
-				" . $class->data('headers') . "
+				" . $fobj->glomule->data('headers') . "
 			where 
 				status = 1 
 				and parent = 0
 		");
 
-		$class->gholders->register(['category','-']);
+		$fobj->gholders->register(['category','-']);
 	}
 
 	$get->execute;
@@ -290,7 +186,7 @@ sub f_archive {
 		foreach my $m (sort {$b <=> $a} keys %{$dates{$y}}) {
 			next if ($m eq "TOTAL");
 
-			$class->gholders->register([ 'year.'.$y.'.month.'.$m , {
+			$fobj->gholders->register([ 'year.'.$y.'.month.'.$m , {
 				mon		=> $m,
 				month	=> $mons[$m],
 				year	=> $y,
@@ -300,7 +196,7 @@ sub f_archive {
 			push @months, $m;
 		}
 
-		$class->gholders->register(
+		$fobj->gholders->register(
 			['year.'.$y , {
 				year	=> $y,
 				count	=> $dates{$y}{TOTAL},
@@ -311,7 +207,7 @@ sub f_archive {
 		push @years, $y;
 	}
 
-	$class->gholders->register(['year',\@years]);
+	$fobj->gholders->register(['year',\@years]);
 }
 
 #----------
@@ -322,16 +218,16 @@ sub f_management {
 
 	# -- get postponed posts -- #
 	{
-		my $posts = $class->posts_by_status(0);
+		my $posts = $class->posts_by_status($fobj,0);
 
 		if ($posts) {
 			my @o;
 			foreach my $p (@{ $posts->posts }) {
-				$class->gholders->register(["postponed.".$p->{id} , $p]);
+				$fobj->gholders->register(["postponed.".$p->{id} , $p]);
 				push @o, $p->{id};
 			}
 
-			$class->gholders->register(["postponed",\@o]) if (@o);
+			$fobj->gholders->register(["postponed",\@o]) if (@o);
 		}
 	}
 }
@@ -355,7 +251,7 @@ sub f_compose_post {
 		# do nothing
 	} else {
 		# load postponed post from the db
-		my $post = $class->get_post_information($id);
+		my $post = $class->get_post_information($fobj,$id);
 
 		foreach my $f ('title','intro','body') {
 			$data->{$f} = $post->{$f};
@@ -372,7 +268,7 @@ sub f_compose_post {
 		$data->{$f} =~ s!<br>!!g;
 	}
 
-	$class->gholders->register(["post" , $data]);
+	$fobj->gholders->register(["post" , $data]);
 }
 
 #----------
@@ -392,7 +288,7 @@ sub f_post {
 
 	# fill in fields from postponed post
 	if ($post->{id}) {
-		my $p = $class->get_post_information($post->{id});
+		my $p = $class->get_post_information($fobj,$post->{id});
 
 		while ( my ($k,$v) = each %$p ) {
 			$post->{ $k } = $v if (!$post->{ $k });
@@ -402,7 +298,7 @@ sub f_post {
 	$class->flesh_out_post($post);
 
 	if ($fobj->bucket->get("post")) {
-		$class->gholders->register(["post",1]);
+		$fobj->gholders->register(["post",1]);
 
 		# figure out our ping situation first
 		my $ping;
@@ -420,14 +316,14 @@ sub f_post {
 			$pings->ping_all;
 		}
 
-		$class->gholders->register(["post",$post]);
+		$fobj->gholders->register(["post",$post]);
 	} elsif ($fobj->bucket->get("preview")) {
 		# -- register a timestamp handler -- #
 		$class->{_}->gholders->register(
-			["timestamp" , sub { $class->handle_timestamp(@_); }]
+			["timestamp" , sub { $class->handle_timestamp($fobj,@_); }]
 		);
 
-		$class->gholders->register(["preview",1]);
+		$fobj->gholders->register(["preview",1]);
 		my $preview = {};
 		%$preview = %$post;
 
@@ -440,18 +336,18 @@ sub f_post {
 				= $class->{_}->format->format( $preview->{ $f->{name} } );
 		}
 
-		$class->gholders->register(
+		$fobj->gholders->register(
 			['post',$preview]
 		);
 	} elsif ($fobj->bucket->get("postpone")) {
-		$class->gholders->register(["postpone",1]);
+		$fobj->gholders->register(["postpone",1]);
 
 		my $post = $class->post(
 			$post,
 			status	=> 0,
 		);
 
-		$class->gholders->register(["post",$post]);
+		$fobj->gholders->register(["post",$post]);
 	} else {
 		$class->{_}->bail->("Post called incorrectly.  No valid function.");
 	}
@@ -468,9 +364,9 @@ sub f_delete {
 
 	# -- load post information -- #
 
-	my $post = $class->load_and_format_post($id);
+	my $post = $class->load_and_format_post($fobj,$id);
 
-	$class->{gholders}->register(
+	$fobj->gholders->register(
 		['post',$post]
 	);
 
@@ -491,7 +387,7 @@ sub f_ondate {
 
 	# -- register a timestamp handler -- #
 	$class->{_}->gholders->register(
-		["timestamp" , sub { $class->handle_timestamp(@_); }]
+		["timestamp" , sub { $class->handle_timestamp($fobj,@_); }]
 	);
 
 	my $date = $fobj->bucket->get("date");
@@ -508,7 +404,7 @@ sub f_ondate {
 			select 
 				min(timestamp)
 			from 
-				" . $class->data('headers') . "
+				" . $fobj->glomule->data('headers') . "
 		");
 
 		$get->execute()
@@ -522,7 +418,7 @@ sub f_ondate {
 		select 
 			id 
 		from 
-			" . $class->data('headers') . "
+			" . $fobj->glomule->data('headers') . "
 		where 
 			timestamp >= ?
 			and timestamp < (? + 86400)
@@ -543,7 +439,7 @@ sub f_ondate {
 		$ts = Time::ParseDate::parsedate("-1 year",NOW=>$ts);
 	}
 
-	$class->gholders->register(["count",scalar @$ids]);
+	$fobj->gholders->register(["count",scalar @$ids]);
 
 	if (@$ids == 0) {
 		return 1;
@@ -552,6 +448,7 @@ sub f_ondate {
 	# -- now get these ids -- #
 
 	my $posts = $class->posts_generic(
+		$fobj,
 		"id in (" 
 			. join(",",map { "?" } @$ids) .
 		") and parent = 0 order by timestamp desc",
@@ -565,7 +462,7 @@ sub f_ondate {
 	# -- now get post data -- #
 
 #	my $data = $class->{_}->utils->g_load_tbl(
-#		tbl		=> $class->data('data'),
+#		tbl		=> $fobj->glomule->data('data'),
 #		ident	=> "id",
 #		ids		=> $ids,
 #	);
@@ -578,20 +475,21 @@ sub f_ondate {
 
 	# -- now format and register -- #
 
-	$class->register_day_nav($posts);
+	$class->register_day_nav($fobj,$posts);
 }
 
 #----------
 
 sub register_day_nav {
 	my $class = shift;
+	my $fobj = shift;
 	my $posts = shift;
 
 	my $days = [];
 
 	# -- get data lengths for posts -- #
 
-	my $lengths = $class->get_data_lengths_for($posts);
+	my $lengths = $class->get_data_lengths_for($fobj,$posts);
 
 	# -- divide posts into days -- #
 	my $cday = 0;
@@ -602,7 +500,7 @@ sub register_day_nav {
 
 		my $date = time2str("%x",$p->{timestamp});
 
-		my $ploc = '/' . $class->{gholders}->get . 'post.'.$p->{id};
+		my $ploc = '/' . $fobj->gholders->get . 'post.'.$p->{id};
 
 		if ($cday eq $date) {
 			push @{$days->[-1]}, $ploc;
@@ -614,14 +512,18 @@ sub register_day_nav {
 		# get lengths of data fields
 		$p->{length} = $lengths->{ $p->{id} };
 
+		my $format = $fobj->glomule->system('format');
+
 		foreach my $f (@{ $class->fields }) {
 			next if (!$f->{format});
 
 			$p->{ $f->{name} } 
-				= $class->{_}->format->format( $p->{ $f->{name} } );
+				= $format 
+					? $format->format( $p->{ $f->{name} } )
+					: $p->{ $f->{name} };
 		}
 
-		$class->{gholders}->register(
+		$fobj->gholders->register(
 			['post.'.$p->{id} , $p]
 		);
 	}
@@ -636,7 +538,7 @@ sub register_day_nav {
 		my $expcol = shift @$d;
 		my $ts = shift @$d;
 
-		$class->{gholders}->register(
+		$fobj->gholders->register(
 			[ 'day.'.$ts , { 
 				expand 		=> $expcol, 
 				timestamp 	=> $ts, 
@@ -647,7 +549,7 @@ sub register_day_nav {
 		push @odays, $ts;
 	}
 
-	$class->{gholders}->register(
+	$fobj->gholders->register(
 		[ 'day' , \@odays ]
 	);
 
@@ -658,19 +560,24 @@ sub register_day_nav {
 
 sub load_and_format_post {
 	my $class = shift;
+	my $fobj = shift;
 	my $id = shift;
 
 	if (!$id) {
 		$class->{_}->bail->("You must provide an ID");
 	}
 
-	my $post = $class->get_post_information($id);
+	my $post = $class->get_post_information($fobj,$id);
+
+	my $format = $fobj->glomule->system('format');
 
 	foreach my $f (@{ $class->fields }) {
 		next if (!$f->{format});
 
 		$post->{ $f->{name} } 
-			= $class->{_}->format->format( $post->{ $f->{name} } );
+			= $format 
+				? $format->format( $post->{ $f->{name} } )
+				: $post->{ $f->{name} };
 	}
 
 	# -- load user information -- #
@@ -687,10 +594,11 @@ sub load_and_format_post {
 
 sub register_navigation {
 	my $class = shift;
+	my $fobj = shift;
 	my $count = shift;
 
-	my $max = $class->pref("limit")->get;
-	my $start = $class->pref("start")->get;
+	my $max = $fobj->glomule->pref("limit")->get;
+	my $start = $fobj->glomule->pref("start")->get;
 
 	my ($prev,$next);
 	my $p_start = ($start - $max);
@@ -711,7 +619,7 @@ sub register_navigation {
 
 		$prev = { href => $link , num => $p_posts };
 	} else {
-		$prev = {};
+		$prev = undef;
 	}
 
 	if ($count > $f_start) {
@@ -731,12 +639,12 @@ sub register_navigation {
 
 		$next = { href => $link , num => $r_posts };
 	} else {
-		$next = {};
+		$next = undef;
 	}
 
 	# -- register gholders -- #
 
-	$class->gholders->register(
+	$fobj->gholders->register(
 		[ 'nav.prev' , $prev ],
 		[ 'nav.next' , $next ],
 	);
@@ -746,6 +654,7 @@ sub register_navigation {
 
 sub count_posts {
 	my $class = shift;
+	my $fobj = shift;
 	my %a = @_;
 
 	my $status;
@@ -759,7 +668,7 @@ sub count_posts {
 		select 
 			count(id) 
 		from 
-			" . $class->data('headers') . " 
+			" . $fobj->glomule->data('headers') . " 
 		where 
 			status = 1
 	");
@@ -773,6 +682,7 @@ sub count_posts {
 
 sub get_post_information {
 	my $class = shift;
+	my $fobj = shift;
 	my $id = shift;
 
 	# -- first get post headers -- #
@@ -786,7 +696,7 @@ sub get_post_information {
 			status,
 			parent
 		from 
-			" . $class->data('headers') . "
+			" . $fobj->glomule->data('headers') . "
 		where 
 			id = ?
 	");
@@ -817,7 +727,7 @@ sub get_post_information {
 	# -- now load post data onto headers -- #
 
 	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->data('data'),
+		tbl		=> $fobj->glomule->data('data'),
 		ident	=> "id",
 		ids		=> [$id],
 		flat	=> 1,
@@ -834,13 +744,14 @@ sub get_post_information {
 
 sub get_data_lengths_for {
 	my $class = shift;
+	my $fobj = shift;
 	my $posts = shift;
 
 	my $get = $class->{_}->core->get_dbh->prepare("
 		select 
 			id,ident,length(value)
 		from 
-			" . $class->data('data') . "
+			" . $fobj->glomule->data('data') . "
 		where 
 			id in (" . join( ',' , map {'?'} @{$posts->posts} ) . ")
 	");
@@ -862,18 +773,23 @@ sub get_data_lengths_for {
 
 sub posts_by_status {
 	my $class = shift;
+	my $fobj = shift;
 	my $status = shift;
 
-	my $datelimit = $class->set_up_datelimit;
+	my $datelimit = $class->set_up_datelimit($fobj);
 
 	my $where = 
 		qq(
 			status = ?
 			$datelimit->{sql}
 			order by 
-		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
+		) 
+			. $fobj->glomule->pref("sortby")->get 
+			. " " 
+			. $fobj->glomule->pref("sortdir")->get;
 
 	return $class->posts_generic(
+		$fobj,
 		$where,
 		$status
 	);
@@ -892,9 +808,10 @@ sub posts_by_id {
 
 sub posts_by_parent {
 	my $class = shift;
+	my $fobj = shift;
 	my %a = @_;
 
-	my $datelimit = $class->set_up_datelimit;
+	my $datelimit = $class->set_up_datelimit($fobj);
 
 	my $status;
     if ($a{status}) {
@@ -907,12 +824,16 @@ sub posts_by_parent {
 			$status
 			$datelimit->{sql}
 			order by 
-		) . $class->pref("sortby")->get . " " . $class->pref("sortdir")->get;
+		) 
+			. $fobj->glomule->pref("sortby")->get 
+			. " " 
+			. $fobj->glomule->pref("sortdir")->get;
 
 	return $class->posts_generic_w_limit(
+		$fobj,
 		$where,
-		$class->pref("start")->get,
-		$class->pref("limit")->get,
+		$fobj->glomule->pref("start")->get,
+		$fobj->glomule->pref("limit")->get,
 		$a{parent}
 	);
 }
@@ -921,6 +842,7 @@ sub posts_by_parent {
 
 sub posts_by_category {
 	my $class = shift;
+	my $fobj = shift;
 	my %a = @_;
 
 	my $status;
@@ -943,14 +865,15 @@ sub posts_by_category {
 			$datelimit->{sql} 
 			order by 
 		)  
-		. $class->pref("sortby")->get 
+		. $fobj->glomule->pref("sortby")->get 
 		. " " 
-		. $class->pref("sortdir")->get;
+		. $fobj->glomule->pref("sortdir")->get;
 
 	return $class->posts_generic_w_limit(
+		$fobj,
 		$where,
-		$class->pref('start')->get,
-		$class->pref('limit')->get
+		$fobj->glomule->pref('start')->get,
+		$fobj->glomule->pref('limit')->get
 	);
 }
 
@@ -958,6 +881,7 @@ sub posts_by_category {
 
 sub set_up_datelimit {
 	my $class = shift;
+	my $fobj = shift;
 
 	my $datelimit = {
 		year	=> undef,
@@ -966,17 +890,17 @@ sub set_up_datelimit {
 		active	=> 0,
 	};
 
-	if (my $year = $class->pref("year")->get) {
+	if (my $year = $fobj->glomule->pref("year")->get) {
 		$datelimit->{active}++;
 		$datelimit->{year} = $year;
 	}
 
-	if (my $val = $class->pref("month")->get) {
+	if (my $val = $fobj->glomule->pref("month")->get) {
 		next if (!$datelimit->{year});
 		$datelimit->{month} = $val;
 	}
 
-	if (my $val = $class->pref("day")->get) {
+	if (my $val = $fobj->glomule->pref("day")->get) {
 		next if (!$datelimit->{year} && !$datelimit->{day});
 		$datelimit->{day} = $val;
 	}
@@ -1004,265 +928,6 @@ sub set_up_datelimit {
 	return $datelimit;
 }
 
-
-#---------------#
-# query options #
-#---------------#
-
-sub qopts_main {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "category",
-		allowed	=> '\w+',
-		d_value	=> undef,
-		desc	=> "Selects a category for viewing.",
-		persist	=> 1,
-	},
-	{
-		opt		=> "start",
-		class	=> "nav",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("start")->get,
-		desc	=> "Starting result number.",
-		persist	=> 1,
-	},
-	{
-		opt		=> "limit",
-		class	=> "nav",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("limit")->get,
-		desc	=> "How many results to return",
-		persist	=> 1,
-	},
-	{
-		opt		=> "sortby",
-		class	=> "nav",
-		allowed	=> '\w+',
-		d_value	=> $class->pref("sortby")->get,
-		desc	=> "Field by which results will be sorted.",
-		persist	=> 1,
-	},
-	{
-		opt		=> "sortdir",
-		class	=> "nav",
-		allowed	=> '(?:asc|desc)',
-		d_value	=> $class->pref("sortdir")->get,
-		toggle	=> ['asc','desc'],
-		desc	=> "Direction of sorting",
-		persist	=> 1,
-	},
-	{
-		opt		=> "year",
-		class	=> "nav",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("year")->get,
-		desc	=> "Year Limit",
-		persist	=> 1,
-	},
-	{
-		opt		=> "month",
-		class	=> "nav",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("month")->get,
-		desc	=> "Month Limit",
-		persist	=> 1,
-	},
-	{
-		opt		=> "day",
-		class	=> "nav",
-		allowed	=> '\d+',
-		d_value	=> $class->pref("day")->get,
-		desc	=> "Day Limit",
-		persist	=> 1,
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_archive {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "category",
-		allowed	=> '\w+',
-		d_value	=> undef,
-		desc	=> "Selects a category for viewing.",
-		persist	=> 1,
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_ondate {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "date",
-		allowed	=> '[\w\/]+',
-		d_value	=> undef,
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_view {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "id",
-		allowed	=> '\d+',
-		d_value	=> '',
-		desc	=> "Post ID",
-		persist	=> 1,
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_management {
-	my $class = shift;
-
-	return [
-	];
-}
-
-#----------
-
-sub qopts_compose_post {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "id",
-		allowed	=> '\d+',
-		d_value	=> '',
-		desc	=> "Post ID",
-		persist	=> 1,
-	},
-	{
-		opt		=> "title",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post Title",
-	},
-	{
-		opt		=> "intro",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post Intro",
-	},
-	{
-		opt		=> "body",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post Body",
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_post {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "id",
-		allowed	=> '\d+',
-		d_value	=> '',
-		desc	=> "Post ID",
-		persist	=> 1,
-	},
-	{
-		opt		=> "title",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post Title",
-		persist	=> 1,
-	},
-	{
-		opt		=> "intro",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post Intro",
-		persist	=> 1,
-	},
-	{
-		opt		=> "body",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post Body",
-		persist	=> 1,
-	},
-	{
-		opt		=> "preview",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Preview",
-		persist	=> 0,
-	},
-	{
-		opt		=> "postpone",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Postpone",
-		persist	=> 0,
-	},
-	{
-		opt		=> "post",
-		allowed	=> '.*',
-		d_value	=> '',
-		desc	=> "Post",
-		persist	=> 0,
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_delete {
-	my $class = shift;
-
-	return [
-
-	{
-		opt		=> "id",
-		allowed	=> '\d+',
-		d_value	=> '',
-		desc	=> "Post ID",
-		persist	=> 1,
-	},
-	{
-		opt		=> "confirm",
-		allowed	=> '(?:1|true)',
-		d_value	=> '',
-		desc	=> "Confirm Delete",
-		persist	=> 1,
-	},
-
-	];
-}
 
 #-------#
 # prefs #
@@ -1354,24 +1019,6 @@ sub _prefs {return [
 		allowed		=> '[10]',
 		descript	=> qq(
 			Show days in the archive?
-		),
-		select		=> [['Yes',1],['No',0]],
-	},
-	{
-		name		=> "day_based_display",
-		d_value		=> 1,
-		allowed		=> '[10]',
-		descript	=> qq(
-			Prepare day-based post tree.
-		),
-		select		=> [['Yes',1],['No',0]],
-	},
-	{
-		name		=> "post_based_display",
-		d_value		=> 1,
-		allowed		=> '[10]',
-		descript	=> qq(
-			Prepare post-based post tree.
 		),
 		select		=> [['Yes',1],['No',0]],
 	},

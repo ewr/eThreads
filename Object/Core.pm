@@ -9,24 +9,22 @@ use eThreads::Object::Auth::Cookies;
 use eThreads::Object::Auth::Internal;
 
 use eThreads::Object::Cache;
-
 use eThreads::Object::Container;
 
 use eThreads::Object::ContentType;
 use eThreads::Object::ContentType::HTML;
 use eThreads::Object::ContentType::XML;
 
+use eThreads::Object::Controller;
+
 use eThreads::Object::DB;
 use eThreads::Object::DB::mysql;
 
 use eThreads::Object::Domain;
-
-use eThreads::Object::Format::Markdown;
-
-use eThreads::Object::GHolders;
-use eThreads::Object::Glomule;
 use eThreads::Object::FakeRequestHandler;
 use eThreads::Object::Functions;
+use eThreads::Object::GHolders;
+use eThreads::Object::Glomule;
 use eThreads::Object::Instance;
 use eThreads::Object::LastModifiedTime;
 use eThreads::Object::Look;
@@ -38,6 +36,9 @@ use eThreads::Object::QueryOpts;
 use eThreads::Object::RequestURI;
 use eThreads::Object::Switchboard;
 
+use eThreads::Object::System;
+use eThreads::Object::System::Categories;
+use eThreads::Object::System::Format::Markdown;
 use eThreads::Object::System::Ping;
 use eThreads::Object::System::Ping::BaseMethod;
 use eThreads::Object::System::Ping::XMLRPC;
@@ -83,6 +84,10 @@ sub new {
 
 	$class->{memcache} = $class->new_object("Cache::Memory");
 
+	# -- sweep controller xml into mem -- #
+
+	$class->{controller} = $class->new_object('Controller')->activate;
+
 	# -- return our class object -- #
 
 	return $class;
@@ -92,7 +97,13 @@ sub new {
 
 sub get_dbh {
 	my $class = shift;
-	return $class->{db}->get_dbh || $class->{db}->connect();
+	my $db = $class->{db}->get_dbh;
+
+	if ($db->ping) {
+		return $db;
+	} else {
+		$class->{db}->connect;
+	}
 }
 
 #----------
@@ -105,6 +116,12 @@ sub settings {
 
 sub memcache {
 	return shift->{memcache};
+}
+
+#----------
+
+sub controller {
+	shift->{controller};
 }
 
 #----------
