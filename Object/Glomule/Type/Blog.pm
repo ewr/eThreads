@@ -80,7 +80,7 @@ sub f_main {
 	my $posts;
 	if ($category) {
 		# see if this is a valid category
-		my $cat = $class->{_}->categories->is_valid_name($category)
+		my $cat = $fobj->glomule->system('categories')->is_valid_name($category)
 			or $class->{_}->bail->("Invalid category: $category");
 
 		$fobj->gholders->register(['category', $cat->registerable ]);
@@ -307,6 +307,7 @@ sub f_post {
 		}
 
 		my $post = $class->post(
+			$fobj,
 			$post,
 			status => 1,
 		);
@@ -333,7 +334,8 @@ sub f_post {
 			next if (!$f->{format});
 
 			$preview->{ $f->{name} } 
-				= $class->{_}->format->format( $preview->{ $f->{name} } );
+				= $fobj->glomule->system('format')
+					->format( $preview->{ $f->{name} } );
 		}
 
 		$fobj->gholders->register(
@@ -343,6 +345,7 @@ sub f_post {
 		$fobj->gholders->register(["postpone",1]);
 
 		my $post = $class->post(
+			$fobj,
 			$post,
 			status	=> 0,
 		);

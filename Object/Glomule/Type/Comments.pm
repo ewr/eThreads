@@ -100,12 +100,12 @@ sub f_post {
 		);
 
 		# parse and register some preview gholders
-		my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
+		my $format = $fobj->glomule->system('format');
 		my $c = {};
 		foreach my $f (@{ $class->edit_fields }) {
 			if ($format && $f->{format}) {
 				$c->{ $f->{name} } 
-					= $class->{_}->format->format($post->{$f->{name}});
+					= $format->format($post->{$f->{name}});
 			} else {
 				$c->{ $f->{name} } = $post->{ $f->{name} };
 			}
