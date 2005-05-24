@@ -378,7 +378,7 @@ sub f_delete {
 	if ($confirm) {
 		$class->{_}->gholders->register(['confirm',1]);
 		# they said to go ahead
-		$class->delete($id);
+		$class->delete($fobj,$id);
 	}
 }
 
