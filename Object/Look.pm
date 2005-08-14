@@ -1,57 +1,54 @@
 package eThreads::Object::Look;
 
+use Spiffy -Base;
+
+field '_'		=> -ro;
+
+field 'id' => -ro;
+field 'name' => -ro;
+field 'type' => -ro;
+
 sub new {
-	my $class 	= shift;
 	my $data 	= shift;
 
-	$class = bless ( 
+	$self = bless ( 
 		{ 
 			_		=> $data,
 			id		=> undef,
 			name	=> undef,
 			type	=> undef,
 			@_
-		} , $class );
+		} , $self );
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
+	# nothing right now
 }
 
 #----------
 
 sub cachable {
-	my $class = shift;
 	return {
-		id		=> $class->id,
-		name	=> $class->{name},
-		type	=> $class->{type},
+		id		=> $self->id,
+		name	=> $self->name,
+		type	=> $self->type,
 	};
 }
 
 #----------
 
 sub is_admin { 
-	my $class = shift;
-	return ( $class->{type} eq "ADMIN" ) ? 1 : undef;
-}
-
-#----------
-
-sub id {
-	return shift->{id};
+	return ( $self->{type} eq "ADMIN" ) ? 1 : undef;
 }
 
 #----------
 
 sub cache_template_map {
-	my $class = shift;
-	
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	my $get_templates = $db->prepare("
 		select 
@@ -59,13 +56,13 @@ sub cache_template_map {
 			c_type,
 			id
 		from
-			" . $class->{_}->core->tbl_name("templates") . "
+			" . $self->_->core->tbl_name("templates") . "
 		where 
 			look = ? 
 	");
 
-	$class->bail("cache_template_map error: ".$db->errstr) 
-		unless ( $get_templates->execute( $class->id ) );
+	$self->bail("cache_template_map error: ".$db->errstr) 
+		unless ( $get_templates->execute( $self->id ) );
 
 	my ($name,$type,$id);
 	$get_templates->bind_columns( \($name,$type,$id) );
@@ -79,9 +76,9 @@ sub cache_template_map {
 		};
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "templates",
-		first	=> $class->id,
+		first	=> $self->id,
 		ref		=> $m,
 	);
 
@@ -91,22 +88,20 @@ sub cache_template_map {
 #----------
 
 sub cache_subtemplates {
-	my $class = shift;
-	
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	my $get_templates = $db->prepare("
 		select 
 			id,
 			name
 		from
-			" . $class->{_}->core->tbl_name("subtemplates") . "
+			" . $self->_->core->tbl_name("subtemplates") . "
 		where 
 			look = ? 
 	");
 
-	$class->{_}->bail("cache_subtemplates error: ".$db->errstr) 
-		unless ($get_templates->execute($class->id));
+	$self->_->bail("cache_subtemplates error: ".$db->errstr) 
+		unless ($get_templates->execute($self->id));
 
 	my ($id,$name);
 	$get_templates->bind_columns( \($id,$name) );
@@ -119,9 +114,9 @@ sub cache_subtemplates {
 		};
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "subtemplates",
-		first	=> $class->id,
+		first	=> $self->id,
 		ref		=> $m,
 	);
 
@@ -130,14 +125,12 @@ sub cache_subtemplates {
 #----------
 
 sub determine_template {
-	my $class = shift;
-
 	# -- load the template map for this container and look -- #
-	my $tm = $class->get_templates;
+	my $tm = $self->get_templates;
 
-	my $uri = $class->{_}->RequestURI->unclaimed;
+	my $uri = $self->_->RequestURI->unclaimed;
 
-	my $tpath;
+	my $tpath = '';
 	{
 		my @parts = split("/",$uri);
 
@@ -154,22 +147,22 @@ sub determine_template {
 		$tpath = "/" if (!$tpath);
 	}
 
-	$class->{_}->RequestURI->claim($tpath);
+	$self->_->RequestURI->claim($tpath);
 
 	# -- make sure we have that template -- #
 
 	if (!$tm->{$tpath}) {
-		$class->{_}->bail->("No template found for $tpath.");
+		$self->_->bail->("No template found for $tpath.");
 	}
 
 	# -- load a template object -- #
 
 	my $id = $tm->{ $tpath }{id};
 
-	my $t = $class->{_}->new_object(
+	my $t = $self->_->new_object(
 		"Template", 
 		%{$tm->{$tpath}},
-		look	=> $class
+		look	=> $self
 	);
 
 	return $t;
@@ -178,25 +171,24 @@ sub determine_template {
 #----------
 
 sub load_template_by_path {
-	my $class = shift;
 	my $path = shift;
 
 	if (!$path) {
 		return undef;
 	}
 
-	my $tm = $class->get_templates;
+	my $tm = $self->get_templates;
 
-	my $ocache = $class->{_}->cache->objects;
+	my $ocache = $self->_->cache->objects;
 
 	if ($tm->{$path}) {
 		if (my $t = $ocache->get("Template",$tm->{$path}{id})) {
 			return $t;
 		} else {
-			my $t = $class->{_}->new_object(
+			my $t = $self->_->new_object(
 				"Template",
 				%{$tm->{$path}},
-				look	=> $class
+				look	=> $self
 			);
 
 			return $t;
@@ -209,7 +201,6 @@ sub load_template_by_path {
 #----------
 
 sub load_template {
-	my $class = shift;
 	my $id = shift;
 
 	# fail if we don't get a template id
@@ -218,7 +209,7 @@ sub load_template {
 	}
 
 	# load the template map
-	my $tm = $class->get_templates;
+	my $tm = $self->get_templates;
 
 	# turn it inside out
 	my $by_ids;
@@ -229,10 +220,10 @@ sub load_template {
 		return undef;
 	}
 
-	my $t = $class->{_}->new_object( 
+	my $t = $self->_->new_object( 
 		"Template", 
 		%{ $by_ids->{ $id } },
-		look	=> $class
+		look	=> $self
 	);
 
 	return $t;
@@ -241,7 +232,6 @@ sub load_template {
 #----------
 
 sub load_subtemplate_by_path {
-	my $class = shift;
 	my $path = shift;
 
 	# fail if we don't get a template id
@@ -250,7 +240,7 @@ sub load_subtemplate_by_path {
 	}
 
 	# load the template map
-	my $tm = $class->get_subtemplates;
+	my $tm = $self->get_subtemplates;
 
 	if ( !$tm->{ $path } ) {
 		warn "no subtemplate for path: $path\n";
@@ -259,10 +249,10 @@ sub load_subtemplate_by_path {
 
 	my $id = $tm->{ $path }{id};
 
-	my $t = $class->{_}->new_object( 
+	my $t = $self->_->new_object( 
 		"Template::Subtemplate", 
 		%{ $tm->{ $path } },
-		look	=> $class
+		look	=> $self
 	);
 
 	return $t;
@@ -271,7 +261,6 @@ sub load_subtemplate_by_path {
 #----------
 
 sub load_subtemplate {
-	my $class = shift;
 	my $id = shift;
 
 	# fail if we don't get a template id
@@ -280,7 +269,7 @@ sub load_subtemplate {
 	}
 
 	# load the template map
-	my $tm = $class->get_subtemplates;
+	my $tm = $self->get_subtemplates;
 
 	# turn it inside out
 	my $by_ids;
@@ -291,10 +280,10 @@ sub load_subtemplate {
 		return undef;
 	}
 
-	my $t = $class->{_}->new_object( 
+	my $t = $self->_->new_object( 
 		"Template::Subtemplate", 
 		%{ $by_ids->{ $id } },
-		look	=> $class
+		look	=> $self
 	);
 
 	return $t;
@@ -303,15 +292,13 @@ sub load_subtemplate {
 #----------
 
 sub get_templates {
-	my $class = shift;
-
-	my $tm = $class->{_}->cache->get(
+	my $tm = $self->_->cache->get(
 		tbl		=> "templates",
-		first	=> $class->id,
+		first	=> $self->id,
 	);
 
 	if (!$tm) {
-		$tm = $class->cache_template_map();
+		$tm = $self->cache_template_map();
 	}
 
 	return $tm;
@@ -320,15 +307,13 @@ sub get_templates {
 #----------
 
 sub get_subtemplates {
-	my $class = shift;
-
-	my $tm = $class->{_}->cache->get(
+	my $tm = $self->_->cache->get(
 		tbl		=> "subtemplates",
-		first	=> $class->id,
+		first	=> $self->id,
 	);
 
 	if (!$tm) {
-		$tm = $class->cache_subtemplates();
+		$tm = $self->cache_subtemplates();
 	}
 
 	return $tm;

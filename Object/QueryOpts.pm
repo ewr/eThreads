@@ -2,61 +2,65 @@ package eThreads::Object::QueryOpts;
 
 use strict;
 
+use Spiffy -Base;
+
+# Spiffy turns warnings on, and we get complaints about uninitialized vars
+no warnings;
+
 use eThreads::Object::QueryOpts::Bucket;
 use eThreads::Object::QueryOpts::QueryOption;
 use eThreads::Object::QueryOpts::Raw;
 
 #----------
 
+field '_'		=> -ro;
+
+field 'names' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
 		input	=> undef,
 		buckets	=> [],
 		names	=> {},
-	} , $class );
+	} , $self );
 
-	$class->load_qkeys_to_input;
+	$self->load_qkeys_to_input;
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
+	# nothing right now
 }
 
 #----------
 
 sub new_bucket {
-	return shift->{_}->instance->new_object('QueryOpts::Bucket',@_);
+	return $self->_->instance->new_object('QueryOpts::Bucket',@_);
 }
 
 #----------
 
 sub new_bucket_data {
-	my $class = shift;
-
 	my $b = {};
-	push @{ $class->{buckets} } , $b;
-
+	push @{ $self->{buckets} } , $b;
 	return $b;
 }
 
 #----------
 
 sub bind_to_name {
-	my $class = shift;
 	my $name = shift;
 	my $opt = shift;
 
-	if (!$class->{names}{ $name }) {
+	if (!$self->{names}{ $name }) {
 		# easy...  first time using a name
-		$class->{names}{ $name } = $opt;
+		$self->{names}{ $name } = $opt;
 	} else {
 		# hmmm...  conflict resolution time
 		# FIXME: not sure how to handle this case
@@ -66,14 +70,7 @@ sub bind_to_name {
 
 #----------
 
-sub names {
-	return shift->{names};
-}
-
-#----------
-
 sub link {
-	my $class = shift;
 	my $tmplt = shift;
 	my $args = shift;
 
@@ -88,9 +85,9 @@ sub link {
 	# start with the basics...
 
 	my @pieces = (
-		$class->{_}->domain->path,
-		$class->{_}->mode->path,
-		$class->{_}->container->path,
+		$self->_->domain->path,
+		$self->_->mode->path,
+		$self->_->container->path,
 		$tmplt
 	);
 
@@ -109,9 +106,9 @@ sub link {
 	my $link_qopts;
 	{
 		# get qopts hashref
-		my $qopts = $class->list_link_qopts($tmplt,$args);
+		my $qopts = $self->list_link_qopts($tmplt,$args);
 
-		if ( my $qkeys = $class->_load_foreign_qkeys($tmplt) ) {
+		if ( my $qkeys = $self->_load_foreign_qkeys($tmplt) ) {
 			my @keys;
 			foreach my $k (@$qkeys) {
 				push @keys, $qopts->{ $k } || "-";
@@ -155,7 +152,6 @@ sub link {
 #----------
 
 sub list_link_qopts {
-	my $class = shift;
 	my $tmplt = shift;
 	my $args = shift;
 	my $qopts = {};
@@ -164,7 +160,7 @@ sub list_link_qopts {
 	# template and just using the already known object to optimize
 
 	# find the template object
-	my $t = $class->{_}->look->load_template_by_path($tmplt);
+	my $t = $self->_->look->load_template_by_path($tmplt);
 
 	# return an empty hash if we get nothing
 	return $qopts if (!$t);
@@ -185,7 +181,7 @@ sub list_link_qopts {
 	# will only contain the options that should be passed on in the link.
 
 	foreach my $name ( keys %{ $all_opts->names } ) {
-		if (my $opt = $class->names->{ $name }) {
+		if (my $opt = $self->names->{ $name }) {
 			next if (!$opt->persist);
 
 			my $v = $opt->get;
@@ -242,15 +238,14 @@ sub list_link_qopts {
 #----------
 
 sub _load_foreign_qkeys {
-	my $class = shift;
 	my $path = shift;
 
-	if (my $c = $class->{qkey_cache}{ $path }) {
+	if (my $c = $self->{qkey_cache}{ $path }) {
 		return $c;
 	}
 
-	if (my $t = $class->{_}->look->load_template_by_path($path)) {
-		return $class->{qkey_cache}{ $path } = $t->qkeys;
+	if (my $t = $self->_->look->load_template_by_path($path)) {
+		return $self->{qkey_cache}{ $path } = $t->qkeys;
 	} else {
 		return undef;
 	}
@@ -261,28 +256,24 @@ sub _load_foreign_qkeys {
 #----------------#
 
 sub get_input {
-	my $class = shift;
-
-	return $class->{_}->raw_queryopts->get(@_);
+	$self->_->raw_queryopts->get(@_);
 }
 
 #----------
 
 sub get_from_input {
-	my $class = shift;
 	my %a = @_;
 
-	my $name = $class->get_name_for_opt($a{glomule},$a{opt}) 
+	my $name = $self->get_name_for_opt($a{glomule},$a{opt}) 
 		or return undef;
 
 	# return what we find on input
-	return $class->{_}->raw_queryopts->get($name);
+	return $self->_->raw_queryopts->get($name);
 }
 
 #----------
 
 sub get_name_for_opt {
-	my $class = shift;
 	my $g = shift;
 	my $o = shift;
 
@@ -290,7 +281,7 @@ sub get_name_for_opt {
 	# if you really don't want this opt to be bound you give it a name of 
 	# - and that gets ignored
 
-	my $named = $class->{_}->template->named_qopts;
+	my $named = $self->_->template->named_qopts;
 
 	my $name = 
 		($named->{ $g } && $named->{ $g }{ $o }) 
@@ -303,25 +294,23 @@ sub get_name_for_opt {
 #----------
 
 sub load_qkeys_to_input {
-	my $class = shift;
-
-	my $qkeys = $class->{_}->RequestURI->unclaimed;
+	my $qkeys = $self->_->RequestURI->unclaimed;
 
 	my @parts = split("/",$qkeys);
 	
 	# ignore an empty first part since we get a / first
 	shift @parts if (!$parts[0]);
 
-	foreach my $k (@{ $class->{_}->template->qkeys }) {
+	foreach my $k (@{ $self->_->template->qkeys }) {
 		my $v = shift @parts;
 		next if (!$v || $v eq "-");
 
-		$class->{_}->raw_queryopts->set($k,$v);
+		$self->_->raw_queryopts->set($k,$v);
 	}
 
 	# for now we're just going to say, "hey, we're last," and claim 
 	# all remaining URI no matter if we used it or not
-	$class->{_}->RequestURI->claim($qkeys);
+	$self->_->RequestURI->claim($qkeys);
 
 	return 1;
 }

@@ -168,6 +168,7 @@ sub f_archive {
 	$get->bind_columns(\$ts);
 
 	my %dates;
+	my $total;
 	while ( $get->fetch ) {
 		$class->{_}->last_modified->nominate($ts);
 		my $tmp = Date::Format::time2str("%Y/%m/%d",$ts);
@@ -175,6 +176,7 @@ sub f_archive {
 		$dates{$1}{$2}{$3}++;
 		$dates{$1}{$2}{TOTAL}++;
 		$dates{$1}{TOTAL}++;
+		$total++;
 	}
 
 	my @years;
@@ -207,7 +209,7 @@ sub f_archive {
 		push @years, $y;
 	}
 
-	$fobj->gholders->register(['year',\@years]);
+	$fobj->gholders->register(['total',$total],['year',\@years]);
 }
 
 #----------

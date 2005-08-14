@@ -2,50 +2,47 @@ package eThreads::Object::Objects;
 
 use strict;
 
+use Spiffy -Base;
+
+use Scalar::Util;
+
 #----------
 
+field '_'		=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless({
+	$self = bless({
 		_	=> $data,
 		o	=> [],
 		counts	=> {},
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub register {
-	my $class = shift;
 	my $obj = shift;
 
 	if ( !ref($obj) ) {
-		$class->{_}->bail->("Invalid object register: $obj");
+		$self->_->bail->("Invalid object register: $obj");
 	} 
 
-	push @{$class->{o}} , $obj;
+	push @{$self->{o}} , $obj;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
-
-#	warn "in objects destroy\n";
-
-	foreach my $obj (@{$class->{o}}) {
-#		find_cycle($obj);
-#		print "destroying $obj\n";
+	foreach my $obj (@{$self->{o}}) {
+		next if (!$obj);
 		$obj->DESTROY if ( $obj->can("DESTROY") );
 	}
 
-#	warn "done with object destroy\n";
-
-	@{$class->{o}} = ();
+	@{$self->{o}} = ();
 
 	return 1;
 }
@@ -53,7 +50,6 @@ sub DESTROY {
 #----------
 
 sub create {
-	my $class = shift;
 	my $type = shift;
 	my $data = shift;
 
@@ -61,10 +57,12 @@ sub create {
 		Carp::carp "no type given to create\n";
 	}
 
+	Scalar::Util::weaken($data);
+
 	my $module = "eThreads::Object::$type";
 	my $obj = $module->new($data,@_);
 
-	$class->register($obj);
+	$self->register($obj);
 
 	return $obj;
 }
@@ -72,7 +70,6 @@ sub create {
 #----------
 
 sub activate {
-	my $class = shift;
 	my $obj = shift;
 
 	$obj->activate() if ($obj->can("activate"));

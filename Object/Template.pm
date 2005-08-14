@@ -2,6 +2,8 @@ package eThreads::Object::Template;
 
 use strict;
 
+use Spiffy -Base, -XXX;
+
 use eThreads::Object::Template::Item;
 use eThreads::Object::Template::Qopts;
 use eThreads::Object::Template::ShadowItem;
@@ -12,11 +14,22 @@ sub TABLE { "templates" }
 
 #----------
 
+field '_'		=> -ro;
+
+field 'look' 	=> -ro;
+field 'id' 		=> -ro;
+field 'path'	=> -ro;
+field 'value'	=> -ro,-init=>q! $self->load_raw !;;
+field 'type'	=> 
+	-ro, 
+	-key=>'type_obj',
+	-init=>q!$self->_->new_object('ContentType::'.$self->{type})->activate!;
+
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class =  bless ( {
+	$self =  bless ( {
 		_		=> $data,
 		id		=> undef,
 		path	=> undef,
@@ -25,86 +38,55 @@ sub new {
 		look	=> undef,
 		@_,
 
-	} , $class );
+	} , $self );
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
+	# nothing right now
 }
 
 #----------
 
 sub cachable {
-	my $class = shift;
-
 	return {
-		path	=> $class->path,
-		id		=> $class->id,
-		value	=> $class->value,
-		type	=> $class->{type},
-		#qopts	=> $class->qopts,
+		path	=> $self->path,
+		id		=> $self->id,
+		value	=> $self->value,
+		type	=> $self->{type},
+		#qopts	=> $self->qopts,
 	};
 }
 
 #----------
 
-sub look 	{ shift->{look}	}
-sub id 		{ shift->{id} 	}
-sub path 	{ shift->{path}	}
-
-#----------
-
-sub type {
-	my $class = shift;
-
-	return 
-		$class->{type_obj}
-		|| ($class->{type_obj} 
-			= $class->{_}->new_object( 
-				'ContentType::' . $class->{type}
-			)->activate);
-}
-
-#----------
-
-sub value {
-	return shift->{value};
-}
-
-#----------
-
 sub qkeys {
-	my $class = shift;
-
-	if ($class->{qkeys}) {
-		return $class->{qkeys};
+	if ($self->{qkeys}) {
+		return $self->{qkeys};
 	}
 
-	my $q = $class->{_}->cache->get(
+	my $q = $self->_->cache->get(
 		tbl		=> "qkeys",
-		first	=> $class->id,
+		first	=> $self->id,
 	);
 
 	if (!$q) {
-		$q = $class->cache_qkeys;
+		$q = $self->cache_qkeys;
 	}
 
-	$class->{qkeys} = $q;
+	$self->{qkeys} = $q;
 
-	return $class->{qkeys};
+	return $self->{qkeys};
 }
 
 #----------
 
 sub qopts {
-	my $class = shift;
-
-	if ($class->{nqopts}) {
-		return $class->{nqopts};
+	if ($self->{nqopts}) {
+		return $self->{nqopts};
 	}
 
 	# we need to look through the template to find what functions are inside.
@@ -113,9 +95,9 @@ sub qopts {
 	# to get the qopts whose names have been changed.  We merge those new 
 	# names into the list. we'll end up returning a Template::Qopts object.
 
-	my $qopts = $class->{_}->new_object('Template::Qopts');
+	my $qopts = $self->_->new_object('Template::Qopts');
 
-	my $all = $class->list_available_qopts;
+	my $all = $self->list_available_qopts;
 
 	foreach my $q ( @$all ) {
 		$qopts->register( %$q );
@@ -123,7 +105,7 @@ sub qopts {
 
 	# now merge in the named qopts
 
-	my $named = $class->named_qopts;
+	my $named = $self->named_qopts;
 
 	while ( my ($g,$gref) = each %$named ) {
 		while ( my ($f,$fref) = each %$gref ) {
@@ -138,7 +120,7 @@ sub qopts {
 		}
 	}
 
-	$class->{nqopts} = $qopts;
+	$self->{nqopts} = $qopts;
 
 	return $qopts;
 }
@@ -146,26 +128,24 @@ sub qopts {
 #----------
 
 sub named_qopts {
-	my $class = shift;
-
 	# -- if we've already got them, return now -- #
 
-	if ($class->{qopts}) {
-		return $class->{qopts};
+	if ($self->{qopts}) {
+		return $self->{qopts};
 	}
 
 	# -- otherwise we need to load them -- #
 
-	my $q = $class->{_}->cache->get(
+	my $q = $self->_->cache->get(
 		tbl		=> "qopts",
-		first	=> $class->id,
+		first	=> $self->id,
 	);
 
 	if (!$q) {
-		$q = $class->cache_qopts;
+		$q = $self->cache_qopts;
 	}
 
-	$class->{qopts} = $q;
+	$self->{qopts} = $q;
 
 	return $q;
 }
@@ -173,23 +153,21 @@ sub named_qopts {
 #----------
 
 sub cache_qkeys {
-	my $class = shift;
-
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	my $get = $db->prepare("
 		select
 			name
 		from 
-			" . $class->{_}->core->tbl_name("qkeys") . "
+			" . $self->_->core->tbl_name("qkeys") . "
 		where 
 			template = ?
 		order by 
 			position
 	");
 
-	$get->execute( $class->id ) or
-		$class->{_}->bail->("cache_qkeys failure: ".$db->errstr);
+	$get->execute( $self->id ) or
+		$self->_->bail->("cache_qkeys failure: ".$db->errstr);
 
 	my ($n);
 	$get->bind_columns( \($n) );
@@ -199,9 +177,9 @@ sub cache_qkeys {
 		push @$qkeys, $n;
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "qkeys",
-		first	=> $class->id,
+		first	=> $self->id,
 		ref		=> $qkeys
 	);
 
@@ -211,24 +189,22 @@ sub cache_qkeys {
 #----------
 
 sub cache_qopts {
-	my $class = shift;
-
 	# start with the values that are in the database
 
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select
 			glomule,
 			function,
 			opt,
 			name
 		from 
-			" . $class->{_}->core->tbl_name("qopts") . "
+			" . $self->_->core->tbl_name("qopts") . "
 		where 
 			template = ?
 	");
 
-	$get->execute( $class->id ) or
-		$class->{_}->bail->("cache_qopts failure: ".$get->errstr);
+	$get->execute( $self->id ) or
+		$self->_->bail->("cache_qopts failure: ".$get->errstr);
 
 	my ($g,$f,$o,$n);
 	$get->bind_columns( \($g,$f,$o,$n) );
@@ -243,9 +219,9 @@ sub cache_qopts {
 		};
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "qopts",
-		first	=> $class->id,
+		first	=> $self->id,
 		ref		=> $qopts
 	);
 
@@ -255,8 +231,6 @@ sub cache_qopts {
 #----------
 
 sub list_available_qopts {
-	my $class = shift;
-
 	# ok, step one is to create a template walker and register glomule 
 	# handlers so that we can step through and see what we're dealing 
 	# with here.  each function we walk will append its qopts to the 
@@ -265,19 +239,44 @@ sub list_available_qopts {
 	# to the array of Controller::Function::Qopt objects, which 
 	# is of the standard Generic::Qopt form.
 
-	my $walker = $class->{_}->new_object("Template::Walker");
-
 	my $qopts = [];
 
-	foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
+	if ($self->look->is_admin) {
+		# we're the template of an admin look, so we're not going to have 
+		# a normal function inside.  Our function is our template name.
+
+		my ($name) = $self->path =~ m!^/(.*)!;
+
+		my $func = $self->_->controller->get('admin')->has_function( $name );
+
+		if ($func) {
+			my $gqopts = {
+				glomule		=> 'ADMIN',
+				function	=> $func->name,
+				opts		=> scalar $func->qopts
+			};
+
+			push @$qopts, $gqopts;
+		} else {
+			# this shouldn't happen, but there's always the possibility of 
+			# a bad setup
+			$self->_->bail->(
+				"Admin template doesn't have matching function: " . $self->path
+			);
+		}
+	}
+
+	my $walker = $self->_->new_object("Template::Walker");
+
+	foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 		# -- register the walker -- #
 		$walker->register(
-			[ $t , sub { return $class->_walk_glomule($t,$qopts,@_); } ]
+			[ $t , sub { return $self->_walk_glomule($t,$qopts,@_); } ]
 		);
 	}
 
 	$walker->walk_template_tree(
-		$class->get_tree
+		$self->get_tree
 	);
 
 	return $qopts;
@@ -287,14 +286,13 @@ sub list_available_qopts {
 #----------
 
 sub _walk_glomule {
-	my $class = shift;
 	my $type = shift;
 	my $qopts = shift;
 	my $i = shift;
 
 	my $glomule = $i->args->{name} || $i->args->{glomule};
 
-	my $gc = $class->{_}->controller->get($type);
+	my $gc = $self->_->controller->get($type);
 
 	if ( my $func = $gc->has_function( $i->args->{function} ) ) {
 		# $func->qopts will give us an array ref that points to the qopts 
@@ -302,14 +300,14 @@ sub _walk_glomule {
 		# array to the $qopts arrayref that was passed in to us
 
 		my $gqopts = {
-			glomule		=> scalar $class->{_}->glomule->name2id( $glomule ),
+			glomule		=> scalar $self->_->glomule->name2id( $glomule ),
 			function	=> $func->name,
 			opts		=> scalar $func->qopts
 		};
 
 		push @$qopts, $gqopts;
 	} else {
-		$class->{_}->bail->(
+		$self->_->bail->(
 			"Unknown glomule function: "
 			. $glomule
 			. "/"
@@ -323,86 +321,88 @@ sub _walk_glomule {
 #----------
 
 sub shadow_tree {
-	my $class = shift;
-
-	return $class->{_}->switchboard->new_object(
+	$self->_->switchboard->new_object(
 		'Template::ShadowItem',
-		item => $class->get_tree
+		item => $self->get_tree
 	);
 }
 
 #----------
 
 sub get_tree {
-	my $class = shift;
-
-	if ($class->{tree}) {
-		return $class->{tree};
+	if ($self->{tree}) {
+		return $self->{tree};
 	}
 
 	# try cache
 
-	my $deep = $class->{_}->cache->get(
-		tbl			=> $class->TABLE,
-		first		=> $class->look->id,
-		second		=> $class->id,
+	my $deep = $self->_->cache->get(
+		tbl			=> $self->TABLE,
+		first		=> $self->look->id,
+		second		=> $self->id,
 		nomemcache	=> 1
 	);
 
 	my $tree;
 	if ($deep) {
 		# restore to Template::Item objects
-		$tree = $class->_restore_tree($deep);
+		$tree = $self->_restore_tree($deep);
 	} else {
-		$tree = $class->cache_tree;
+		$tree = $self->cache_tree;
 	}
 
-	$class->{tree} = $tree;
+	$self->{tree} = $tree;
 
-	return $class->{tree};
+	return $self->{tree};
 }
 
 #-----------
 
 sub _restore_tree {
-	my ($class,$i) = @_;
-	@{$i->{children}} = map { $class->_restore_tree($_) } @{$i->{children}};
+	my ($i) = @_;
+	@{$i->{children}} = map { $self->_restore_tree($_) } @{$i->{children}};
 	CORE::bless $i , 'eThreads::Object::Template::Item';
 }
 
-#-----------
+#----------
 
-sub cache_tree {
-	my $class = shift;
-
+sub load_raw {
 	# get the raw template from the db
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			value 
 		from 
-			" . $class->{_}->core->tbl_name($class->TABLE) . "
+			" . $self->_->core->tbl_name($self->TABLE) . "
 		where id = ?
 	");
 
-	$get->execute( $class->id )
-		or $class->{_}->bail->("Couldn't get raw template: " . $get->errstr);
+	$get->execute( $self->id )
+		or $self->_->bail->("Couldn't get raw template: " . $get->errstr);
 
-	$class->{_}->bail->("No raw template found for template ".$class->id)
+	$self->_->bail->("No raw template found for template ".$self->id)
 		if (!$get->rows);
 
 	my $v = $get->fetchrow_array;
 
-	my $tree = $class->new_tree_root;
+	return $v;
+}
 
-	$class->parse_into_tree( $tree , $v );
+#----------
+
+sub cache_tree {
+	my $v = $self->load_raw;
+
+	my $tree = $self->new_tree_root;
+
+	$self->parse_into_tree( $tree , $v );
 
 	# create deep structure to cache
 	my $deep = $tree->dump_deep;
 
-	$class->{_}->cache->set(
-		tbl			=> $class->TABLE,
-		first		=> $class->look->id,
-		second		=> $class->id,
+	$self->_->cache->set(
+		tbl			=> $self->TABLE,
+		first		=> $self->look->id,
+		second		=> $self->id,
 		ref			=> $deep,
 		nomemcache	=> 1
 	);
@@ -413,14 +413,13 @@ sub cache_tree {
 #-----------
 
 sub new_tree_root {
-	my $class = shift;
-	return $class->{_}->new_object("Template::Item");
+	$self->_->new_object("Template::Item");
 }
 
 #-----------
 
 sub parse_into_tree {
-	my ($class,$t,$content) = @_;
+	my ($t,$content) = @_;
 
 	# this is our main parsing regex.  It returns six items.
 	# 0 - preceding slash...  if present can indicate closing tag 
@@ -463,7 +462,7 @@ sub parse_into_tree {
 	# thing a raw and return it.
 	if (!@f) {
 		# the whole thing is a raw
-		my $r = $class->{_}->new_object("Template::Item");
+		my $r = $self->_->new_object("Template::Item");
 
 		$r->type( 		"raw"		);
 		$r->parent( 	$t			);
@@ -506,7 +505,7 @@ sub parse_into_tree {
 				}
 			}
 
-			my $lt = $class->{_}->new_object('Template::Item');
+			my $lt = $self->_->new_object('Template::Item');
 
 			$lt->type(		lc($m[1])	);
 			$lt->args(		$args		);
@@ -534,7 +533,7 @@ sub parse_into_tree {
 			# if we matched only whitespace, just replace with a single space
 			$m[5] =~ s/^\s+$/ /;
 		
-			my $lt = $class->{_}->new_object('Template::Item');
+			my $lt = $self->_->new_object('Template::Item');
 
 			$lt->type(		'raw'	);
 			$lt->parent(	$cx		);

@@ -1,37 +1,37 @@
 package eThreads::Object::Glomule::Type::Admin;
 
-@ISA = qw( eThreads::Object::Glomule::Type );
+use Spiffy -Base;
+
+use base 'eThreads::Object::Glomule::Type';
 
 use strict;
 
 #----------
 
+field '_'		=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 	my $name = shift;
 
-	$class = bless( { 
+	$self = bless( { 
 		_		=> $data,
 		name	=> $name || undef,
 		id		=> undef,
-	} , $class);
+	} , $self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub activate {
-	my $class = shift;
-
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub f_main {
-	my $class = shift;
 	my $fobj = shift;
 
 	# do nothing for now
@@ -40,25 +40,24 @@ sub f_main {
 #----------
 
 sub f_looks {
-	my $class = shift;
 	my $fobj = shift;
 
 	# get info on the looks for this container
-	my $looks = $class->{_}->ocontainer->get_looks;
+	my $looks = $self->_->ocontainer->get_looks;
 
 	# -- see if we're creating a new look -- #
 
 	if ( $fobj->bucket->get('create') ) {
 		warn "creating look\n";
-		if ( $class->_create_look($fobj->bucket->get('name')) ) {
+		if ( $self->_create_look($fobj->bucket->get('name')) ) {
 			$fobj->gholders->register('message',"New look created");
 			warn "created look\n";
-			$looks = $class->{_}->ocontainer->get_looks;
+			$looks = $self->_->ocontainer->get_looks;
 		} else {
 			warn "no look created\n";
 		}
 	} else {
-		warn "no create qopt passed\n";
+		# do nothing
 	}
 
 	# -- see if we're setting a default -- #
@@ -67,18 +66,18 @@ sub f_looks {
 		# first, make sure this is a legal value
 		if ($looks->{id}{ $id }) {
 			# it's legit...  set default
-			my $db = $class->{_}->core->get_dbh;
+			my $db = $self->_->core->get_dbh;
 
 			my $update = $db->prepare("
 				update " . 
-					$class->{_}->core->tbl_name("looks") . 
+					$self->_->core->tbl_name("looks") . 
 				" set is_default = ? where id = ?
 			");
 
 			$update->execute( 0 , $looks->{ DEFAULT }->{id} );
 			$update->execute( 1 , $id );
 
-			$class->{_}->cache->update_times->set(
+			$self->_->cache->update_times->set(
 				tbl		=> "looks",
 				ts		=> time,
 			);
@@ -89,9 +88,9 @@ sub f_looks {
 			);
 
 			# now we need to re-retrieve the looks so we get the new default
-			$looks = $class->{_}->ocontainer->get_looks;
+			$looks = $self->_->ocontainer->get_looks;
 		} else {
-			$class->{_}->bail->("Attempted to make invalid look default.");
+			$self->_->bail->("Attempted to make invalid look default.");
 		}
 	}
 
@@ -123,11 +122,10 @@ sub f_looks {
 #----------
 
 sub f_templates {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- get a list of templates -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -140,7 +138,7 @@ sub f_templates {
 		while ( my ($p,$obj) = each %$tm ) {
 			next if ($p =~ m!^\.!);
 
-			my $link = $class->{_}->queryopts->link("/templates/edit",{
+			my $link = $self->_->queryopts->link("/templates/edit",{
 				class		=> "templates",
 				template	=> $obj->{id},
 			});
@@ -173,7 +171,7 @@ sub f_templates {
 		while ( my ($p,$obj) = each %$tm ) {
 			next if ($p =~ m!^\.!);
 
-			my $link = $class->{_}->queryopts->link("/subtemplates/edit",{
+			my $link = $self->_->queryopts->link("/subtemplates/edit",{
 				class		=> "templates",
 				template	=> $obj->{id},
 			});
@@ -201,11 +199,10 @@ sub f_templates {
 #----------
 
 sub f_templates_new {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- load the look -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -216,33 +213,33 @@ sub f_templates_new {
 		my $content = $fobj->bucket->get("content");
 		
 		# check if path is valid
-		$class->{_}->bail->("Invalid Path: $path") 
+		$self->_->bail->("Invalid Path: $path") 
 			if ($path !~ m!^[\w/\.]+$!);
 
 		# make sure path doesn't already exist
 		my $tm = $look->get_templates;
-		$class->{_}->bail->("Path already exists: $path") 
+		$self->_->bail->("Path already exists: $path") 
 			if ($tm->{ $path });
 
 		# make sure content type is valid
-		$class->{_}->bail->("Invalid content type: $type") 
-			if (!$class->{_}->settings->{content_types}{ $type });
+		$self->_->bail->("Invalid content type: $type") 
+			if (!$self->_->settings->{content_types}{ $type });
 
 		# now create the new template
-		my $db = $class->{_}->core->get_dbh;
+		my $db = $self->_->core->get_dbh;
 		my $insert = $db->prepare("
-			insert into " . $class->{_}->core->tbl_name("templates") . "(
+			insert into " . $self->_->core->tbl_name("templates") . "(
 				id,look,name,c_type,value
 			) values(0,?,?,?,?)
 		");
 
 		$insert->execute($look->id,$path,$type,$content) 
-			or $class->{_}->bail->("new template failed: ".$db->errstr);
+			or $self->_->bail->("new template failed: ".$db->errstr);
 
 		# FIXME - This should be a better interface
-		my $id = $class->{_}->core->{db}->get_message_id();
+		my $id = $self->_->core->{db}->get_message_id();
 
-		$class->{_}->cache->update_times->set(
+		$self->_->cache->update_times->set(
 			tbl		=> "templates",
 			first	=> $look->id,
 			ts		=> time,
@@ -253,7 +250,7 @@ sub f_templates_new {
 		# prepare a list of content types
 
 		my @o;
-		while ( my ($k,$v) = each %{$class->{_}->settings->{content_types}} ) {
+		while ( my ($k,$v) = each %{$self->_->settings->{content_types}} ) {
 			push @o, $k;
 			$fobj->gholders->register(
 				"content_type." . $k, 
@@ -270,11 +267,10 @@ sub f_templates_new {
 #----------
 
 sub f_templates_edit {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- load the template, but first the look -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -282,10 +278,10 @@ sub f_templates_edit {
 		$fobj->bucket->get("template")
 	);
 
-	$class->{_}->bail->("Invalid template") if (!$template);
+	$self->_->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
-		$class->{_}->utils->set_value(
+		$self->_->utils->set_value(
 			tbl		=> "templates",
 			keys	=> {
 				id	=> $template->id,
@@ -293,7 +289,7 @@ sub f_templates_edit {
 			value	=> $fobj->bucket->get("content")
 		);
 
-		$class->{_}->cache->update_times->set(
+		$self->_->cache->update_times->set(
 			tbl		=> "templates",
 			first	=> $look->id,
 			ts		=> time,
@@ -322,11 +318,10 @@ sub f_templates_edit {
 #----------
 
 sub f_subtemplates_new {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- load the look -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -336,29 +331,29 @@ sub f_subtemplates_new {
 		my $content = $fobj->bucket->get("content");
 		
 		# check if path is valid
-		$class->{_}->bail->("Invalid Path: $path") 
+		$self->_->bail->("Invalid Path: $path") 
 			if ($path !~ m!^[\w/]+$!);
 
 		# make sure path doesn't already exist
 		my $tm = $look->get_subtemplates;
-		$class->{_}->bail->("Path already exists: $path") 
+		$self->_->bail->("Path already exists: $path") 
 			if ($tm->{ $path });
 
 		# now create the new template
-		my $db = $class->{_}->core->get_dbh;
+		my $db = $self->_->core->get_dbh;
 		my $insert = $db->prepare("
-			insert into " . $class->{_}->core->tbl_name("subtemplates") . "(
+			insert into " . $self->_->core->tbl_name("subtemplates") . "(
 				id,look,name,value
 			) values(0,?,?,?)
 		");
 
 		$insert->execute($look->id,$path,$content) 
-			or $class->{_}->bail->("new template failed: ".$db->errstr);
+			or $self->_->bail->("new template failed: ".$db->errstr);
 
 		# FIXME - This should be a better interface
-		my $id = $class->{_}->core->{db}->get_message_id();
+		my $id = $self->_->core->{db}->get_message_id();
 
-		$class->{_}->cache->update_times->set(
+		$self->_->cache->update_times->set(
 			tbl		=> "subtemplates",
 			first	=> $look->id,
 			ts		=> time,
@@ -373,11 +368,10 @@ sub f_subtemplates_new {
 #----------
 
 sub f_subtemplates_edit {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- load the template, but first the look -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -385,10 +379,10 @@ sub f_subtemplates_edit {
 		$fobj->bucket->get("template")
 	);
 
-	$class->{_}->bail->("Invalid template") if (!$template);
+	$self->_->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
-		$class->{_}->utils->set_value(
+		$self->_->utils->set_value(
 			tbl		=> "subtemplates",
 			keys	=> {
 				id	=> $template->id,
@@ -396,7 +390,7 @@ sub f_subtemplates_edit {
 			value	=> $fobj->bucket->get("content")
 		);
 
-		$class->{_}->cache->update_times->set(
+		$self->_->cache->update_times->set(
 			tbl		=> "subtemplates",
 			first	=> $look->id,
 			ts		=> time,
@@ -425,11 +419,10 @@ sub f_subtemplates_edit {
 #----------
 
 sub f_qopts {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- load the template, but first the look -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -437,13 +430,13 @@ sub f_qopts {
 		$fobj->bucket->get("template")
 	);
 
-	$class->{_}->bail->("Invalid template") if (!$template);
+	$self->_->bail->("Invalid template") if (!$template);
 
 	# now what we need is to know what glomules and functions are referenced 
 	# in the template, so that we can come up with a list of all qopts the 
 	# functions want and present the unregistered ones as options
 
-	my $all_qopts = $class->list_available_qopts($template);
+	my $all_qopts = $self->list_available_qopts($template);
 
 	# we'll stop for a second here to do our registers and edits
 
@@ -452,7 +445,7 @@ sub f_qopts {
 		my $o = $fobj->bucket->get("opt");
 		my $n = $fobj->bucket->get("name");
 
-		$class->{_}->utils->set_value(
+		$self->_->utils->set_value(
 			tbl		=> "qopts",
 			keys	=> {
 				glomule		=> $g,
@@ -463,7 +456,7 @@ sub f_qopts {
 			value	=> $n,
 		);
 
-		$class->{_}->cache->update_times->set(
+		$self->_->cache->update_times->set(
 			tbl		=> "qopts",
 			first	=> $template->id,
 			ts		=> time,
@@ -480,7 +473,7 @@ sub f_qopts {
 
 	while ( my ($g,$gref) = each %$all_qopts ) {
 		# $g is the glomule name...  make it an id
-		my $id = $class->{_}->glomule->name2id($g,$class->{_}->ocontainer->id);
+		my $id = $self->_->glomule->name2id($g,$self->_->ocontainer->id);
 
 		while ( my ($opt,$oref) = each %$gref ) {
 			if ( my $d = $def_qopts->{ $id }{ $opt } ) {
@@ -522,11 +515,10 @@ sub f_qopts {
 #----------
 
 sub f_qkeys {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- load the template, but first the look -- #
-	my $look = $class->load_look(
+	my $look = $self->load_look(
 		$fobj->bucket->get("look")
 	);
 
@@ -534,7 +526,7 @@ sub f_qkeys {
 		$fobj->bucket->get("template")
 	);
 
-	$class->{_}->bail->("Invalid template") if (!$template);
+	$self->_->bail->("Invalid template") if (!$template);
 
 	# we need a list of names mapped to qopts so that we know what 
 	# names to allow qkeys to be pointed to.  qkey -> name -> qopt.
@@ -542,17 +534,17 @@ sub f_qkeys {
 
 	my $name_options = "";
 	{
-		my $get_names = $class->{_}->core->get_dbh->prepare("
+		my $get_names = $self->_->core->get_dbh->prepare("
 			select 
 				distinct name 
 			from 
-				" . $class->{_}->core->tbl_name("qopts") . "
+				" . $self->_->core->tbl_name("qopts") . "
 			where 
 				template = ?
 		");
 
 		$get_names->execute($template->id)
-			or $class->{_}->bail->("get_names failed: ".$get_names->errstr);
+			or $self->_->bail->("get_names failed: ".$get_names->errstr);
 
 		my $name;
 		$get_names->bind_columns(\$name);
@@ -572,13 +564,13 @@ sub f_qkeys {
 
 		# make sure this is a legal name
 		if (!$names->{ $name }) {
-			$class->{_}->bail->("Invalid qkey name: $name");
+			$self->_->bail->("Invalid qkey name: $name");
 		}
 	
 		# we need to know what position to make this
 		my $count = @$qkeys + 1;
 
-		$class->{_}->utils->set_value(
+		$self->_->utils->set_value(
 			tbl		=> "qkeys",
 			keys	=> {
 				template	=> $template->id,
@@ -596,10 +588,10 @@ sub f_qkeys {
 
 			# make sure this is a legal name
 			if (!$names->{ $name }) {
-				$class->{_}->bail->("Invalid qkey name: $name");
+				$self->_->bail->("Invalid qkey name: $name");
 			}
 
-			$class->{_}->utils->set_value(
+			$self->_->utils->set_value(
 				tbl		=> "qkeys",
 				keys	=> {
 					template	=> $template->id,
@@ -619,7 +611,7 @@ sub f_qkeys {
 
 			my $i = 1;
 			foreach my $n (@keys) {
-				$class->{_}->utils->set_value(
+				$self->_->utils->set_value(
 					tbl		=> "qkeys",
 					keys	=> {
 						template	=> $template->id,
@@ -633,7 +625,7 @@ sub f_qkeys {
 
 			# now delete the former last position
 			my $last = @$qkeys;
-			$class->{_}->utils->set_value(
+			$self->_->utils->set_value(
 				tbl		=> "qkeys",
 				keys	=> {
 					template	=> $template->id,
@@ -646,7 +638,7 @@ sub f_qkeys {
 	}
 
 	if ($fobj->bucket->get("add") || $fobj->bucket->get("edit")) {
-		$class->{_}->cache->update_times->set(
+		$self->_->cache->update_times->set(
 			tbl		=> "qkeys",
 			first	=> $template->id,
 			ts		=> time,
@@ -678,24 +670,21 @@ sub f_qkeys {
 #----------
 
 sub _check_maint_rights {
-	my $class = shift;
-
-	if (!$class->{_}->switchboard->knows('user')) {
-		$class->{_}->bail->("Invalid rights.");
+	if (!$self->_->switchboard->knows('user')) {
+		$self->_->bail->("Invalid rights.");
 	}
 
-	if ( !$class->{_}->user->has_rights('maint') ) {
-		$class->{_}->bail->("Invalid rights.");
+	if ( !$self->_->user->has_rights('maint') ) {
+		$self->_->bail->("Invalid rights.");
 	} 
 
-	return $class;
+	return $self;
 }
 
 sub f_maint {
-	my $class = shift;
 	my $fobj = shift;
 
-	$class->_check_maint_rights;
+	$self->_check_maint_rights;
 
 	# do nothing
 }
@@ -703,43 +692,40 @@ sub f_maint {
 #----------
 
 sub f_maint_containers {
-	my $class = shift;
 	my $fobj = shift;
 
-	$class->_check_maint_rights;
+	$self->_check_maint_rights;
 
 	# -- get a list of containers -- #
 
-	my $c = $class->{_}->instance->load_containers(0);
+	my $c = $self->_->instance->load_containers(0);
 	$fobj->gholders->register(['containers',$c]);
 }
 
 #----------
 
 sub f_maint_domains {
-	my $class = shift;
 	my $fobj = shift;
 
-	$class->_check_maint_rights;
+	$self->_check_maint_rights;
 }
 
 #----------
 
 sub _create_look {
-	my $class = shift;
 	my $name = shift;
 
 	# -- make sure we got a name -- #
 	
 	if (!$name) {
-		$class->{_}->gholders->register('message','Illegal name for new look.');
+		$self->_->gholders->register('message','Illegal name for new look.');
 		return undef;
 	}
 
 	# -- make sure look name doesn't already exist -- #
 
-	if ( my $look = $class->{_}->ocontainer->is_valid_look_name($name) ) {
-		$class->{_}->gholders->register(
+	if ( my $look = $self->_->ocontainer->is_valid_look_name($name) ) {
+		$self->_->gholders->register(
 			'message',
 			'A look with that name already exists.'
 		);
@@ -749,18 +735,18 @@ sub _create_look {
 
 	# -- if we're still here, create the look -- #
 
-	my $create = $class->{_}->core->get_dbh->prepare("
+	my $create = $self->_->core->get_dbh->prepare("
 		insert into 
-			" . $class->{_}->core->tbl_name('looks') . "
+			" . $self->_->core->tbl_name('looks') . "
 		(container,name,is_default) 
 		values(?,?,0)
 	");
 
-	$create->execute($class->{_}->ocontainer->id,$name)
-		or $class->{_}->bail->("create_look failure: " . $create->errstr);
+	$create->execute($self->_->ocontainer->id,$name)
+		or $self->_->bail->("create_look failure: " . $create->errstr);
 
 	# update timestamp on looks
-	$class->{_}->cache->update_times->set(
+	$self->_->cache->update_times->set(
 		tbl	=> "looks",
 		ts	=> time,
 	);
@@ -771,18 +757,17 @@ sub _create_look {
 #----------
 
 sub load_look {
-	my $class = shift;
 	my $id = shift;
 
 	# validate this look
-	$class->{_}->ocontainer->is_valid_look($id)
-		or $class->{_}->bail->("Look not found/improper ownership: $id");
+	$self->_->ocontainer->is_valid_look($id)
+		or $self->_->bail->("Look not found/improper ownership: $id");
 
-	my $look = $class->{_}->instance->new_object("Look");
+	my $look = $self->_->instance->new_object("Look");
 	$look->{id} = $id;
 
 	# look wants the original container, not admin
-	$class->{_}->cswitchboard->reroute_calls_for($look);
+	$self->_->cswitchboard->reroute_calls_for($look);
 
 	return $look;
 }
