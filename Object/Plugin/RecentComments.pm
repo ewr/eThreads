@@ -46,6 +46,7 @@ sub activate {
 		where 
 			h.id = d.id 
 			and d.ident = 'name'
+			and h.status = 1
 		order by 
 			timestamp desc
 		limit $count

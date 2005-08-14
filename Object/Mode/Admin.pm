@@ -102,7 +102,7 @@ sub go {
 	$g->connect_to_gholders($class->{_}->gholders);
 
 	if ( my $func = $g->has_function( $class->{_}->template->path ) ) {
-		$func->execute();
+		$func->activate->execute();
 	} else {
 		$class->{_}->bail->(
 			"Unknown admin glomule function: "

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- DOCTYPE Controller PUBLIC "-//eThreads//eThreads Controller DTD//EN" "http://ethreads.com/xml/Controller.dtd" -->
 <glomule type="comments" object="Comments" default="comments">
+  <system name="format" object="Format::Markdown"/>
     <function name="view">
         <object>comments</object>
         <sub>f_view</sub>

@@ -6,16 +6,13 @@ use strict;
 
 sub new {
 	my $class = shift;
-	my $data = shift;
 	
 	$class = bless ({
-		_			=> $data,
 		parent		=> undef,
 		type		=> undef,
 		content		=> undef,
 		args		=> {},
 		children	=> [],
-		
 	},$class);
 
 	return $class;
@@ -121,6 +118,23 @@ sub object_path {
 	} while ($p = $p->parent);
 
 	return @path;
+}
+
+#----------
+
+sub dump_deep {
+	my $class = shift;
+
+	my $children = [];
+
+	@$children = map { $_->dump_deep } @{ $class->{children} };
+
+	{
+		type		=> $class->{type},
+		args		=> $class->{args},
+		content		=> $class->{content},
+		children	=> $children
+	};
 }
 
 #----------

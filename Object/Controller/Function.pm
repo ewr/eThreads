@@ -40,42 +40,15 @@ sub modes {
 }
 
 #----------
+#----------
 
 package eThreads::Object::Controller::Function::Qopt;
 
-sub new {
-	my $class = shift;
-	my $data = shift;
+# we use the generic Qopt object as-is
+use base 'eThreads::Object::Generic::Qopt';
 
-	$class = bless ( {
-		key		=> undef,
-		allowed	=> undef,
-		persist	=> undef,
-		default	=> undef,
-		@_,
-		_		=> $data,
-	} , $class ); 
-
-	return $class;
-}
-
-sub opt 	{ shift->{key} }
-sub allowed { shift->{allowed} }
-sub persist { shift->{persist} }
-sub default { shift->{default} }
-sub is_pref { shift->{pref} }
-
-sub attributes {
-	my $class = shift;
-
-	{
-		opt		=> $class->{key},
-		allowed	=> $class->{allowed},
-		persist	=> $class->{persist},
-		default	=> $class->{default},
-		is_pref	=> $class->{pref}
-	};
-}
+#----------
+#----------
 
 package eThreads::Object::Controller::Function::Mode;
 
@@ -110,6 +83,8 @@ sub attributes {
 =head1 NAME
 
 eThreads::Object::Controller::Function
+eThreads::Object::Controller::Function::Qopt
+eThreads::Object::Controller::Function::Mode
 
 =head1 SYNOPSIS
 

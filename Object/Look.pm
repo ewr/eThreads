@@ -9,6 +9,7 @@ sub new {
 			_		=> $data,
 			id		=> undef,
 			name	=> undef,
+			type	=> undef,
 			@_
 		} , $class );
 
@@ -28,7 +29,15 @@ sub cachable {
 	return {
 		id		=> $class->id,
 		name	=> $class->{name},
+		type	=> $class->{type},
 	};
+}
+
+#----------
+
+sub is_admin { 
+	my $class = shift;
+	return ( $class->{type} eq "ADMIN" ) ? 1 : undef;
 }
 
 #----------
@@ -48,8 +57,7 @@ sub cache_template_map {
 		select 
 			name,
 			c_type,
-			id,
-			value
+			id
 		from
 			" . $class->{_}->core->tbl_name("templates") . "
 		where 
@@ -59,19 +67,16 @@ sub cache_template_map {
 	$class->bail("cache_template_map error: ".$db->errstr) 
 		unless ( $get_templates->execute( $class->id ) );
 
-	my ($name,$type,$id,$v);
-	$get_templates->bind_columns( \($name,$type,$id,$v) );
+	my ($name,$type,$id);
+	$get_templates->bind_columns( \($name,$type,$id) );
 
 	my $m = {};
 	while ($get_templates->fetch) {
-		my $t = $class->{_}->instance->new_object("Template",
+		$m->{ $name } = {
 			path	=> $name,
 			type	=> $type,
 			id		=> $id,
-			value	=> $v,
-		);
-
-		$m->{$name} = $t->cachable;
+		};
 	}
 
 	$class->{_}->cache->set(
@@ -93,8 +98,7 @@ sub cache_subtemplates {
 	my $get_templates = $db->prepare("
 		select 
 			id,
-			name,
-			value
+			name
 		from
 			" . $class->{_}->core->tbl_name("subtemplates") . "
 		where 
@@ -104,15 +108,14 @@ sub cache_subtemplates {
 	$class->{_}->bail("cache_subtemplates error: ".$db->errstr) 
 		unless ($get_templates->execute($class->id));
 
-	my ($id,$name,$v);
-	$get_templates->bind_columns( \($id,$name,$v) );
+	my ($id,$name);
+	$get_templates->bind_columns( \($id,$name) );
 
 	my $m = {};
 	while ($get_templates->fetch) {
 		$m->{$name} = {
 			id		=> $id,
-			path	=> $name,
-			value	=> $v,
+			path	=> $name
 		};
 	}
 
@@ -163,7 +166,12 @@ sub determine_template {
 
 	my $id = $tm->{ $tpath }{id};
 
-	my $t = $class->{_}->instance->new_object("Template", %{$tm->{$tpath}} );
+	my $t = $class->{_}->new_object(
+		"Template", 
+		%{$tm->{$tpath}},
+		look	=> $class
+	);
+
 	return $t;
 }
 
@@ -185,9 +193,10 @@ sub load_template_by_path {
 		if (my $t = $ocache->get("Template",$tm->{$path}{id})) {
 			return $t;
 		} else {
-			my $t = $class->{_}->instance->new_object(
+			my $t = $class->{_}->new_object(
 				"Template",
-				%{$tm->{$path}}
+				%{$tm->{$path}},
+				look	=> $class
 			);
 
 			return $t;
@@ -220,9 +229,10 @@ sub load_template {
 		return undef;
 	}
 
-	my $t = $class->{_}->instance->new_object( 
+	my $t = $class->{_}->new_object( 
 		"Template", 
-		%{ $by_ids->{ $id } }
+		%{ $by_ids->{ $id } },
+		look	=> $class
 	);
 
 	return $t;
@@ -249,9 +259,10 @@ sub load_subtemplate_by_path {
 
 	my $id = $tm->{ $path }{id};
 
-	my $t = $class->{_}->instance->new_object( 
+	my $t = $class->{_}->new_object( 
 		"Template::Subtemplate", 
-		%{ $tm->{ $path } }
+		%{ $tm->{ $path } },
+		look	=> $class
 	);
 
 	return $t;
@@ -280,9 +291,10 @@ sub load_subtemplate {
 		return undef;
 	}
 
-	my $t = $class->{_}->instance->new_object( 
+	my $t = $class->{_}->new_object( 
 		"Template::Subtemplate", 
-		%{ $by_ids->{ $id } }
+		%{ $by_ids->{ $id } },
+		look	=> $class
 	);
 
 	return $t;

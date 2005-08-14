@@ -186,10 +186,11 @@ sub get_default_look {
 	$class->{_}->bail->("Container has no default look") 
 		if (!$looks->{DEFAULT});
 
-	my $l = $class->{_}->instance->new_object(
+	my $l = $class->{_}->new_object(
 		"Look",
 		id		=> $looks->{DEFAULT}->{id},
 		name	=> $looks->{DEFAULT}->{name},
+		type	=> $looks->{DEFAULT}->{type}
 	);
 
 	return $l;
@@ -207,7 +208,8 @@ sub is_valid_look_name {
 		my $obj = $class->{_}->new_object(
 			'Look',
 			id		=> $l->{id},
-			name	=> $l->{name}
+			name	=> $l->{name},
+			type	=> $l->{type}
 		);
 	
 		return $obj;
@@ -228,7 +230,8 @@ sub is_valid_look {
 		my $obj = $class->{_}->new_object(
 			'Look',
 			id		=> $l->{id},
-			name	=> $l->{name}
+			name	=> $l->{name},
+			type	=> $l->{type}
 		);
 	
 		return $obj;

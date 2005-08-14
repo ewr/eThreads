@@ -16,7 +16,7 @@ use eThreads::Object::Core;
 	my $core = new eThreads::Object::Core;
 	$core->cgi_enable;
 
-	for (0..100) 
+	for (1..20) 
 	{
 		my $inst = $core->new_object("Instance",$core->cgi_r_handler);
 		$inst->go();

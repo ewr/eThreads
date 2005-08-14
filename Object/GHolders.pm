@@ -529,16 +529,8 @@ sub handle_template {
 
 	my $name = $i->args->{template} || $i->args->{DEFAULT};
 
-	my $tm = $class->{_}->look->get_subtemplates;
-
-	return undef if (!$tm->{ $name });
-
-	my $id = $tm->{ $name }{id};
-
-	my $t = $class->{_}->instance->new_object(
-		'Template::Subtemplate',
-		%{ $tm->{ $name } }
-	);
+	my $t = $class->{_}->look->load_subtemplate_by_path($name)
+		or return undef;
 
 	return $class->{_}->gholders->handle_template_tree(
 		$t->get_tree,$_[0]

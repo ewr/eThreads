@@ -128,7 +128,7 @@ sub get {
 				%a,
 				ref	=> $c,
 				ts	=> $class->update_times->get(%a)
-			);
+			) if (!$a{nomemcache});
 
 			return $c;
 		} else {
@@ -165,7 +165,7 @@ sub set {
 	$class->write_cache_file(%a);
 
 	# and stick in memcache
-	$class->memory->set(%a);
+	$class->memory->set(%a) if (!$a{nomemcache});
 
 	return 1;
 }

@@ -3,9 +3,14 @@ package eThreads::Object::Template;
 use strict;
 
 use eThreads::Object::Template::Item;
+use eThreads::Object::Template::Qopts;
 use eThreads::Object::Template::ShadowItem;
 use eThreads::Object::Template::Subtemplate;
 use eThreads::Object::Template::Walker;
+
+sub TABLE { "templates" }
+
+#----------
 
 sub new {
 	my $class = shift;
@@ -16,9 +21,8 @@ sub new {
 		id		=> undef,
 		path	=> undef,
 		tree	=> undef,
-		value	=> undef,
 		type	=> undef,
-
+		look	=> undef,
 		@_,
 
 	} , $class );
@@ -48,15 +52,9 @@ sub cachable {
 
 #----------
 
-sub id {
-	return shift->{id};
-}
-
-#----------
-
-sub path {
-	return shift->{path};
-}
+sub look 	{ shift->{look}	}
+sub id 		{ shift->{id} 	}
+sub path 	{ shift->{path}	}
 
 #----------
 
@@ -66,7 +64,7 @@ sub type {
 	return 
 		$class->{type_obj}
 		|| ($class->{type_obj} 
-			= $class->{_}->instance->new_object( 
+			= $class->{_}->new_object( 
 				'ContentType::' . $class->{type}
 			)->activate);
 }
@@ -103,6 +101,51 @@ sub qkeys {
 #----------
 
 sub qopts {
+	my $class = shift;
+
+	if ($class->{nqopts}) {
+		return $class->{nqopts};
+	}
+
+	# we need to look through the template to find what functions are inside.
+	# we then need to know what qopts those functions define so that we can 
+	# assemble a master list of qopts.  once we have that we call named_qopts 
+	# to get the qopts whose names have been changed.  We merge those new 
+	# names into the list. we'll end up returning a Template::Qopts object.
+
+	my $qopts = $class->{_}->new_object('Template::Qopts');
+
+	my $all = $class->list_available_qopts;
+
+	foreach my $q ( @$all ) {
+		$qopts->register( %$q );
+	}
+
+	# now merge in the named qopts
+
+	my $named = $class->named_qopts;
+
+	while ( my ($g,$gref) = each %$named ) {
+		while ( my ($f,$fref) = each %$gref ) {
+			while ( my ($o,$oref) = each %$fref ) {
+				if (!$qopts->glomule($g)->{$f}{$o}) {
+					warn "ERROR: named qopt not in all -- $g - $f - $o\n";
+					next;
+				}
+
+				$qopts->glomule($g)->{$f}{$o}->name( $oref->{name} );
+			}
+		}
+	}
+
+	$class->{nqopts} = $qopts;
+
+	return $qopts;
+}
+
+#----------
+
+sub named_qopts {
 	my $class = shift;
 
 	# -- if we've already got them, return now -- #
@@ -170,11 +213,12 @@ sub cache_qkeys {
 sub cache_qopts {
 	my $class = shift;
 
-	my $db = $class->{_}->core->get_dbh;
+	# start with the values that are in the database
 
-	my $get = $db->prepare("
+	my $get = $class->{_}->core->get_dbh->prepare("
 		select
 			glomule,
+			function,
 			opt,
 			name
 		from 
@@ -184,15 +228,16 @@ sub cache_qopts {
 	");
 
 	$get->execute( $class->id ) or
-		$class->{_}->bail->("cache_qopts failure: ".$db->errstr);
+		$class->{_}->bail->("cache_qopts failure: ".$get->errstr);
 
-	my ($g,$o,$n);
-	$get->bind_columns( \($g,$o,$n) );
+	my ($g,$f,$o,$n);
+	$get->bind_columns( \($g,$f,$o,$n) );
 
 	my $qopts = {};
 	while ($get->fetch) {
-		$qopts->{ $g }{ $o } = {
+		$qopts->{ $g }{ $f }{ $o } = {
 			glomule		=> $g,
+			function	=> $f,
 			opt			=> $o,
 			name		=> $n,
 		};
@@ -205,6 +250,74 @@ sub cache_qopts {
 	);
 
 	return $qopts;
+}
+
+#----------
+
+sub list_available_qopts {
+	my $class = shift;
+
+	# ok, step one is to create a template walker and register glomule 
+	# handlers so that we can step through and see what we're dealing 
+	# with here.  each function we walk will append its qopts to the 
+	# $qopts array.  we'll return these to our caller.  each element 
+	# of this array will be a hash containing the glomule id and a ref 
+	# to the array of Controller::Function::Qopt objects, which 
+	# is of the standard Generic::Qopt form.
+
+	my $walker = $class->{_}->new_object("Template::Walker");
+
+	my $qopts = [];
+
+	foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
+		# -- register the walker -- #
+		$walker->register(
+			[ $t , sub { return $class->_walk_glomule($t,$qopts,@_); } ]
+		);
+	}
+
+	$walker->walk_template_tree(
+		$class->get_tree
+	);
+
+	return $qopts;
+	
+}
+
+#----------
+
+sub _walk_glomule {
+	my $class = shift;
+	my $type = shift;
+	my $qopts = shift;
+	my $i = shift;
+
+	my $glomule = $i->args->{name} || $i->args->{glomule};
+
+	my $gc = $class->{_}->controller->get($type);
+
+	if ( my $func = $gc->has_function( $i->args->{function} ) ) {
+		# $func->qopts will give us an array ref that points to the qopts 
+		# definition in the controller.  we append the contents of this 
+		# array to the $qopts arrayref that was passed in to us
+
+		my $gqopts = {
+			glomule		=> scalar $class->{_}->glomule->name2id( $glomule ),
+			function	=> $func->name,
+			opts		=> scalar $func->qopts
+		};
+
+		push @$qopts, $gqopts;
+	} else {
+		$class->{_}->bail->(
+			"Unknown glomule function: "
+			. $glomule
+			. "/"
+			. $i->args->{function}
+		);
+	}
+
+	return 1;
 }
 
 #----------
@@ -222,26 +335,86 @@ sub shadow_tree {
 
 sub get_tree {
 	my $class = shift;
-	return $class->{tree} || $class->generate_tree;
-}
 
-#-----------
+	if ($class->{tree}) {
+		return $class->{tree};
+	}
 
-sub generate_tree {
-	my $class = shift;
+	# try cache
 
-	$class->{tree} = $class->new_tree_root;
+	my $deep = $class->{_}->cache->get(
+		tbl			=> $class->TABLE,
+		first		=> $class->look->id,
+		second		=> $class->id,
+		nomemcache	=> 1
+	);
 
-	$class->parse_into_tree($class->{tree},$class->{value});
+	my $tree;
+	if ($deep) {
+		# restore to Template::Item objects
+		$tree = $class->_restore_tree($deep);
+	} else {
+		$tree = $class->cache_tree;
+	}
+
+	$class->{tree} = $tree;
 
 	return $class->{tree};
 }
 
 #-----------
 
+sub _restore_tree {
+	my ($class,$i) = @_;
+	@{$i->{children}} = map { $class->_restore_tree($_) } @{$i->{children}};
+	CORE::bless $i , 'eThreads::Object::Template::Item';
+}
+
+#-----------
+
+sub cache_tree {
+	my $class = shift;
+
+	# get the raw template from the db
+	my $get = $class->{_}->core->get_dbh->prepare("
+		select 
+			value 
+		from 
+			" . $class->{_}->core->tbl_name($class->TABLE) . "
+		where id = ?
+	");
+
+	$get->execute( $class->id )
+		or $class->{_}->bail->("Couldn't get raw template: " . $get->errstr);
+
+	$class->{_}->bail->("No raw template found for template ".$class->id)
+		if (!$get->rows);
+
+	my $v = $get->fetchrow_array;
+
+	my $tree = $class->new_tree_root;
+
+	$class->parse_into_tree( $tree , $v );
+
+	# create deep structure to cache
+	my $deep = $tree->dump_deep;
+
+	$class->{_}->cache->set(
+		tbl			=> $class->TABLE,
+		first		=> $class->look->id,
+		second		=> $class->id,
+		ref			=> $deep,
+		nomemcache	=> 1
+	);
+
+	return $tree;
+}
+
+#-----------
+
 sub new_tree_root {
 	my $class = shift;
-	return $class->{_}->instance->new_object("Template::Item");
+	return $class->{_}->new_object("Template::Item");
 }
 
 #-----------
@@ -290,7 +463,7 @@ sub parse_into_tree {
 	# thing a raw and return it.
 	if (!@f) {
 		# the whole thing is a raw
-		my $r = $class->{_}->instance->new_object("Template::Item");
+		my $r = $class->{_}->new_object("Template::Item");
 
 		$r->type( 		"raw"		);
 		$r->parent( 	$t			);
@@ -333,7 +506,7 @@ sub parse_into_tree {
 				}
 			}
 
-			my $lt = $class->{_}->instance->new_object('Template::Item');
+			my $lt = $class->{_}->new_object('Template::Item');
 
 			$lt->type(		lc($m[1])	);
 			$lt->args(		$args		);
@@ -361,7 +534,7 @@ sub parse_into_tree {
 			# if we matched only whitespace, just replace with a single space
 			$m[5] =~ s/^\s+$/ /;
 		
-			my $lt = $class->{_}->instance->new_object('Template::Item');
+			my $lt = $class->{_}->new_object('Template::Item');
 
 			$lt->type(		'raw'	);
 			$lt->parent(	$cx		);

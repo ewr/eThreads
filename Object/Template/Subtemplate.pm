@@ -1,8 +1,12 @@
 package eThreads::Object::Template::Subtemplate;
 
-@ISA = qw( eThreads::Object::Template );
+use base 'eThreads::Object::Template';
 
 use strict;
+
+#----------
+
+sub TABLE { "subtemplates" }
 
 #----------
 
@@ -18,8 +22,6 @@ sub type {
 
 sub load_from_sub {
 	my $class = shift;
-
-	my @keys = keys %{$class->{_}};
 
 	my $cache = $class->{_}->cache->get(
 		tbl		=> "subtemplates",

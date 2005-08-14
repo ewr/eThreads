@@ -200,7 +200,7 @@ sub walk_glomule {
 		or $class->{_}->bail->("Couldn't find object in walk");
 
 	if ( my $func = $g->has_function( $i->args->{function} ) ) {
-		$func->execute( $i->args );
+		$func->activate->execute( $i->args );
 	} else {
 		$class->{_}->bail->(
 			"Unknown glomule function: "

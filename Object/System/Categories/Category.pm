@@ -9,11 +9,15 @@ sub new {
 	my $data = shift;
 
 	$class = bless ( {
+		_		=> $data,
 		name	=> undef,
 		id		=> undef,
 		glomule	=> undef,
+		data	=> {
+			icon		=> undef,
+			descript	=> undef,
+		},
 		@_,
-		_		=> $data,
 	} , $class ); 
 
 	if (!$class->{name} || !$class->{glomule}) {
@@ -141,7 +145,7 @@ sub load_data {
 
 	my $data = $class->{_}->cache->get(
 		tbl		=> "cat_data",
-		first	=> $class->{_}->glomule->id,
+		first	=> $class->{glomule},
 	);
 
 	while ( my ($k,$v) = each %{ $data->{ $class->id } } ) {

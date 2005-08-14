@@ -53,7 +53,7 @@ sub activate {
 		} else {
 			$d = $q->{default};
 		}
-		
+
 		$bucket->register(%$q,default=>$d);
 	}
 

@@ -100,12 +100,12 @@ sub f_post {
 		);
 
 		# parse and register some preview gholders
-		my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
+		my $format = $fobj->glomule->system('format');
 		my $c = {};
 		foreach my $f (@{ $class->edit_fields }) {
 			if ($format && $f->{format}) {
 				$c->{ $f->{name} } 
-					= $class->{_}->format->format($post->{$f->{name}});
+					= $format->format($post->{$f->{name}});
 			} else {
 				$c->{ $f->{name} } = $post->{ $f->{name} };
 			}
@@ -135,7 +135,7 @@ sub f_post {
 
 		if ($ok) {
 			# we can go ahead and post
-			$class->post($post);
+			$class->post($fobj,$post);
 			$fobj->gholders->register(['comment',$post]);
 		} else {
 			# doh...  error.  
@@ -238,7 +238,7 @@ sub f_delete {
 		}
 	}
 
-	$class->{gholders}->register(
+	$fobj->gholders->register(
 		['comment',$c]
 	);
 
@@ -247,7 +247,7 @@ sub f_delete {
 	if ($confirm) {
 		$class->{_}->gholders->register(['confirm',1]);
 		# they said to go ahead
-		$class->delete($id);
+		$class->delete($fobj,$id);
 	}
 }
 #----------
@@ -308,7 +308,7 @@ sub posts_by_time {
 
 	my $where = 
 		qq(
-			(1 = 1)
+			status = 1
 			order by timestamp desc
 		);
 
@@ -327,6 +327,7 @@ sub posts_by_parent {
 	my $where = 
 		qq(
 			parent = ? 
+			and status = 1
 			order by 
 			timestamp
 		);

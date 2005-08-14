@@ -34,28 +34,7 @@ sub f_main {
 	my $class = shift;
 	my $fobj = shift;
 
-	$fobj->gholders->register(
-		[
-			"function", 
-			['looks','prefs']
-		],
-		[
-			"function.looks", 
-			{
-				title	=> "Manage Looks",
-				link	=> "looks",
-				description	=> "Manage Looks for this Container.",
-			}
-		],
-		[
-			"function.prefs",
-			{
-				title	=> "Manage Prefs",
-				link	=> "prefs",
-				description	=> "Modify container preferences.",
-			}
-		]
-	);
+	# do nothing for now
 }
 
 #----------
@@ -68,6 +47,19 @@ sub f_looks {
 	my $looks = $class->{_}->ocontainer->get_looks;
 
 	# -- see if we're creating a new look -- #
+
+	if ( $fobj->bucket->get('create') ) {
+		warn "creating look\n";
+		if ( $class->_create_look($fobj->bucket->get('name')) ) {
+			$fobj->gholders->register('message',"New look created");
+			warn "created look\n";
+			$looks = $class->{_}->ocontainer->get_looks;
+		} else {
+			warn "no look created\n";
+		}
+	} else {
+		warn "no create qopt passed\n";
+	}
 
 	# -- see if we're setting a default -- #
 
@@ -733,57 +725,45 @@ sub f_maint_domains {
 
 #----------
 
-sub list_available_qopts {
+sub _create_look {
 	my $class = shift;
-	my $template = shift;
+	my $name = shift;
 
-	# ok, step one is to create a template walker and register glomule 
-	# handlers so that we can step through and see what we're dealing 
-	# with here
-
-	my $walker = $class->{_}->instance->new_object("Template::Walker");
-
-	my $qopts = {};
-
-	foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
-		# -- register the walker -- #
-		$walker->register(
-			[ $t , sub { return $class->_walk_glomule($t,$qopts,@_); } ]
-		);
-	}
-
-	$walker->walk_template_tree(
-		$template->get_tree
-	);
-
-	return $qopts;
+	# -- make sure we got a name -- #
 	
-}
-
-#----------
-
-sub _walk_glomule {
-	my $class = shift;
-	my $type = shift;
-	my $qopts = shift;
-	my $i = shift;
-
-	my $glomule = $i->args->{name} || $i->args->{glomule};
-
-	my $gc = $class->{_}->controller->get($type);
-
-	if ( my $func = $gc->has_function( $i->args->{function} ) ) {
-		foreach my $q (@{ $func->qopts }) {
-			$qopts->{ $glomule }{ $q->{key} } = 1;
-		}
-	} else {
-		$class->{_}->bail->(
-			"Unknown admin glomule function: "
-			. $glomule
-			. "/"
-			. $i->args->{function}
-		);
+	if (!$name) {
+		$class->{_}->gholders->register('message','Illegal name for new look.');
+		return undef;
 	}
+
+	# -- make sure look name doesn't already exist -- #
+
+	if ( my $look = $class->{_}->ocontainer->is_valid_look_name($name) ) {
+		$class->{_}->gholders->register(
+			'message',
+			'A look with that name already exists.'
+		);
+
+		return undef;
+	}
+
+	# -- if we're still here, create the look -- #
+
+	my $create = $class->{_}->core->get_dbh->prepare("
+		insert into 
+			" . $class->{_}->core->tbl_name('looks') . "
+		(container,name,is_default) 
+		values(?,?,0)
+	");
+
+	$create->execute($class->{_}->ocontainer->id,$name)
+		or $class->{_}->bail->("create_look failure: " . $create->errstr);
+
+	# update timestamp on looks
+	$class->{_}->cache->update_times->set(
+		tbl	=> "looks",
+		ts	=> time,
+	);
 
 	return 1;
 }
