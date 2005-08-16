@@ -2,6 +2,8 @@ package eThreads::Object::Template;
 
 use strict;
 
+use Scalar::Util;
+
 use Spiffy -Base, -XXX;
 
 use eThreads::Object::Template::Item;
@@ -359,9 +361,12 @@ sub get_tree {
 #-----------
 
 sub _restore_tree {
-	my ($i) = @_;
-	@{$i->{children}} = map { $self->_restore_tree($_) } @{$i->{children}};
-	CORE::bless $i , 'eThreads::Object::Template::Item';
+	my ($i,$p) = @_;
+	$i = CORE::bless $i , 'eThreads::Object::Template::Item';
+	@{$i->{children}} = map { $self->_restore_tree($_,$i) } @{$i->{children}};
+	$i->{parent} = $p;
+	Scalar::Util::weaken($i->{parent});
+	return $i;
 }
 
 #----------

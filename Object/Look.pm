@@ -128,7 +128,7 @@ sub determine_template {
 	# -- load the template map for this container and look -- #
 	my $tm = $self->get_templates;
 
-	my $uri = $self->_->RequestURI->unclaimed;
+	my $uri = $self->_->RequestURI->unclaimed || '';
 
 	my $tpath = '';
 	{

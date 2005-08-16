@@ -2,98 +2,47 @@ package eThreads::Object::Template::Item;
 
 use strict;
 
+use Spiffy -Base;
+
 #----------
 
+field 'children' => -ro;
+field 'type';
+field 'parent' => -weak;
+field 'content';
+field 'args';
+
 sub new {
-	my $class = shift;
-	
-	$class = bless ({
+	$self = bless ({
 		parent		=> undef,
 		type		=> undef,
 		content		=> undef,
 		args		=> {},
 		children	=> [],
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
-	%{$class->{_}} = ();
-
-	return $class->sever_relationships;
+	# nothing for now
 }
 
 #----------
 
 sub add_child {
-	my $class = shift;
 	my $child = shift;
-	return push @{ $class->{children} } , $child;
-}
-
-#----------
-
-sub sever_relationships {
-	my $class = shift;
-
-	@{$class->{children}} = ();
-	$class->{parent} = undef;
-}
-
-#----------
-
-sub children {
-	return shift->{children};
-}
-
-#----------
-
-sub type {
-	my $class = shift;
-	my $type = shift;
-	$class->{type} = $type if ($type);
-	return $class->{type};
-}
-
-#----------
-
-sub parent {
-	my $class = shift;
-	my $parent = shift;
-	$class->{parent} = $parent if ($parent);
-	return $class->{parent};
-}
-
-#----------
-
-sub content {
-	my $class = shift;
-	my $content = shift;
-	$class->{content} = $content if ($content);
-	return $class->{content};
-}
-
-#----------
-
-sub args {
-	my $class = shift;
-	my $args = shift;
-	$class->{args} = $args if ($args);
-	return $class->{args};
+	return push @{ $self->{children} } , $child;
 }
 
 #----------
 
 sub key_path {
-	my $class = shift;
-
 	# build our object's path
 	my @path;
-	my $p = $class;
+	my $p = $self;
 
 	do {
 		unshift @path, $p->key if ($p->key);
@@ -107,11 +56,9 @@ sub key_path {
 #----------
 
 sub object_path {
-	my $class = shift;
-
 	# build our object's path
 	my @path;
-	my $p = $class;
+	my $p = $self;
 
 	do {
 		unshift @path, $p;
@@ -123,20 +70,17 @@ sub object_path {
 #----------
 
 sub dump_deep {
-	my $class = shift;
-
 	my $children = [];
 
-	@$children = map { $_->dump_deep } @{ $class->{children} };
+	@$children = map { $_->dump_deep } @{ $self->{children} };
 
 	{
-		type		=> $class->{type},
-		args		=> $class->{args},
-		content		=> $class->{content},
+		type		=> $self->{type},
+		args		=> $self->{args},
+		content		=> $self->{content},
 		children	=> $children
 	};
 }
 
 #----------
 
-1;
