@@ -128,6 +128,7 @@ sub link {
 
 		my @qopts;
 		while ( my ($opt,$val) = each %$qopts ) {
+			next if (!$val);
 			push @qopts, ( $opt . "=" . URI::Escape::uri_escape($val) );
 		}
 
