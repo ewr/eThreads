@@ -58,7 +58,7 @@ sub _exists {
 
 	my ($root,$remain) = $key =~ /^([^\.]+)\.?(.+)?$/;
 
-	if ( my $c = $self->has_child($root) ) {
+	if ( my $c = $self->{children}{ $root } ) {
 		if ($remain) {
 			return $c->_exists($remain);
 		} else {

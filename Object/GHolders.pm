@@ -190,19 +190,19 @@ sub exists {
 			return $ctx if ( !$h );
 
 			# otherwise look for $h under our context
-			return $self->_exists($h,$ctx);
+			return $ctx->_exists($h);
 		} else {
 			return undef;
 		}
 	} elsif (!$force && !$no) {
 		# try current context, then try root
 		return 
-			$self->_exists($h,$self->{context})
-			|| $self->_exists($h,$self->{p});
+			$self->{context}->_exists($h)
+			|| $self->{p}->_exists($h);
 	} elsif ($force) {
-		return $self->_exists($h,$self->{p});
+		return $self->{p}->_exists($h);
 	} elsif ($no) {
-		return $self->_exists($h,$self->{context});
+		return $self->{context}->_exists($h);
 	} else {
 		return undef;
 	} 
