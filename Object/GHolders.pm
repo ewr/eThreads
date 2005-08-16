@@ -212,6 +212,11 @@ sub exists {
 
 sub _exists {
 	my ($h,$ctx) = @_;
+	$ctx->_exists($h);
+}
+
+sub _exists_old {
+	my ($h,$ctx) = @_;
 
 	my $test = 1;
 

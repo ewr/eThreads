@@ -2,6 +2,8 @@ package eThreads::Object::GHolders::GHolder;
 
 use Spiffy -Base;
 
+no warnings;
+
 use Scalar::Util;
 
 use strict;
@@ -54,7 +56,7 @@ sub add_child {
 sub _exists {
 	my $key = shift;
 
-	my ($root,$remain) = $key =~ /^(.+?)\.(.+)?$/;
+	my ($root,$remain) = $key =~ /^([^\.]+)\.?(.+)?$/;
 
 	if ( my $c = $self->has_child($root) ) {
 		if ($remain) {
