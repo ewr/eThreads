@@ -1,14 +1,24 @@
 package eThreads::Object::GHolders::GHolder;
 
+use Spiffy -Base;
+
+use Scalar::Util;
+
 use strict;
 
+field 'children'	=> -ro;
+field 'flat';
+field 'array';
+field 'sub';
+field 'parent'		=> -ro;
+field 'key'			=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 	my $key = shift;
 	my $parent = shift;
 
-	$class = bless({
+	$self = bless({
 		_			=> $data,
 		key			=> $key || undef,
 		parent		=> $parent || undef,
@@ -16,34 +26,19 @@ sub new {
 		sub			=> undef,
 		array		=> undef,
 		children	=> {},
-	} , $class);
-
-#	if (!$key) {
-#		Carp::cluck "gholder with no key\n";
-#	}
+	} , $self);
 
 	if ($parent) {
-		$parent->add_child($class);
+		$parent->add_child($self);
+		Scalar::Util::weaken($self->{parent});
 	}
 
-	return $class;
-}
-
-#----------
-
-sub DESTROY {
-	my $class = shift;
-
-	$class->{parent} = undef;
-	%{$class->{children}} = ();
-
-	return 1;
+	return $self;
 }
 
 #----------
 
 sub add_child {
-	my $class = shift;
 	my $child = shift;
 
 	if (!$child->{key}) {
@@ -51,73 +46,39 @@ sub add_child {
 		warn "bad key from: @caller\n";
 	}
 
-	$class->{children}{ $child->{key} } = $child;
+	$self->{children}{ $child->{key} } = $child;
 }
 
 #----------
 
-sub children {
-	my $class = shift;
+sub _exists {
+	my $key = shift;
 
-	$class->{children};
+	my ($root,$remain) = $key =~ /^(.+?)\.(.+)?$/;
+
+	if ( my $c = $self->has_child($root) ) {
+		if ($remain) {
+			return $c->_exists($remain);
+		} else {
+			return $c;
+		}
+	} else {
+		return undef;
+	}
 }
 
 #----------
 
-sub has_child {
+sub has_child () {
 	return $_[0]->{children}{ $_[1] } || undef;
 }
 
 #----------
 
-sub flat {
-	my $class = shift;
-
-	$class->{flat} = shift if ($_[0]);
-
-	return $class->{flat};
-}
-
-#----------
-
-sub array {
-	my $class = shift;
-
-	$class->{array} = shift if ($_[0]);
-
-	return $class->{array};
-}
-
-#----------
-
-sub sub {
-	my $class = shift;
-
-	$class->{sub} = shift if ($_[0]);
-
-	return $class->{sub};
-}
-
-#----------
-
-sub parent {
-	return shift->{parent};
-}
-
-#----------
-
-sub key {
-	return shift->{key};
-}
-
-#----------
-
 sub key_path {
-	my $class = shift;
-
 	# build our object's path
 	my @path;
-	my $p = $class;
+	my $p = $self;
 
 	do {
 		unshift @path, $p->key if ($p->key);
@@ -131,11 +92,9 @@ sub key_path {
 #----------
 
 sub object_path {
-	my $class = shift;
-
 	# build our object's path
 	my @path;
-	my $p = $class;
+	my $p = $self;
 
 	do {
 		unshift @path, $p;
