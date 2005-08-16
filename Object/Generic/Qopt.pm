@@ -1,40 +1,39 @@
 package eThreads::Object::Generic::Qopt;
 
+use Spiffy -Base;
+
 use strict;
 
 #----------
 
+field 'opt'		=> -key=>'key',-ro;
+field 'allowed'	=> -ro;
+field 'persist'	=> -ro;
+field 'default'	=> -ro;
+field 'is_pref'	=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		key		=> undef,
 		allowed	=> undef,
 		persist	=> undef,
 		default	=> undef,
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
-sub opt 	{ shift->{key} }
-sub allowed { shift->{allowed} }
-sub persist { shift->{persist} }
-sub default { shift->{default} }
-sub is_pref { shift->{pref} }
-
 sub attributes {
-	my $class = shift;
-
 	{
-		opt		=> $class->{key},
-		allowed	=> $class->{allowed},
-		persist	=> $class->{persist},
-		default	=> $class->{default},
-		is_pref	=> $class->{pref}
+		opt		=> $self->{key},
+		allowed	=> $self->{allowed},
+		persist	=> $self->{persist},
+		default	=> $self->{default},
+		is_pref	=> $self->{pref}
 	};
 }
 

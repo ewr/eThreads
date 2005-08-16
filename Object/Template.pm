@@ -27,6 +27,15 @@ field 'type'	=>
 	-key=>'type_obj',
 	-init=>q!$self->_->new_object('ContentType::'.$self->{type})->activate!;
 
+field 'qopts'	=> 
+	-ro,
+	-init=>q! 
+		if (my $q = $self->_->cache->get(tbl=>'qopts',first=>$self->id)) {
+			$self->_->new_object('Template::Qopts')->restore($q)
+		} else {
+			$self->cache_qopts 
+		}
+	!;
 
 sub new {
 	my $data = shift;
@@ -86,11 +95,7 @@ sub qkeys {
 
 #----------
 
-sub qopts {
-	if ($self->{nqopts}) {
-		return $self->{nqopts};
-	}
-
+sub cache_qopts {
 	# we need to look through the template to find what functions are inside.
 	# we then need to know what qopts those functions define so that we can 
 	# assemble a master list of qopts.  once we have that we call named_qopts 
@@ -122,7 +127,11 @@ sub qopts {
 		}
 	}
 
-	$self->{nqopts} = $qopts;
+	$self->_->cache->set(
+		tbl		=> "qopts",
+		first	=> $self->id,
+		ref		=> $qopts->dump
+	);
 
 	return $qopts;
 }
@@ -132,24 +141,43 @@ sub qopts {
 sub named_qopts {
 	# -- if we've already got them, return now -- #
 
-	if ($self->{qopts}) {
-		return $self->{qopts};
+	if ($self->{nqopts}) {
+		return $self->{nqopts};
 	}
 
 	# -- otherwise we need to load them -- #
 
-	my $q = $self->_->cache->get(
-		tbl		=> "qopts",
-		first	=> $self->id,
-	);
+	my $get = $self->_->core->get_dbh->prepare("
+		select
+			glomule,
+			function,
+			opt,
+			name
+		from 
+			" . $self->_->core->tbl_name("qopts") . "
+		where 
+			template = ?
+	");
 
-	if (!$q) {
-		$q = $self->cache_qopts;
+	$get->execute( $self->id ) or
+		$self->_->bail->("cache_qopts failure: ".$get->errstr);
+
+	my ($g,$f,$o,$n);
+	$get->bind_columns( \($g,$f,$o,$n) );
+
+	my $qopts = {};
+	while ($get->fetch) {
+		$qopts->{ $g }{ $f }{ $o } = {
+			glomule		=> $g,
+			function	=> $f,
+			opt			=> $o,
+			name		=> $n,
+		};
 	}
 
-	$self->{qopts} = $q;
+	$self->{nqopts} = $qopts;
 
-	return $q;
+	return $qopts;
 }
 
 #----------
@@ -186,48 +214,6 @@ sub cache_qkeys {
 	);
 
 	return $qkeys;
-}
-
-#----------
-
-sub cache_qopts {
-	# start with the values that are in the database
-
-	my $get = $self->_->core->get_dbh->prepare("
-		select
-			glomule,
-			function,
-			opt,
-			name
-		from 
-			" . $self->_->core->tbl_name("qopts") . "
-		where 
-			template = ?
-	");
-
-	$get->execute( $self->id ) or
-		$self->_->bail->("cache_qopts failure: ".$get->errstr);
-
-	my ($g,$f,$o,$n);
-	$get->bind_columns( \($g,$f,$o,$n) );
-
-	my $qopts = {};
-	while ($get->fetch) {
-		$qopts->{ $g }{ $f }{ $o } = {
-			glomule		=> $g,
-			function	=> $f,
-			opt			=> $o,
-			name		=> $n,
-		};
-	}
-
-	$self->_->cache->set(
-		tbl		=> "qopts",
-		first	=> $self->id,
-		ref		=> $qopts
-	);
-
-	return $qopts;
 }
 
 #----------
@@ -304,6 +290,7 @@ sub _walk_glomule {
 		my $gqopts = {
 			glomule		=> scalar $self->_->glomule->name2id( $glomule ),
 			function	=> $func->name,
+			gtype		=> $type,
 			opts		=> scalar $func->qopts
 		};
 
@@ -342,7 +329,7 @@ sub get_tree {
 		tbl			=> $self->TABLE,
 		first		=> $self->look->id,
 		second		=> $self->id,
-		nomemcache	=> 1
+		#nomemcache	=> 1
 	);
 
 	my $tree;

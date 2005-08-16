@@ -1,48 +1,57 @@
 package eThreads::Object::Template::Qopts;
 
+use Spiffy -Base;
+
+no warnings;
+
 use strict;
 
 #----------
 
+field '_' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		g		=> {},
 		f		=> {},
 		o		=> {},
 		n		=> {},
 		all		=> [],
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub register {
-	my $class = shift;
 	my %args = @_;
 
 	return undef if (!$args{glomule});
 
 	foreach my $o ( @{ $args{opts} } ) {
 		# create a new Qopt object
-		my $obj = $class->{_}->new_object("Template::Qopts::Opt",$o);
+		my $obj = $self->_->new_object("Template::Qopts::Opt",$o);
 
 		# map by glomule
-		$class->{g}{ $args{glomule} }{ $args{function} }{ $obj->name } = $obj;
+		$self->{g}{ $args{glomule} }{ $args{function} }{ $obj->name } = $obj;
 
 		# map by function
-		$class->{f}{ $args{function} }{ $args{glomule} }{ $obj->name } = $obj;
+		$self->{f}{ $args{function} }{ $args{glomule} }{ $obj->name } = $obj;
 
 		# map by object key
-		$class->{o}{ $obj->name }{ $args{glomule} }{ $args{function} } = $obj;
+		$self->{o}{ $obj->name }{ $args{glomule} }{ $args{function} } = $obj;
 
 		# and throw it on the generic all array
-		push @{$class->{all}}, $obj;
+		push @{$self->{all}}, [
+			$obj,
+			$args{glomule},
+			$args{gtype},
+			$args{function}
+		];
 	}
 
 	return 1;
@@ -51,16 +60,15 @@ sub register {
 #----------
 
 sub names {
-	my $class = shift;
 	my $name = shift;
 
 	my $names = {};
-	foreach my $o ( @{$class->{all}} ) {
-		my $n = $o->name;
+	foreach my $o ( @{ $self->{all} } ) {
+		my $n = $o->[0]->name;
 		if (my $aref = $names->{ $n }) {
-			push @$aref, $o;
+			push @$aref, $o->[0];
 		} else {
-			$names->{ $n } = [ $o ];
+			$names->{ $n } = [ $o->[0] ];
 		}
 	}
 
@@ -70,28 +78,61 @@ sub names {
 #----------
 
 sub glomule {
-	my $class = shift;
 	my $glomule = shift;
-
-	return ( $glomule ) ? $class->{g}{ $glomule } : $class->{g};
+	return ( $glomule ) ? $self->{g}{ $glomule } : $self->{g};
 }
 
 #----------
 
 sub function {
-	my $class = shift;
 	my $function = shift;
-
-	return ( defined($function) ) ? $class->{f}{ $function } : $class->{f};
+	return ( defined($function) ) ? $self->{f}{ $function } : $self->{f};
 }
 
 #----------
 
 sub opt {
-	my $class = shift;
 	my $opt = shift;
+	return ( $opt ) ? $self->{o}{ $opt } : $self->{o};
+}
 
-	return ( $opt ) ? $class->{o}{ $opt } : $class->{o};
+#----------
+
+sub dump {
+	my $qopts = [];
+
+	foreach my $o ( @{ $self->{all} } ) {
+		push @$qopts, [ @{$o}[1..3] ];
+	}
+
+	return $qopts;
+}
+
+#----------
+
+sub restore {
+	my $qopts = shift;
+
+	# we get an array of arrayrefs.  these inner arrays contain three 
+	# elements: glomule, glomule type, and function name.  We need to 
+	# basically pretend we're getting a register on each of these, 
+	# looking the actual Qopt object up from the Controller for the 
+	# glomule type
+
+	foreach my $o ( @$qopts ) {
+		my $func = 
+			$self->_->controller->get( $o->[1] )->has_function( $o->[2] )
+				or $self->_->bail->("Error restoring Template Qopts");
+
+		$self->register(
+			glomule		=> $o->[0],
+			function	=> $func->name,
+			gtype		=> $o->[1],
+			opts		=> scalar $func->qopts
+		);
+	}
+
+	return $self;
 }
 
 #----------
@@ -99,42 +140,32 @@ sub opt {
 
 package eThreads::Object::Template::Qopts::Opt;
 
+use Spiffy -Base;
+
+field 'orig'	=> -ro;
+field 'name'	=> -init=>q! $self->orig->opt !;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
-	my $ref = shift;
+	my $orig = shift;
 
-	$class = bless({
-		_		=> $data,
-		orig	=> $ref,
-		name	=> $ref->opt,
-	} , $class );
+	$self = bless({
+		name	=> $orig->opt,
+		orig	=> $orig,
+	} , $self );
 
-	return $class;
+	return $self;
 }
 
-sub name {
-	my $class = shift;
-	my $name = shift;
-
-	if ($name) {
-		$class->{name} = $name;
-	}
-
-	return $class->{name};
-}
-
-sub opt 	{ shift->{orig}->opt 		}
-sub allowed { shift->{orig}->allowed 	}
-sub persist { shift->{orig}->persist 	}
-sub default { shift->{orig}->default	}
-sub is_pref { shift->{orig}->pref 		}
+sub opt 	{ $self->orig->opt 		}
+sub allowed { $self->orig->allowed 	}
+sub persist { $self->orig->persist 	}
+sub default { $self->orig->default	}
+sub is_pref { $self->orig->pref		}
 
 sub attributes { 
-	my $class = shift;
-
-	my $att = $class->{orig}->attributes;
-	$att->{name} = $class->name;
+	my $att = $self->orig->attributes;
+	$att->{name} = $self->name;
 
 	return $att;
 }

@@ -1,14 +1,20 @@
 package eThreads::Object::Controller::Function;
 
+use Spiffy -Base;
+
 use strict;
 
 #----------
 
+field 'name'	=> -ro;
+field 'object'	=> -ro;
+field 'system'	=> -ro;
+field 'sub'		=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		name	=> undef,
 		object	=> undef,
 		system	=> undef,
@@ -17,26 +23,19 @@ sub new {
 		modes	=> undef,
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
-sub name 	{ shift->{name}; 	}
-sub object 	{ shift->{object}; 	}
-sub system 	{ shift->{system}; 	}
-sub sub 	{ shift->{sub}; 	}
-
 sub qopts {
-	my $class = shift;
-	wantarray ? @{ $class->{qopts} } : $class->{qopts};
+	wantarray ? @{ $self->{qopts} } : $self->{qopts};
 }
 
 sub modes {
-	my $class = shift;
-	wantarray ? @{ $class->{modes} } : $class->{modes};
+	wantarray ? @{ $self->{modes} } : $self->{modes};
 }
 
 #----------
@@ -52,29 +51,28 @@ use base 'eThreads::Object::Generic::Qopt';
 
 package eThreads::Object::Controller::Function::Mode;
 
+use Spiffy -Base;
+
+field 'name'	=> -ro;
+field 'value'	=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		name	=> undef,
 		value	=> undef,
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
-sub name { shift->{name} }
-sub value { shift->{value} }
-
 sub attributes {
-	my $class = shift;
-
 	{
-		name	=> $class->{name},
-		value	=> $class->{value}
+		name	=> $self->{name},
+		value	=> $self->{value}
 	};
 }
 

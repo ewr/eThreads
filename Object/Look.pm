@@ -191,6 +191,8 @@ sub load_template_by_path {
 				look	=> $self
 			);
 
+			$ocache->set("Template",$t->id,$t);
+
 			return $t;
 		}
 	} else {
