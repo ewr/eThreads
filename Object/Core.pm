@@ -5,7 +5,7 @@ use Time::ParseDate;
 use URI::Escape;
 
 use eThreads::Object::Auth;
-use eThreads::Object::Auth::Cookies;
+#use eThreads::Object::Auth::Cookies;
 use eThreads::Object::Auth::Internal;
 
 use eThreads::Object::Cache;

@@ -308,7 +308,7 @@ sub posts_by_time {
 
 	my $where = 
 		qq(
-			(1 = 1)
+			status = 1
 			order by timestamp desc
 		);
 
@@ -326,7 +326,7 @@ sub posts_by_parent {
 
 	my $where = 
 		qq(
-			parent = ? 
+			parent = ? and status = 1
 			order by 
 			timestamp
 		);
@@ -412,7 +412,7 @@ sub header_fields {
 		name	=> "status",
 		def		=> "tinyint not null",
 		allowed	=> '\d+',
-		d_value	=> 0,
+		d_value	=> 1,
 	},
 
 	];

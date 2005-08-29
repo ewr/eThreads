@@ -17,6 +17,18 @@ sub new {
 
 #----------
 
+sub posthooks {
+	my $class = shift;
+
+	if (!$class->{_posthooks}) {
+		$class->{_posthooks} = $class->{_}->new_object('Glomule::PostHooks');
+	}
+
+	return $class->{_posthooks};
+}
+
+#----------
+
 sub load_pings {
 	my $class = shift;
 
@@ -228,6 +240,34 @@ sub post {
 		next if ($k =~ m!^(?:headers|data|h_fields|d_fields)$!);
 		$post->{ $k } = $v;
 	}
+
+	# -- Here we run through our post hooks -- #
+
+	if (0) {
+		my $status = 1;
+		my $msg;
+		foreach my $h ( $class->posthooks->hooks ) {
+			# run the hook
+			my $s;
+			($s,$msg) = $h->( $post );
+
+			if ($s) {
+				# cool, next
+				next;
+			} else {
+				$status = 0;
+				last;
+			}
+		}
+
+		if ($status) {
+			# we're cool, post
+		} else {
+			$class->{_}->bail->( "Post Hook error: $msg" );
+		}
+	}
+
+	# -- Now proceed to posting -- #
 
 	my $db = $class->{_}->core->get_dbh;
 
