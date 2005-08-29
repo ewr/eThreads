@@ -30,6 +30,9 @@ sub new {
 sub register {
 	my %args = @_;
 
+	# we expect three args here...  glomule, gtype, and function.  Then we 
+	# get opts, which is an arrayref to a list of opts.
+
 	return undef if (!$args{glomule});
 
 	foreach my $o ( @{ $args{opts} } ) {

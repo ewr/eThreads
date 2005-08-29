@@ -4,7 +4,7 @@ use Spiffy -Base;
 
 use base 'eThreads::Object::Glomule::Type';
 
-use strict;
+no warnings;
 
 #----------
 
@@ -292,6 +292,7 @@ sub f_templates_edit {
 		$self->_->cache->update_times->set(
 			tbl		=> "templates",
 			first	=> $look->id,
+			second	=> $template->id,
 			ts		=> time,
 		);
 	

@@ -240,6 +240,7 @@ sub list_available_qopts {
 		if ($func) {
 			my $gqopts = {
 				glomule		=> 'ADMIN',
+				gtype		=> 'admin',
 				function	=> $func->name,
 				opts		=> scalar $func->qopts
 			};
@@ -329,7 +330,6 @@ sub get_tree {
 		tbl			=> $self->TABLE,
 		first		=> $self->look->id,
 		second		=> $self->id,
-		#nomemcache	=> 1
 	);
 
 	my $tree;
@@ -396,7 +396,6 @@ sub cache_tree {
 		first		=> $self->look->id,
 		second		=> $self->id,
 		ref			=> $deep,
-		nomemcache	=> 1
 	);
 
 	return $tree;

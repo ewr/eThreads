@@ -53,24 +53,6 @@ sub add_child {
 
 #----------
 
-sub _exists {
-	my $key = shift;
-
-	my ($root,$remain) = $key =~ /^([^\.]+)\.?(.+)?$/;
-
-	if ( my $c = $self->{children}{ $root } ) {
-		if ($remain) {
-			return $c->_exists($remain);
-		} else {
-			return $c;
-		}
-	} else {
-		return undef;
-	}
-}
-
-#----------
-
 sub has_child () {
 	return $_[0]->{children}{ $_[1] } || undef;
 }
