@@ -103,6 +103,7 @@
     <object>blog</object>
     <sub>f_post</sub>
     <qopts>
+	  <opt allowed="\d+" key="id" persist="1"/>
       <opt allowed=".+" key="title" persist="1"/>
       <opt allowed=".+" key="intro" persist="1"/>
       <opt allowed=".+" key="body" persist="1"/>

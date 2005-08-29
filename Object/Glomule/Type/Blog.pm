@@ -466,24 +466,6 @@ sub f_ondate {
 		@$ids
 	);
 
-#	my $posts = {};
-
-#	%$posts = map { $_->{id} => $_ } @$results; 
-	
-	# -- now get post data -- #
-
-#	my $data = $class->{_}->utils->g_load_tbl(
-#		tbl		=> $fobj->glomule->data('data'),
-#		ident	=> "id",
-#		ids		=> $ids,
-#	);
-
-#	while ( my ($id,$d) = each %$data ) {
-#		while ( my ($k,$v) = each %$d ) {
-#			$posts->{$id}{$k} = $v if (!$posts->{$id}{$k});
-#		}
-#	}
-
 	# -- now format and register -- #
 
 	$class->register_day_nav($fobj,$posts);

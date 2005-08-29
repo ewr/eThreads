@@ -57,6 +57,59 @@ sub path {
 
 #----------
 
+sub load_containers {
+	my $class = shift;
+
+	my $c = $class->{_}->cache->get(
+		tbl		=> "containers",
+		first	=> $class->id,
+	);
+
+	if (!$c) {
+		$c = $class->cache_containers();
+	}
+
+	return $c;
+}
+
+#----------
+
+sub cache_containers {
+	my $class = shift;
+
+	my $db = $class->{_}->core->get_dbh;
+
+	my $get_glomules = $db->prepare("
+		select 
+			id,name 
+		from 
+			" . $class->{_}->core->tbl_name("containers") . " 
+		where 
+			domain = ?
+	");
+
+	$class->{_}->bail("cache_glomule_hash error: ".$db->errstr) 
+		unless ($get_glomules->execute( $class->id ));
+
+	my ($id,$name);
+	$get_glomules->bind_columns(\$id,\$name);
+
+	my $g = {};
+	while ($get_glomules->fetch) {
+		$g->{$name} = $id;
+	}
+
+	$class->{_}->cache->set(
+		tbl		=> "containers",
+		first	=> $class->id,
+		ref		=> $g,
+	);
+
+	return $g;
+}
+
+#----------
+
 =head1 NAME
 
 eThreads::Object::

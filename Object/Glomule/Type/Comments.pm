@@ -413,7 +413,7 @@ sub header_fields {
 		name	=> "status",
 		def		=> "tinyint not null",
 		allowed	=> '\d+',
-		d_value	=> 0,
+		d_value	=> 1,
 	},
 
 	];

@@ -247,7 +247,7 @@ sub determine_domain {
 	# means one root per domain for now, but it's a change that would 
 	# be confined here should someone want to add it in the future
 
-	my $domain = $ENV{SERVER_NAME};
+	my $domain = $ENV{HTTP_X_FORWARDED_HOST} || $ENV{SERVER_NAME};
 
 	my $d = $class->load_domains;
 
