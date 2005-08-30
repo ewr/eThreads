@@ -530,29 +530,14 @@ sub f_qkeys {
 
 	# we need a list of names mapped to qopts so that we know what 
 	# names to allow qkeys to be pointed to.  qkey -> name -> qopt.
+
+	my $qopts = $template->qopts;
+
 	my $names = {};
-
-	my $name_options = "";
-	{
-		my $get_names = $self->_->core->get_dbh->prepare("
-			select 
-				distinct name 
-			from 
-				" . $self->_->core->tbl_name("qopts") . "
-			where 
-				template = ?
-		");
-
-		$get_names->execute($template->id)
-			or $self->_->bail->("get_names failed: ".$get_names->errstr);
-
-		my $name;
-		$get_names->bind_columns(\$name);
-
-		while ($get_names->fetch) {
-			$names->{ $name } = 1;
-			$name_options .= qq(<option value="$name">$name</option>);
-		}
+	my $name_options = '';
+	foreach my $name ( sort keys %{ $qopts->names } ) {
+		$names->{ $name } = 1;
+		$name_options .= qq(<option value="$name">$name</option>);
 	}
 
 	# get a list of defined qkeys...
