@@ -1,43 +1,39 @@
 package eThreads::Object::Glomule::Type::Comments;
 
-@ISA = qw( eThreads::Object::Glomule::Type );
+use eThreads::Object::Glomule::Type -Base;
 
 use strict;
 
 #----------
 
-sub TYPE { "comments" }
+const 'TYPE'	=> 'comments';
 
 #----------
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub activate {
-	my $class = shift;
-
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub f_view {
-	my $class = shift;
 	my $fobj = shift;
 
 	my $id = $fobj->bucket->get("id");
 
-	my $posts = $class->posts_by_parent($fobj,$id);
+	my $posts = $self->posts_by_parent($fobj,$id);
 
 	my $format = $fobj->glomule->system('format');
 
@@ -46,8 +42,8 @@ sub f_view {
 
 	if ($posts) {
 		foreach my $p (@{ $posts->posts }) {
-			$class->{_}->last_modified->nominate($p->{timestamp});
-			foreach my $f (@{ $class->fields }) {
+			$self->_->last_modified->nominate($p->{timestamp});
+			foreach my $f (@{ $self->fields }) {
 				if ($format && $f->{format}) {
 					$p->{ $f->{name} } 
 						= $format->format( $p->{ $f->{name} } );
@@ -68,7 +64,7 @@ sub f_view {
 
 	# create a blank compose hash
 	my $compose = {};
-	%$compose = map { $_->{name} => "" } @{ $class->edit_fields };
+	%$compose = map { $_->{name} => "" } @{ $self->edit_fields };
 
 	$fobj->gholders->register(
 		['comments' , $comments ],
@@ -82,7 +78,6 @@ sub f_view {
 #----------
 
 sub f_post {
-	my $class = shift;
 	my $fobj = shift;
 
 	my $id = $fobj->bucket->get("id");
@@ -95,14 +90,14 @@ sub f_post {
 
 	if ( $fobj->bucket->get("preview") ) {
 		# -- register a timestamp handler -- #
-		$class->{_}->gholders->register(
-			["timestamp" , sub { $class->handle_timestamp($fobj,@_); }]
+		$self->_->gholders->register(
+			["timestamp" , sub { $self->handle_timestamp($fobj,@_); }]
 		);
 
 		# parse and register some preview gholders
 		my $format = $fobj->glomule->system('format');
 		my $c = {};
-		foreach my $f (@{ $class->edit_fields }) {
+		foreach my $f (@{ $self->edit_fields }) {
 			if ($format && $f->{format}) {
 				$c->{ $f->{name} } 
 					= $format->format($post->{$f->{name}});
@@ -113,7 +108,7 @@ sub f_post {
 
 		$c->{parent} = $id;
 
-		my ($ok,$msg) = $class->flesh_out_post($c);
+		my ($ok,$msg) = $self->flesh_out_post($c);
 
 		if (!$ok) {
 			$fobj->gholders->register(["message",$msg]);
@@ -131,11 +126,11 @@ sub f_post {
 		$fobj->gholders->register(["post",1]);
 		# flesh out the post
 		$post->{parent} = $id;
-		my ($ok,$msg) = $class->flesh_out_post($post);
+		my ($ok,$msg) = $self->flesh_out_post($post);
 
 		if ($ok) {
 			# we can go ahead and post
-			$class->post($fobj,$post);
+			$self->post($fobj,$post);
 			$fobj->gholders->register(['comment',$post]);
 		} else {
 			# doh...  error.  
@@ -148,7 +143,6 @@ sub f_post {
 #----------
 
 sub f_mass_delete {
-	my $class = shift;
 	my $fobj = shift;
 
 	my $start	= $fobj->bucket->get("start") || '0';
@@ -156,19 +150,19 @@ sub f_mass_delete {
 	my $delete	= $fobj->bucket->get("delete");
 	my $confirm	= $fobj->bucket->get("confirm");
 
-	my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
+	my $format = ( $self->_->switchboard->knows("format") ) ? 1 : undef;
 
 	# -- if we have posts to delete, get them -- #
 
 	if ($delete) {
-		my $d = $class->get_by_id($fobj, split(',',$delete) );
+		my $d = $self->get_by_id($fobj, split(',',$delete) );
 
 		my @data;
 		foreach my $c ( @{ $d->posts } ) {
-			foreach my $f (@{ $class->fields }) {
+			foreach my $f (@{ $self->fields }) {
 				if ($format && $f->{format}) {
 					$c->{ $f->{name} } 
-						= $class->{_}->format->format( $c->{ $f->{name} } );
+						= $self->_->format->format( $c->{ $f->{name} } );
 				} else {
 					# do nothing
 				}
@@ -184,15 +178,15 @@ sub f_mass_delete {
 	} else {
 		# -- load information for the last $count comments -- #
 
-		my $comments = $class->posts_by_time($fobj,$start,$limit);
+		my $comments = $self->posts_by_time($fobj,$start,$limit);
 
 		my @data;
 		foreach my $c ( @{ $comments->posts } ) {
-			#$class->{_}->last_modified->nominate($p->{timestamp});
-			foreach my $f (@{ $class->fields }) {
+			#$self->_->last_modified->nominate($p->{timestamp});
+			foreach my $f (@{ $self->fields }) {
 				if ($format && $f->{format}) {
 					$c->{ $f->{name} } 
-						= $class->{_}->format->format( $c->{ $f->{name} } );
+						= $self->_->format->format( $c->{ $f->{name} } );
 				} else {
 					# do nothing
 				}
@@ -212,12 +206,11 @@ sub f_mass_delete {
 #----------
 
 sub f_delete {
-	my $class = shift;
 	my $fobj = shift;
 
 	# -- register a timestamp handler -- #
-	$class->{_}->gholders->register(
-		["timestamp" , sub { $class->handle_timestamp($fobj,@_); }]
+	$self->_->gholders->register(
+		["timestamp" , sub { $self->handle_timestamp($fobj,@_); }]
 	);
 
 	my $id 		= $fobj->bucket->get("id");
@@ -225,14 +218,14 @@ sub f_delete {
 
 	# -- load post information -- #
 
-	my $c = $class->get_by_id($fobj,$id)->{$id};
+	my $c = $self->get_by_id($fobj,$id)->{$id};
 
-	my $format = ( $class->{_}->switchboard->knows("format") ) ? 1 : undef;
+	my $format = ( $self->_->switchboard->knows("format") ) ? 1 : undef;
 
-	foreach my $f (@{ $class->fields }) {
+	foreach my $f (@{ $self->fields }) {
 		if ($format && $f->{format}) {
 			$c->{ $f->{name} } 
-				= $class->{_}->format->format( $c->{ $f->{name} } );
+				= $self->_->format->format( $c->{ $f->{name} } );
 		} else {
 			# do nothing
 		}
@@ -245,15 +238,14 @@ sub f_delete {
 	# -- now figure an action -- #
 
 	if ($confirm) {
-		$class->{_}->gholders->register(['confirm',1]);
+		$self->_->gholders->register(['confirm',1]);
 		# they said to go ahead
-		$class->delete($fobj,$id);
+		$self->delete($fobj,$id);
 	}
 }
 #----------
 
 sub handle_timestamp {
-	my $class = shift;
 	my $fobj = shift;
 	my $i = shift;
 	my $c = shift;
@@ -270,10 +262,9 @@ sub handle_timestamp {
 #----------
 
 sub get_by_id {
-	my $class = shift;
 	my $fobj = shift;
 
-	my $results = $class->get_from_glomheaders($fobj,
+	my $results = $self->get_from_glomheaders($fobj,
 		'id in (' . join('?',map{'?'} @_) .')',
 		@_
 	);
@@ -283,7 +274,7 @@ sub get_by_id {
 	
 	# -- now get post data -- #
 
-	my $data = $class->{_}->utils->g_load_tbl(
+	my $data = $self->_->utils->g_load_tbl(
 		tbl		=> $fobj->glomule->data('data'),
 		ident	=> "id",
 		ids		=> \@_,
@@ -301,7 +292,6 @@ sub get_by_id {
 #----------
 
 sub posts_by_time {
-	my $class = shift;
 	my $fobj = shift;
 	my $start = shift;
 	my $limit = shift;
@@ -312,13 +302,12 @@ sub posts_by_time {
 			order by timestamp desc
 		);
 
-	return $class->posts_generic_w_limit($fobj,$where,$start,$limit);
+	return $self->posts_generic_w_limit($fobj,$where,$start,$limit);
 }
 
 #----------
 
 sub posts_by_parent {
-	my $class = shift;
 	my $fobj = shift;
 	my $parent = shift;
 
@@ -332,14 +321,12 @@ sub posts_by_parent {
 			timestamp
 		);
 
-	return $class->posts_generic($fobj,$where,$parent);
+	return $self->posts_generic($fobj,$where,$parent);
 }
 
 #----------
 
 sub fields {
-	my $class = shift;
-
 	return [
 		{
 			name	=> "name",
@@ -368,8 +355,6 @@ sub fields {
 }
 
 sub header_fields {
-	my $class = shift;
-
 	return [
 
 	{ KEYS => [
@@ -404,8 +389,8 @@ sub header_fields {
 		def		=> "int(11)",
 		allowed	=> '\d+',
 		d_value	=> 
-			$class->{_}->switchboard->knows("user") 
-				? $class->{_}->user->id
+			$self->_->switchboard->knows("user") 
+				? $self->_->user->id
 				: 0,
 		require	=> 0,
 	},

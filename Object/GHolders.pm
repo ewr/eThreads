@@ -3,11 +3,14 @@ package eThreads::Object::GHolders;
 use Spiffy -Base;
 
 use strict;
+no warnings;
 
 use eThreads::Object::GHolders::GHolder;
 use eThreads::Object::GHolders::RegisterContext;
 
 #----------
+
+field '_'	=> -ro;
 
 sub new {
 	my $data = shift;
@@ -33,7 +36,7 @@ sub DESTROY {
 #----------
 
 sub gholder_init {
-	my $i = $self->{_};
+	my $i = $self->_;
 
 	my $t = $i->new_object('GHolders::GHolder');
 	$self->{p} = $self->{context} = $t;
@@ -79,7 +82,7 @@ sub register {
 				if ( my $child = $ref->has_child($k) ) {
 					$var = $child;
 				} else {
-					$var = $self->{_}->new_object(
+					$var = $self->_->new_object(
 						'GHolders::GHolder',$k,$ref
 					);
 				}
@@ -90,18 +93,18 @@ sub register {
 					if ( my $child = $parent->has_child($l) ) {
 						$parent = $child;
 					} else {
-						$parent = $self->{_}->new_object(
+						$parent = $self->_->new_object(
 							'GHolders::GHolder',$l,$parent
 						);
 					}
 				}
 
-				$var = $self->{_}->new_object(
+				$var = $self->_->new_object(
 					'GHolders::GHolder',$k,$parent
 				);
 			}
 		} else {
-			$var = $self->{_}->new_object(
+			$var = $self->_->new_object(
 				'GHolders::GHolder',$gh->[0],$self->{p}
 			);
 		}
@@ -167,7 +170,7 @@ sub dump {
 		open(
 			DUMP,
 			'>/tmp/gholder_dump2'
-		) or $self->{_}->instance->bail("couldn't dump: $!");
+		) or $self->_->instance->bail("couldn't dump: $!");
 
 		print DUMP Data::Dumper::Dumper($ref);
 		close DUMP;
@@ -244,7 +247,7 @@ sub get_unused_child {
 
 	my $ctx;
 	do {
-		my $key = $self->{_}->utils->random('4');
+		my $key = $self->_->utils->random('4');
 		$ctx = $parent . '.' . $key;
 	} until (!$self->exists($ctx));
 
@@ -383,12 +386,12 @@ sub handle_require {
 	my ($inv) = $level =~ s/^(!)//;
 
 	# if we don't have a user, we can't have any rights
-	if (!$self->{_}->switchboard->knows('user')) {
+	if (!$self->_->switchboard->knows('user')) {
 		# if normal, return 0... if inv return 1
 		return ($inv) ? 1 : 0;
 	}
 
-	if ($self->{_}->user->has_rights($level)) {
+	if ($self->_->user->has_rights($level)) {
 		# if normal, return 1... if inv return 0
 		return ($inv) ? 0 : 1;
 	} else {
@@ -426,7 +429,7 @@ sub handle_link {
 		$self->handle_link_qopt($c,$args);
 	}
 
-	$_[0] .= $self->{_}->queryopts->link($template,$args);
+	$_[0] .= $self->_->queryopts->link($template,$args);
 
 	return undef;
 }
@@ -447,7 +450,7 @@ sub handle_link_qopt {
 	return 0 if (!$name);
 
 	my $v;
-	$self->{_}->gholders->handle_template_tree($i,$v);
+	$self->_->gholders->handle_template_tree($i,$v);
 
 	$opts->{$name} = $v;
 }
@@ -486,10 +489,10 @@ sub handle_template {
 
 	my $name = $i->args->{template} || $i->args->{DEFAULT};
 
-	my $t = $self->{_}->look->load_subtemplate_by_path($name)
+	my $t = $self->_->look->load_subtemplate_by_path($name)
 		or return undef;
 
-	return $self->{_}->gholders->handle_template_tree(
+	return $self->_->gholders->handle_template_tree(
 		$t->get_tree,$_[0]
 	);
 }

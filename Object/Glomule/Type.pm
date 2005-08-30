@@ -1,52 +1,42 @@
 package eThreads::Object::Glomule::Type;
 
-use strict;
+use Spiffy -Base;
 
 #----------
+
+field '_'			=> -ro;
+
+field 'posthooks'	=> 
+	-ro, 
+	-init=>q!$self->_->new_object('Glomule::PostHooks')!;
+
+field 'pings'		=> 
+	-ro,
+	-init=>q!$self->_->new_object('System::Ping')!;
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless( { 
+	$self = bless( { 
 		_		=> $data,
-	} , $class);
+	} , $self);
 
-	return $class;
-}
-
-#----------
-
-sub posthooks {
-	my $class = shift;
-
-	if (!$class->{_posthooks}) {
-		$class->{_posthooks} = $class->{_}->new_object('Glomule::PostHooks');
-	}
-
-	return $class->{_posthooks};
+	return $self;
 }
 
 #----------
 
 sub load_pings {
-	my $class = shift;
-
-	my $obj = $class->{_}->new_object(
-		"System::Ping"
-	);
-
-	return $obj;
+	$self->pings;
 }
 
 #----------
 
 sub posts_generic {
-	my $class = shift;
 	my $fobj = shift;
 	my $where = shift;
 
-	my ($results,$count) = $class->get_from_glomheaders(
+	my ($results,$count) = $self->get_from_glomheaders(
 		$fobj,
 		$where,
 		@_
@@ -63,7 +53,7 @@ sub posts_generic {
 	
 	# -- now get post data -- #
 
-	my $data = $class->{_}->utils->g_load_tbl(
+	my $data = $self->_->utils->g_load_tbl(
 		tbl		=> $fobj->glomule->data('data'),
 		ident	=> "id",
 		ids		=> \@ids,
@@ -75,7 +65,7 @@ sub posts_generic {
 		}
 	}
 
-	my $obj = $class->{_}->new_object("Glomule::Data::Posts");
+	my $obj = $self->_->new_object("Glomule::Data::Posts");
 	$obj->posts($results);
 	$obj->count($count);
 
@@ -85,13 +75,12 @@ sub posts_generic {
 #----------
 
 sub posts_generic_w_limit {
-	my $class 	= shift;
 	my $fobj 	= shift;
 	my $where 	= shift;
 	my $start 	= shift;
 	my $limit 	= shift;
 
-	my $count = $class->{_}->core->get_dbh->prepare("
+	my $count = $self->_->core->get_dbh->prepare("
 		select 
 			count(id) 
 		from
@@ -101,13 +90,13 @@ sub posts_generic_w_limit {
 	");
 
 	$count->execute(@_)
-		or $class->{_}->bail->("count posts failed: ".$count->errstr);
+		or $self->_->bail->("count posts failed: ".$count->errstr);
 
 	my $num_posts = $count->fetchrow_array;
 
 	# now actually get our limited rows
 
-	my $results = $class->get_from_glomheaders(
+	my $results = $self->get_from_glomheaders(
 		$fobj,
 		$where
 		. " limit " 
@@ -124,7 +113,7 @@ sub posts_generic_w_limit {
 	
 	# -- now get post data -- #
 
-	my $data = $class->{_}->utils->g_load_tbl(
+	my $data = $self->_->utils->g_load_tbl(
 		tbl		=> $fobj->glomule->data('data'),
 		ident	=> "id",
 		ids		=> \@ids,
@@ -138,7 +127,7 @@ sub posts_generic_w_limit {
 
 	# -- now return this as an object -- #
 
-	my $obj = $class->{_}->switchboard->new_object("Glomule::Data::Posts");
+	my $obj = $self->_->switchboard->new_object("Glomule::Data::Posts");
 
 	$obj->posts($results);
 	$obj->count($num_posts);
@@ -149,12 +138,11 @@ sub posts_generic_w_limit {
 #----------
 
 sub get_from_glomheaders {
-	my $class = shift;
 	my $fobj = shift;
 	my $sql = shift;
 	# the rest of @_ should be bind vars
 
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			id,
 			title,
@@ -169,7 +157,7 @@ sub get_from_glomheaders {
 	");
 
 	$get->execute(@_) 
-		or $class->{_}->bail->("get_from_gh failed: " . $get->errstr);
+		or $self->_->bail->("get_from_gh failed: " . $get->errstr);
 
 	my $count = $get->rows;
 
@@ -196,16 +184,17 @@ sub get_from_glomheaders {
 #----------
 
 sub flesh_out_post {
-	my $class = shift;
 	my $post = shift;
 	my %a = @_;
 
-	my $h_fields = $a{h_fields} || $class->header_fields;
-	my $d_fields = $a{d_fields} || $class->fields;
+	my $h_fields = $a{h_fields} || $self->header_fields;
+	my $d_fields = $a{d_fields} || $self->fields;
 
 	# fill in and check header fields
 	foreach my $h ($h_fields,$d_fields) {
 		foreach my $f (@{ $h }) {
+			next if ($f->{KEYS});
+
 			if ($f->{require} && $post->{ $f->{name} } !~ /\S/) {
 				return (0,"Missing required field: $f->{name}");
 			}
@@ -222,7 +211,6 @@ sub flesh_out_post {
 #----------
 
 sub post {
-	my $class = shift;
 	my $fobj = shift;
 	my $ipost = shift;
 	my %args = @_;
@@ -230,8 +218,8 @@ sub post {
 	# allow for some special usage
 	my $headers 	= $args{headers}	|| $fobj->glomule->data('headers');
 	my $data 		= $args{data} 		|| $fobj->glomule->data('data');
-	my $h_fields	= $args{h_fields} 	|| $class->header_fields;
-	my $d_fields	= $args{d_fields} 	|| $class->fields;
+	my $h_fields	= $args{h_fields} 	|| $self->header_fields;
+	my $d_fields	= $args{d_fields} 	|| $self->fields;
 
 	my $post = {};
 	%$post = %$ipost;
@@ -246,7 +234,7 @@ sub post {
 	if (0) {
 		my $status = 1;
 		my $msg;
-		foreach my $h ( $class->posthooks->hooks ) {
+		foreach my $h ( $self->posthooks->hooks ) {
 			# run the hook
 			my $s;
 			($s,$msg) = $h->( $post );
@@ -263,19 +251,19 @@ sub post {
 		if ($status) {
 			# we're cool, post
 		} else {
-			$class->{_}->bail->( "Post Hook error: $msg" );
+			$self->_->bail->( "Post Hook error: $msg" );
 		}
 	}
 
 	# -- Now proceed to posting -- #
 
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	# now we need to insert (or update) our headers entry.
 
 	my (@hfields,@hvalues);
 	foreach my $f (@$h_fields) {
-		next if ($f->{name} eq "id" || $f->{KEYS});
+		next if ($f->{KEYS} || $f->{name} eq "id");
 
 		push @hfields, $f->{name};
 		push @hvalues, $post->{ $f->{name} };
@@ -294,7 +282,7 @@ sub post {
 		");
 
 		$update->execute(@hvalues,$post->{id}) 
-			or $class->{_}->bail->("update post failure: " . $db->errstr);
+			or $self->_->bail->("update post failure: " . $db->errstr);
 	} else {
 		# insert 
 
@@ -306,7 +294,7 @@ sub post {
 		");
 
 		$insert->execute(@hvalues) 
-			or $class->{_}->bail->("insert post failed: " . $db->errstr);
+			or $self->_->bail->("insert post failed: " . $db->errstr);
 
 		# FIXME - this is a MySQL specific hack
 		$post->{id} = $db->{'mysql_insertid'};
@@ -314,7 +302,7 @@ sub post {
 
 	# now do data
 	foreach my $f (@$d_fields) {
-		$class->{_}->utils->set_value(
+		$self->_->utils->set_value(
 			tbl		=> $data,
 			keys	=> {
 				id		=> $post->{id},
@@ -331,12 +319,11 @@ sub post {
 #----------
 
 sub delete {
-	my $class = shift;
 	my $fobj = shift;
 	my $id = shift;
 
 	# delete from headers
-	my $delh = $class->{_}->core->get_dbh->prepare("
+	my $delh = $self->_->core->get_dbh->prepare("
 		delete from 
 			" . $fobj->glomule->data('headers') . "
 		where 
@@ -344,10 +331,10 @@ sub delete {
 	");
 
 	$delh->execute($id)
-		or $class->{_}->bail->("delete headers failed: ".$delh->errstr);
+		or $self->_->bail->("delete headers failed: ".$delh->errstr);
 
 	# delete from data
-	my $deld = $class->{_}->core->get_dbh->prepare("
+	my $deld = $self->_->core->get_dbh->prepare("
 		delete from 
 			" . $fobj->glomule->data('data') . "
 		where 
@@ -355,7 +342,7 @@ sub delete {
 	");
 
 	$deld->execute($id)
-		or $class->{_}->bail->("delete data failed: ".$deld->errstr);
+		or $self->_->bail->("delete data failed: ".$deld->errstr);
 
 	return 1;
 }
@@ -363,15 +350,13 @@ sub delete {
 #----------
 
 sub edit_fields {
-	my $class = shift;
-
 	my $fields = [];
 
-	foreach my $f (@{ $class->header_fields }) {
+	foreach my $f (@{ $self->header_fields }) {
 		push @$fields, $f if ($f->{edit});
 	}
 
-	foreach my $f (@{ $class->fields }) {
+	foreach my $f (@{ $self->fields }) {
 		push @$fields, $f if ($f->{edit});
 	}
 
@@ -381,8 +366,6 @@ sub edit_fields {
 #----------
 
 sub header_fields {
-	my $class = shift;
-
 	return [
 
 	{ KEYS => [
@@ -418,8 +401,8 @@ sub header_fields {
 		def		=> "int(11)",
 		allowed	=> '\d+',
 		d_value	=> 
-			( $class->{_}->switchboard->knows("user") 
-				? $class->{_}->user->id
+			( $self->_->switchboard->knows("user") 
+				? $self->_->user->id
 				: 0 ),
 		require	=> 0,
 	},
@@ -436,7 +419,6 @@ sub header_fields {
 #----------
 
 sub _data_tbl_fields {
-	my $class = shift;
 	return [
 
 	{ KEYS => [
