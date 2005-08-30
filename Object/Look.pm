@@ -6,7 +6,7 @@ field '_'		=> -ro;
 
 field 'id' => -ro;
 field 'name' => -ro;
-field 'type' => -ro;
+field 'type' => -ro, 0;
 
 sub new {
 	my $data 	= shift;
@@ -14,9 +14,6 @@ sub new {
 	$self = bless ( 
 		{ 
 			_		=> $data,
-			id		=> undef,
-			name	=> undef,
-			type	=> undef,
 			@_
 		} , $self );
 

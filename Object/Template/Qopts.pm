@@ -1,6 +1,6 @@
 package eThreads::Object::Template::Qopts;
 
-use Spiffy -Base;
+use Spiffy -Base, -XXX;
 
 no warnings;
 
@@ -37,7 +37,13 @@ sub register {
 
 	foreach my $o ( @{ $args{opts} } ) {
 		# create a new Qopt object
-		my $obj = $self->_->new_object("Template::Qopts::Opt",$o);
+		my $obj = $self->_->new_object(
+			"Template::Qopts::Opt", 
+			orig	=> $o,
+			glomule	=> $args{glomule},
+			gtype	=> $args{gtype},
+			func	=> $args{function}
+		);
 
 		# map by glomule
 		$self->{g}{ $args{glomule} }{ $args{function} }{ $obj->name } = $obj;
@@ -49,15 +55,19 @@ sub register {
 		$self->{o}{ $obj->name }{ $args{glomule} }{ $args{function} } = $obj;
 
 		# and throw it on the generic all array
-		push @{$self->{all}}, [
-			$obj,
-			$args{glomule},
-			$args{gtype},
-			$args{function}
-		];
+		push @{$self->{all}}, $obj;
 	}
 
 	return 1;
+}
+
+#----------
+
+sub debug {
+	warn "debugging $self";
+	use YAML;
+	YAML::DumpFile("/tmp/namedump",$self->{all});
+	die;
 }
 
 #----------
@@ -67,11 +77,11 @@ sub names {
 
 	my $names = {};
 	foreach my $o ( @{ $self->{all} } ) {
-		my $n = $o->[0]->name;
+		my $n = $o->name;
 		if (my $aref = $names->{ $n }) {
-			push @$aref, $o->[0];
+			push @$aref, $o;
 		} else {
-			$names->{ $n } = [ $o->[0] ];
+			$names->{ $n } = [ $o ];
 		}
 	}
 
@@ -102,10 +112,21 @@ sub opt {
 #----------
 
 sub dump {
-	my $qopts = [];
+	my $qopts = {};
 
 	foreach my $o ( @{ $self->{all} } ) {
-		push @$qopts, [ @{$o}[1..3] ];
+		# if we don't have an entry for this glomule/func, create one
+		my $f;
+		if (!$qopts->{ $o->glomule }{ $o->func }) {
+			$f = $qopts->{ $o->glomule }{ $o->func } = {
+				gtype	=> $o->gtype,
+				opts	=> []
+			};
+		} else {
+			$f = $qopts->{ $o->glomule }{ $o->func };
+		}
+
+		push @{ $f->{opts} } , [ $o->opt , $o->name ];
 	}
 
 	return $qopts;
@@ -122,17 +143,23 @@ sub restore {
 	# looking the actual Qopt object up from the Controller for the 
 	# glomule type
 
-	foreach my $o ( @$qopts ) {
-		my $func = 
-			$self->_->controller->get( $o->[1] )->has_function( $o->[2] )
-				or $self->_->bail->("Error restoring Template Qopts");
+	while ( my ($g,$gref) = each %$qopts ) {
+		while ( my ($f,$fref) = each %$gref ) {
+			my $func =
+				$self->_->controller->get( $fref->{gtype} )->has_function( $f )
+					or $self->_->bail->("Error restoring Template Qopts");
 
-		$self->register(
-			glomule		=> $o->[0],
-			function	=> $func->name,
-			gtype		=> $o->[1],
-			opts		=> scalar $func->qopts
-		);
+			$self->register(
+				glomule		=> $g,
+				function	=> $f,
+				gtype		=> $fref->{gtype},
+				opts		=> scalar $func->qopts,
+			);
+
+			foreach my $o ( @{$fref->{opts}} ) {
+				$self->{g}{ $g }{ $f }{ $o->[0] }->name( $o->[1] );
+			}
+		}
 	}
 
 	return $self;
@@ -147,14 +174,15 @@ use Spiffy -Base;
 
 field 'orig'	=> -ro;
 field 'name'	=> -init=>q! $self->orig->opt !;
+field 'glomule'	=> -ro;
+field 'gtype'	=> -ro;
+field 'func'	=> -ro;
 
 sub new {
 	my $data = shift;
-	my $orig = shift;
 
 	$self = bless({
-		name	=> $orig->opt,
-		orig	=> $orig,
+		@_,
 	} , $self );
 
 	return $self;

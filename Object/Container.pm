@@ -1,138 +1,116 @@
 package eThreads::Object::Container;
 
-use strict;
+use Spiffy -Base;
+
+field '_'		=> -ro;
+field 'path' 	=> -ro;
+field 'data'	=> -ro, -init=>q!$self->load_data!;
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless({
+	$self = bless({
 		_		=> $data,
 		id		=> undef,
 		name	=> undef,
 		path	=> undef,
 		@_,
 		# etc...
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub cachable {
-	my $class = shift;
 	return {
-		id		=> $class->id,
-		path	=> $class->path,
-		name	=> $class->name,
+		id		=> $self->id,
+		path	=> $self->path,
+		name	=> $self->name,
 	};
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
-}
-
-#----------
-
-sub path {
-	my $class = shift;
-	return $class->{path};
+	
 }
 
 #----------
 
 sub name {
-	my $class = shift;
+	return $self->{name} if ($self->{name});
 
-	return $class->{name} if ($class->{name});
-
-	if (!$class->{id}) {
-		$class->{_}->bail->("Can't get container name without id");
+	if (!$self->{id}) {
+		$self->_->bail->("Can't get container name without id");
 	}
 
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	my $get = $db->prepare("
 		select 
 			name 
 		from 
-			" . $class->{_}->core->tbl_name("containers") . "
+			" . $self->_->core->tbl_name("containers") . "
 		where 
 			id = ?
 	");
 
-	$get->execute($class->{id});
+	$get->execute($self->{id});
 
-	$class->{name} = $get->fetchrow_array;
+	$self->{name} = $get->fetchrow_array;
 
-	return $class->{name};
+	return $self->{name};
 }
 
 #----------
 
 sub id {
-	my $class = shift;
+	return $self->{id} if ($self->{id});
 
-	return $class->{id} if ($class->{id});
-
-	if (!$class->{name}) {
-		$class->{_}->bail->("Can't get container id without name");
+	if (!$self->{name}) {
+		$self->_->bail->("Can't get container id without name");
 	}
 
-	my $get = $class->{_}{db}->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			id 
 		from 
-			" . $class->{_}->core->tbl_name("containers") . "
+			" . $self->_->core->tbl_name("containers") . "
 		where 
 			name = ?
 	");
 
-	$get->execute($class->{name});
+	$get->execute($self->{name});
 
-	$class->{id} = $get->fetchrow_array;
+	$self->{id} = $get->fetchrow_array;
 
-	return $class->{id};
-}
-
-#----------
-
-sub data {
-	my $class = shift;
-
-	if (!$class->{data}) {
-		$class->{data} = $class->load_data;
-	}
-
-	return $class->{data};
+	return $self->{id};
 }
 
 #----------
 
 sub register_data {
-	my $class = shift;
 	my $name = shift;
 	my $value = shift;
 
-	$class->{_}->utils->set_value(
+	$self->_->utils->set_value(
 		tbl		=> "container_data",
 		keys	=> {
 			ident	=> "comments",
-			id		=> $class->id,
+			id		=> $self->id,
 		},
 		value	=> $value,
 	);
 
-	$class->{_}->cache->update_times->set(
+	$self->_->cache->update_times->set(
 		tbl		=> "container_data",
-		first	=> $class->id,
+		first	=> $self->id,
 		ts		=> time,
 	);
 
-	$class->{ $name } = $value;
+	$self->{ $name } = $value;
 
 	return 1;
 }
@@ -140,15 +118,13 @@ sub register_data {
 #----------
 
 sub load_data {
-	my $class = shift;
-
-	my $data = $class->{_}->cache->get(
+	my $data = $self->_->cache->get(
 		tbl 	=> "container_data",
-		first	=> $class->id
+		first	=> $self->id
 	);
 
 	if (!$data) {
-		$data = $class->cache_data;
+		$data = $self->cache_data;
 	}
 
 	return $data;
@@ -157,18 +133,16 @@ sub load_data {
 #----------
 
 sub cache_data {
-	my $class = shift;
-
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{_}->core->tbl_name("container_data"),
+	my $data = $self->_->utils->g_load_tbl(
+		tbl		=> $self->_->core->tbl_name("container_data"),
 		ident	=> "id",
-		ids		=> [ $class->id ],
+		ids		=> [ $self->id ],
 		flat	=> 1,
 	);
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "container_data",
-		first	=> $class->id,
+		first	=> $self->id,
 		ts		=> time,
 		ref		=> $data
 	);
@@ -179,14 +153,12 @@ sub cache_data {
 #----------
 
 sub get_default_look {
-	my $class = shift;
+	my $looks = $self->get_looks;
 
-	my $looks = $class->get_looks;
-
-	$class->{_}->bail->("Container has no default look") 
+	$self->_->bail->("Container has no default look") 
 		if (!$looks->{DEFAULT});
 
-	my $l = $class->{_}->new_object(
+	my $l = $self->_->new_object(
 		"Look",
 		id		=> $looks->{DEFAULT}->{id},
 		name	=> $looks->{DEFAULT}->{name},
@@ -199,13 +171,12 @@ sub get_default_look {
 #----------
 
 sub is_valid_look_name {
-	my $class = shift;
 	my $name = shift;
 
-	my $looks = $class->get_looks;
+	my $looks = $self->get_looks;
 
 	if (my $l = $looks->{name}{ $name }) {
-		my $obj = $class->{_}->new_object(
+		my $obj = $self->_->new_object(
 			'Look',
 			id		=> $l->{id},
 			name	=> $l->{name},
@@ -221,13 +192,12 @@ sub is_valid_look_name {
 #----------
 
 sub is_valid_look {
-	my $class = shift;
 	my $id = shift;
 
-	my $looks = $class->get_looks;
+	my $looks = $self->get_looks;
 
 	if (my $l = $looks->{id}{ $id }) {
-		my $obj = $class->{_}->new_object(
+		my $obj = $self->_->new_object(
 			'Look',
 			id		=> $l->{id},
 			name	=> $l->{name},
@@ -243,35 +213,59 @@ sub is_valid_look {
 #----------
 
 sub get_looks {
-	my $class = shift;
-
-	my $looks = $class->{_}->cache->get(tbl=>"looks");
+	my $looks = $self->_->cache->get(tbl=>"looks");
 
 	if (!$looks) {
-		$looks = $class->{_}->instance->cache_looks();
+		$looks = $self->_->instance->cache_looks();
 	}
 
-	return $looks->{ $class->id };
+	return $looks->{ $self->id };
 }
 
 #----------
 
 sub determine_look {
-	my $class = shift;
-
 	# -- figure out what look we're using -- #
 
-	my $look = $class->{_}->raw_queryopts->get('look');
+	my $look = $self->_->raw_queryopts->get('look');
 
-	if ($look && (my $obj = $class->is_valid_look_name($look))) {
+	if ($look && (my $obj = $self->is_valid_look_name($look))) {
 		return $obj;
 	} else {
-		return $class->get_default_look;
+		return $self->get_default_look;
 	}
 
-	#$class->{look} = $look;
+	#$self->{look} = $look;
 
 	#return $look;
+}
+
+#----------
+
+sub glomule_n2id {
+	my $name = shift;
+
+	my $gh = $self->_->glomule->load_headers;
+
+	if ( my $r = $gh->{name}{ $self->id }{ $name } ) {
+		return wantarray ? ($r->{id},$r) : $r->{id};
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
+sub glomule_id2n {
+	my $id = shift;
+
+	my $gh = $self->_->glomule->load_headers;
+
+	if ( my $r = $gh->{container}{ $self->id }{ $id } ) {
+		return wantarray ? ($r->{name},$r) : $r->{name};
+	} else {
+		return undef;
+	}
 }
 
 #----------

@@ -81,6 +81,7 @@
 			<opt key="edit" allowed=".*"/>
 			<opt key="add" allowed=".*"/>
 			<opt key="glomule" allowed="\d+" persist="1"/>
+			<opt key="func" allowed=".*" persist="1"/>
 			<opt key="opt" allowed="\w+" persist="1"/>
 			<opt key="name" allowed="\w+"/>
 		</qopts>

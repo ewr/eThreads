@@ -437,13 +437,14 @@ sub f_qopts {
 	# in the template, so that we can come up with a list of all qopts the 
 	# functions want and present the unregistered ones as options
 
-	my $all_qopts = $self->list_available_qopts($template);
+	my $qopts = $template->qopts;
 
 	# we'll stop for a second here to do our registers and edits
 
 	if ($fobj->bucket->get("add") || $fobj->bucket->get("edit")) {
 		my $g = $fobj->bucket->get("glomule");
 		my $o = $fobj->bucket->get("opt");
+		my $f = $fobj->bucket->get("func");
 		my $n = $fobj->bucket->get("name");
 
 		$self->_->utils->set_value(
@@ -451,6 +452,7 @@ sub f_qopts {
 			keys	=> {
 				glomule		=> $g,
 				opt			=> $o,
+				function	=> $f,
 				template	=> $template->id,
 			},
 			value_field	=> "name",
@@ -464,53 +466,50 @@ sub f_qopts {
 		);
 	}
 
-	# now get a list of qopts defined for the template
-	my $def_qopts = $template->qopts;
+	my $nameref = $qopts->names;
+	
+	my @names;
+	while ( my ($name,$opts) = each %$nameref ) {
+		my @nameopts;
+		# run through each opt registered to this name
+		foreach my $o (@$opts) {
+			my $ctx = $fobj->gholders->get_unused_child('qopt.'.$name);
 
-	my $o = {
-		def	=> [],
-		all	=> [],
-	};
+			my $gname = $self->_->ocontainer->glomule_id2n( $o->glomule );
 
-	while ( my ($g,$gref) = each %$all_qopts ) {
-		# $g is the glomule name...  make it an id
-		my $id = $self->_->glomule->name2id($g,$self->_->ocontainer->id);
-
-		while ( my ($opt,$oref) = each %$gref ) {
-			if ( my $d = $def_qopts->{ $id }{ $opt } ) {
-				$fobj->gholders->register(
-					"qopt.".$id.".".$opt , {
-						gname => $g, 
-						gid => $id, 
-						opt => $opt, 
-						name => $d->{name}
-					}
-				);
-
-				push @{$o->{def}}, [ $id.".".$opt , $g , $opt ];
-			} else {
-				$fobj->gholders->register(
-					"unregistered.$id.$opt" , {gname=>$g,gid=>$id,opt=>$opt}
-				);
-				push @{$o->{all}}, [ $id.".".$opt , $g , $opt ];
-			}
+			$fobj->gholders->register($ctx,{
+				glomule	=> {
+					name	=> $gname,
+					id		=> $o->glomule,
+				},
+				func	=> $o->func,
+				opt		=> $o->opt,
+				name	=> $name
+			});
+			push @nameopts, [$gname,$o->func,$o->opt,'/'.$ctx];
 		}
+
+		my $registeropts;
+		if (@nameopts > 1) {
+			@nameopts = 
+				map { $_->[3] } 
+				sort { $a->[0].$a->[1].$a->[2] cmp $b->[0].$b->[1].$b->[2] }
+				@nameopts;
+
+			$registeropts = \@nameopts;
+		} else {
+			$registeropts = [ $nameopts[0][3] ];
+		}
+
+		$fobj->gholders->register( 'qopt.'.$name , {
+			opts	=> $registeropts,
+			name	=> $name
+		} );
+
+		push @names, '/qopt.'.$name;
 	}
 
-	foreach my $l ("def","all") {
-		@{$o->{$l}} = 
-			map { $_->[0] } 
-			sort { 
-				$a->[1] <=> $b->[1] 
-				|| $a->[2] cmp $b->[2]
-			}
-			@{$o->{$l}};
-	}
-
-	$fobj->gholders->register(
-		["qopt",$o->{def}],
-		["unregistered",$o->{all}]
-	);
+	$fobj->gholders->register( 'qopt' , [ sort @names ] );
 }
 
 #----------

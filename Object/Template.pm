@@ -253,7 +253,11 @@ sub list_available_qopts {
 				"Admin template doesn't have matching function: " . $self->path
 			);
 		}
+
+		return $qopts;
 	}
+
+	# -- now walk non-admin templates -- #
 
 	my $walker = $self->_->new_object("Template::Walker");
 
@@ -288,8 +292,10 @@ sub _walk_glomule {
 		# definition in the controller.  we append the contents of this 
 		# array to the $qopts arrayref that was passed in to us
 
+		my $id = $self->_->container->glomule_n2id( $glomule );
+
 		my $gqopts = {
-			glomule		=> scalar $self->_->glomule->name2id( $glomule ),
+			glomule		=> scalar $self->_->container->glomule_n2id($glomule),
 			function	=> $func->name,
 			gtype		=> $type,
 			opts		=> scalar $func->qopts
