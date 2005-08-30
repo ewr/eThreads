@@ -2,6 +2,7 @@ db	=> {
 	type	=> "mysql",
 	db		=> "eTrev",
 	host	=> "",
+#	host	=> "sark.labs.ericrichardson.com",
 	user	=> "eTrev",
 	pass	=> "p3rlr0cks",
 
@@ -21,7 +22,7 @@ db	=> {
 		messages		=> "messages",
 		pings			=> "pings",
 		qkeys			=> "qkeys",
-		qopts			=> "qopts",
+		qopts			=> "newqopts",
 		rights			=> "rights",
 		subtemplates	=> "subtemplates",
 		templates		=> "templates",
@@ -32,9 +33,9 @@ db	=> {
 },
 
 dir		=> {
-	cache		=> "/etc/apache2/perl/eThreads/cached",
 #	cache		=> "/web/ericrichardson.com/eTdev/cached",
 #	controllers	=> "/web/ericrichardson.com/eTdev/Controllers",
+	cache		=> "/etc/apache2/perl/eThreads/cached",
 	controllers	=> "/etc/apache2/perl/eThreads/Controllers",
 },
 

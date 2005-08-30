@@ -93,6 +93,7 @@
       <opt allowed=".+" key="title" persist="1"/>
       <opt allowed=".+" key="intro" persist="1"/>
       <opt allowed=".+" key="body" persist="1"/>
+	  <opt allowed=".+" key="category" persist="1"/>
     </qopts>
     <modes>
       <mode name="Auth" value="1"/>
@@ -109,6 +110,7 @@
       <opt allowed=".+" key="preview" persist="1"/>
       <opt allowed=".+" key="postpone" persist="1"/>
       <opt allowed=".+" key="post" persist="1"/>
+      <opt allowed=".+" key="category" persist="1"/>
     </qopts>
     <modes>
       <mode name="Auth" value="1"/>
@@ -130,6 +132,20 @@
     <sub>f_main</sub>
     <qopts>
         <opt key="name" allowed=".+"/>
+    </qopts>
+    <modes>
+      <mode name="Auth" value="1"/>
+    </modes>
+  </function>
+  <function name="cat_edit">
+    <system>categories</system>
+    <sub>f_edit</sub>
+    <qopts>
+        <opt key="id" allowed="\d+" persist="1"/>
+		<opt key="name" allowed=".+"/>
+		<opt key="icon" allowed=".+"/>
+		<opt key="descript" allowed=".+"/>
+		<opt key="submit" allowed=".+"/>
     </qopts>
     <modes>
       <mode name="Auth" value="1"/>

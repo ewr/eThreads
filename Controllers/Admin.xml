@@ -12,6 +12,8 @@
 		<sub>f_looks</sub>
 		<qopts>
 			<opt key="new_default" allowed="\d+"/>
+			<opt key="create" allowed=".+"/>
+			<opt key="name" allowed="[\w_-]+"/>
 		</qopts>
 		<modes><mode name="Admin" value="1"/></modes>
 	</function>
@@ -79,6 +81,7 @@
 			<opt key="edit" allowed=".*"/>
 			<opt key="add" allowed=".*"/>
 			<opt key="glomule" allowed="\d+" persist="1"/>
+			<opt key="func" allowed=".*" persist="1"/>
 			<opt key="opt" allowed="\w+" persist="1"/>
 			<opt key="name" allowed="\w+"/>
 		</qopts>

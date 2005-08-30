@@ -1,35 +1,35 @@
 package eThreads::Object::LastModifiedTime;
 
+use Spiffy -Base;
+
 use strict;
 
 #----------
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
-		ts		=> undef,
-	} , $class ); 
+		ts		=> 0,
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub set {
-	shift->nominate(@_);
+	$self->nominate(@_);
 }
 
 #----------
 
 sub nominate {
-	my $class = shift;
 	my $ts = shift;
 
-	if ($ts > $class->{ts}) {
-		$class->{ts} = $ts;
+	if ($ts > $self->{ts}) {
+		$self->{ts} = $ts;
 	} else {
 		# this vote loses
 	}
@@ -40,9 +40,7 @@ sub nominate {
 #----------
 
 sub get {
-	my $class = shift;
-
-	return $class->{ts} || time;
+	$self->{ts} || time;
 }
 
 #----------

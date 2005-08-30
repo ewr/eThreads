@@ -89,7 +89,6 @@ sub name2id {
 				->{ $container }
 				->{ $name }
 	) {
-		$class->{id} = $r->{id};
 		return wantarray ? ($r->{id},$r) : $r->{id};
 	} else {
 		return undef;

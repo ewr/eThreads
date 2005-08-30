@@ -2,61 +2,65 @@ package eThreads::Object::QueryOpts;
 
 use strict;
 
+use Spiffy -Base;
+
+# Spiffy turns warnings on, and we get complaints about uninitialized vars
+no warnings;
+
 use eThreads::Object::QueryOpts::Bucket;
 use eThreads::Object::QueryOpts::QueryOption;
 use eThreads::Object::QueryOpts::Raw;
 
 #----------
 
+field '_'		=> -ro;
+
+field 'names' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
 		input	=> undef,
 		buckets	=> [],
 		names	=> {},
-	} , $class );
+	} , $self );
 
-	$class->load_qkeys_to_input;
+	$self->load_qkeys_to_input;
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
+	# nothing right now
 }
 
 #----------
 
 sub new_bucket {
-	return shift->{_}->instance->new_object('QueryOpts::Bucket',@_);
+	return $self->_->instance->new_object('QueryOpts::Bucket',@_);
 }
 
 #----------
 
 sub new_bucket_data {
-	my $class = shift;
-
 	my $b = {};
-	push @{ $class->{buckets} } , $b;
-
+	push @{ $self->{buckets} } , $b;
 	return $b;
 }
 
 #----------
 
 sub bind_to_name {
-	my $class = shift;
 	my $name = shift;
 	my $opt = shift;
 
-	if (!$class->{names}{ $name }) {
+	if (!$self->{names}{ $name }) {
 		# easy...  first time using a name
-		$class->{names}{ $name } = $opt;
+		$self->{names}{ $name } = $opt;
 	} else {
 		# hmmm...  conflict resolution time
 		# FIXME: not sure how to handle this case
@@ -66,14 +70,7 @@ sub bind_to_name {
 
 #----------
 
-sub names {
-	return shift->{names};
-}
-
-#----------
-
 sub link {
-	my $class = shift;
 	my $tmplt = shift;
 	my $args = shift;
 
@@ -88,27 +85,34 @@ sub link {
 	# start with the basics...
 
 	my @pieces = (
-		$class->{_}->domain->path,
-		$class->{_}->mode->path,
-		$class->{_}->container->path,
+		$self->_->domain->path,
+		$self->_->mode->path,
+		$self->_->container->path,
 		$tmplt
 	);
 
-	# now try and figure out some qkeys, qopts, etc
+	# now we have to figure out qkeys, qopts, etc.  We do this from a few 
+	# different sources.  
+
+	# in order to know what qopts a template will take we create an object 
+	# for the linked template and then ask for its qopts.  Internally the 
+	# template object will merge the master list of qopts in the Controller 
+	# with the name mappings that are stored in the database.  We need to 
+	# know what opt keys are available in what functions in what glomules, 
+	# and we need to know all of the names that map to opts (both defined 
+	# and default) so that we can support linking via opt name
+
+
 	my $link_qopts;
 	{
-		# get qopts
-		my $qopts = $class->list_link_qopts($tmplt,$args);
+		# get qopts hashref
+		my $qopts = $self->list_link_qopts($tmplt,$args);
 
-		# hash them
-		my $h_qopts = {};
-		%$h_qopts = map { $_->[0] => $_ } @$qopts;
-		
-		if ( my $qkeys = $class->_load_foreign_qkeys($tmplt) ) {
+		if ( my $qkeys = $self->_load_foreign_qkeys($tmplt) ) {
 			my @keys;
 			foreach my $k (@$qkeys) {
-				push @keys, $h_qopts->{ $k }->[1] || "-";
-				$h_qopts->{ $k }->[2] = 1;
+				push @keys, $qopts->{ $k } || "-";
+				delete $qopts->{ $k };
 			}
 
 			# cleanup keys
@@ -123,9 +127,9 @@ sub link {
 		}
 
 		my @qopts;
-		foreach my $q (@$qopts) {
-			next if ($q->[2]);
-			push @qopts, ( $q->[0] . "=" . URI::Escape::uri_escape($q->[1]) );
+		while ( my ($opt,$val) = each %$qopts ) {
+			next if (!$val);
+			push @qopts, ( $opt . "=" . URI::Escape::uri_escape($val) );
 		}
 
 		$link_qopts = join("&amp;",@qopts);
@@ -149,42 +153,83 @@ sub link {
 #----------
 
 sub list_link_qopts {
-	my $class = shift;
 	my $tmplt = shift;
 	my $args = shift;
-	my $qopts = [];
+	my $qopts = {};
+
+	# TODO: We need a cheap way of recognizing if we're linking to the current 
+	# template and just using the already known object to optimize
 
 	# find the template object
-	my $t = $class->{_}->look->load_template_by_path($tmplt);
+	my $t = $self->_->look->load_template_by_path($tmplt);
 
-	# return an empty list if we get nothing
+	# return an empty hash if we get nothing
 	return $qopts if (!$t);
 
-	# we get qopts from the template as glomule->opt->name, which is really 
-	# pretty backward from what we want.  we need a list of names the foreign 
-	# template will accept, and then we need to 
+	# when we call $t->qopts we're going to get a Template::Qopts object. 
+	# There are four main indentifiers for a qopt: glomule, function, opt, 
+	# and name.  This object will allow us to do a primary sort by any of 
+	# those, and then we get a hashref and have to work through the branches 
+	# there
 
-	my $fnames = {};
-	while ( my ($g,$gref) = each %{ $t->qopts } ) {
-		while ( my ($o,$oref) = each %$gref ) {
-			$fnames->{ $oref->{name} } = 1;
-		}
-	}
+	my $all_opts = $t->qopts;
 
-	foreach my $n (keys %$fnames) {
-		if (my $opt = $class->names->{ $n }) {
-			next if (!$opt->persist && !$args->{$n});
+	# we'll next go through each of the names and 
+	# look to see if we have a qopt mapped to that name in the current 
+	# template that has persist as one of its characteristics and whose 
+	# value is other than the default for the qopt.  We set up $qopts as a 
+	# hash keyed the same as $fnames, but with proper values.  This hash 
+	# will only contain the options that should be passed on in the link.
 
-			my $v = exists( $args->{ $n } ) ? 
-				$args->{ $n } : $opt->get;
+	foreach my $name ( keys %{ $all_opts->names } ) {
+		if (my $opt = $self->names->{ $name }) {
+			next if (!$opt->persist);
+
+			my $v = $opt->get;
 
 			next if (!$v || $v eq $opt->default);
 
-			push @$qopts, [ $n , $v ];
-		} elsif (my $v = $args->{ $n }) {
-			push @$qopts, [ $n , $v ];
+			$qopts->{ $name } = $v;
 		} else {
 			# ignore this one
+		}
+	}
+
+	# The keys given to us in $args need to be parsed.  We could end up with 
+	# any of four elements: name, glomule, function, opt.  We always need 
+	# either name or opt, the other two we can guess at
+
+	# $args key         Glomule     Function    Opt Key     Name
+	# ----------------------------------------------------------
+	# id                -           -           -           id
+	# .id               -           -           id          -
+	# .view.id          -           view        id          - 
+	# comments.view.id  comments    view        id          - 
+
+	while ( my ($k,$v) = each %$args ) {
+		if ($k =~ /[^\.]/) {
+			# no dot inside means this is a name mapping...  That's easy.  
+			# just make sure the linked template can take this name and put 
+			# the value in $qopts
+
+			next if ( !$all_opts->names($k) );
+
+			$qopts->{ $k } = $v;
+			
+		} elsif ( $k =~ /^\.([^\.]+)$/ ) {
+			# leading dot with no additional dots means we have an opt key. 
+			# $1 contains the opt key.
+
+			my $opts = $all_opts->opt( $1 );
+
+			foreach my $o ( $all_opts->objects_in_tree( $opts ) ) {
+				$qopts->{ $o->name } = $v;
+			}
+		} elsif ( $k =~ /^\.([^\.]+)\.([^\.]+)$/ ) {
+			# leading dot, characters, another dot, then characters means we 
+			# have a function and an opt key.  
+		} else {
+
 		}
 	}
 
@@ -194,15 +239,14 @@ sub list_link_qopts {
 #----------
 
 sub _load_foreign_qkeys {
-	my $class = shift;
 	my $path = shift;
 
-	if (my $c = $class->{qkey_cache}{ $path }) {
+	if (my $c = $self->{qkey_cache}{ $path }) {
 		return $c;
 	}
 
-	if (my $t = $class->{_}->look->load_template_by_path($path)) {
-		return $class->{qkey_cache}{ $path } = $t->qkeys;
+	if (my $t = $self->_->look->load_template_by_path($path)) {
+		return $self->{qkey_cache}{ $path } = $t->qkeys;
 	} else {
 		return undef;
 	}
@@ -213,58 +257,61 @@ sub _load_foreign_qkeys {
 #----------------#
 
 sub get_input {
-	my $class = shift;
-
-	return $class->{_}->raw_queryopts->get(@_);
+	$self->_->raw_queryopts->get(@_);
 }
 
 #----------
 
 sub get_from_input {
-	my $class = shift;
 	my %a = @_;
 
-	my $name = $class->get_name_for_opt($a{glomule},$a{opt}) 
+	my $name = $self->get_name_for_opt($a{glomule},$a{opt}) 
 		or return undef;
 
 	# return what we find on input
-	return $class->{_}->raw_queryopts->get($name);
+	return $self->_->raw_queryopts->get($name);
 }
 
 #----------
 
 sub get_name_for_opt {
-	my $class = shift;
 	my $g = shift;
 	my $o = shift;
 
-	my $name = $class->{_}->template->qopts->{ $g }{ $o }{name};
+	# if we don't actually have a name bound we use the opt as our default.
+	# if you really don't want this opt to be bound you give it a name of 
+	# - and that gets ignored
 
-	return $name || undef;
+	my $named = $self->_->template->named_qopts;
+
+	my $name = 
+		($named->{ $g } && $named->{ $g }{ $o }) 
+			? $named->{ $g }{ $o }{name}
+			: $o;
+
+	return ($name eq "-") ? undef : $name;
 }
 
 #----------
 
 sub load_qkeys_to_input {
-	my $class = shift;
-
-	my $qkeys = $class->{_}->RequestURI->unclaimed;
+	my $qkeys = $self->_->RequestURI->unclaimed;
 
 	my @parts = split("/",$qkeys);
 	
 	# ignore an empty first part since we get a / first
 	shift @parts if (!$parts[0]);
 
-	foreach my $k (@{ $class->{_}->template->qkeys }) {
+	foreach my $k (@{ $self->_->template->qkeys }) {
 		my $v = shift @parts;
 		next if (!$v || $v eq "-");
 
-		$class->{_}->raw_queryopts->set($k,$v);
+		$self->_->raw_queryopts->set($k,$v);
 	}
 
 	# for now we're just going to say, "hey, we're last," and claim 
 	# all remaining URI no matter if we used it or not
-	$class->{_}->RequestURI->claim($qkeys);
+	$self->_->RequestURI->claim($qkeys);
 
 	return 1;
 }

@@ -314,6 +314,7 @@ sub cache_looks {
 			id,
 			name,
 			container,
+			type,
 			is_default 
 		from 
 			" . $class->{_}->core->tbl_name("looks") . "
@@ -322,8 +323,8 @@ sub cache_looks {
 	$class->{_}->bail->("cache_looks failure: ".$db->errstr) 
 		unless ($get_looks->execute);
 
-	my ($id,$n,$c,$d);
-	$get_looks->bind_columns( \($id,$n,$c,$d) );
+	my ($id,$n,$c,$t,$d);
+	$get_looks->bind_columns( \($id,$n,$c,$t,$d) );
 
 	my $l = {};
 	while ($get_looks->fetch) {
@@ -331,6 +332,7 @@ sub cache_looks {
 			name		=> $n,
 			id			=> $id,
 			container	=> $c,
+			type		=> $t,
 		};
 		$l->{$c}{id}{$id} = $ref;
 		$l->{$c}{name}{$n} = $ref;

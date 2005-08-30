@@ -1,14 +1,20 @@
 package eThreads::Object::Controller::Function;
 
+use Spiffy -Base;
+
 use strict;
 
 #----------
 
+field 'name'	=> -ro;
+field 'object'	=> -ro;
+field 'system'	=> -ro;
+field 'sub'		=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		name	=> undef,
 		object	=> undef,
 		system	=> undef,
@@ -17,91 +23,56 @@ sub new {
 		modes	=> undef,
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
-sub name 	{ shift->{name}; 	}
-sub object 	{ shift->{object}; 	}
-sub system 	{ shift->{system}; 	}
-sub sub 	{ shift->{sub}; 	}
-
 sub qopts {
-	my $class = shift;
-	wantarray ? @{ $class->{qopts} } : $class->{qopts};
+	wantarray ? @{ $self->{qopts} } : $self->{qopts};
 }
 
 sub modes {
-	my $class = shift;
-	wantarray ? @{ $class->{modes} } : $class->{modes};
+	wantarray ? @{ $self->{modes} } : $self->{modes};
 }
 
+#----------
 #----------
 
 package eThreads::Object::Controller::Function::Qopt;
 
-sub new {
-	my $class = shift;
-	my $data = shift;
+# we use the generic Qopt object as-is
+use base 'eThreads::Object::Generic::Qopt';
 
-	$class = bless ( {
-		key		=> undef,
-		allowed	=> undef,
-		persist	=> undef,
-		default	=> undef,
-		@_,
-		_		=> $data,
-	} , $class ); 
-
-	return $class;
-}
-
-sub opt 	{ shift->{key} }
-sub allowed { shift->{allowed} }
-sub persist { shift->{persist} }
-sub default { shift->{default} }
-sub is_pref { shift->{pref} }
-
-sub attributes {
-	my $class = shift;
-
-	{
-		opt		=> $class->{key},
-		allowed	=> $class->{allowed},
-		persist	=> $class->{persist},
-		default	=> $class->{default},
-		is_pref	=> $class->{pref}
-	};
-}
+#----------
+#----------
 
 package eThreads::Object::Controller::Function::Mode;
 
+use Spiffy -Base;
+
+field 'name'	=> -ro;
+field 'value'	=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		name	=> undef,
 		value	=> undef,
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
-sub name { shift->{name} }
-sub value { shift->{value} }
-
 sub attributes {
-	my $class = shift;
-
 	{
-		name	=> $class->{name},
-		value	=> $class->{value}
+		name	=> $self->{name},
+		value	=> $self->{value}
 	};
 }
 
@@ -110,6 +81,8 @@ sub attributes {
 =head1 NAME
 
 eThreads::Object::Controller::Function
+eThreads::Object::Controller::Function::Qopt
+eThreads::Object::Controller::Function::Mode
 
 =head1 SYNOPSIS
 

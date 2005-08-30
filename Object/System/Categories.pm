@@ -33,11 +33,14 @@ sub get_sql_for {
 #----------
 
 sub is_valid_name {
+	warn "args: @_\n";
 	my $class = shift;
 	my $glomule = shift;
 	my $cat = shift;
 
-	my $cache = $class->load_all($glomule);
+	warn "looking for cat $cat on glomule $glomule\n";
+
+	my $cache = $class->get_headers($glomule);
 
 	if (my $c = $cache->{ name }{ $cat }) {
 		# valid, create an object
@@ -54,7 +57,7 @@ sub load {
 	my $glomule = shift;
 	my $id = shift;
 
-	my $cache = $class->load_all($glomule);
+	my $cache = $class->get_headers($glomule);
 
 	my $c = $cache->{id}{ $id };
 
@@ -106,7 +109,7 @@ sub get_primary {
 
 #----------
 
-sub load_all {
+sub get_headers {
 	my $class = shift;
 	my $glomule = shift;
 
@@ -117,6 +120,26 @@ sub load_all {
 	}
 
 	return $c;
+}
+
+#----------
+
+sub load_all {
+	my $class = shift;
+	my $glomule = shift;
+
+	my $headers = $class->get_headers($glomule);
+
+	my $cats = { name => {} , id => {} };
+	while (my ($id,$c) = each %{$headers->{id}}) {
+		$cats->{name}{ $id } = $cats->{id}{ $c->{id} } 
+			= $class->{_}->new_object(
+				"System::Categories::Category",
+				%$c
+			);
+	}
+
+	return $cats;
 }
 
 #----------
@@ -165,11 +188,13 @@ sub f_main {
 	my $class = shift;
 	my $fobj = shift;
 
+	my $glomule = $fobj->glomule->id;
+
 	if (my $name = $fobj->bucket->get('name')) {
 		# -- create a new category -- #
 
 		# check to make sure it doesn't exist
-		if ($class->is_valid_name($fobj->glomule->id,$name)) {
+		if ($class->is_valid_name( $glomule , $name )) {
 			$fobj->gholders->register("message","Category exists: $name");
 		} else {
 			my $cat = $class->{_}->new_object("System::Categories::Category",
@@ -180,6 +205,20 @@ sub f_main {
 			$fobj->gholders->register("message","Created category $name");
 		}
 	}
+
+	# -- load all categories -- #
+
+	my @data;
+	my $cats = $class->load_all($glomule);
+	
+	while (my ($id,$c) = each %{ $cats->{id} }) {
+		push @data, [ 'categories.' . $id , $c->registerable ];
+	}
+
+	$fobj->gholders->register(
+		[ 'categories' , [ map { $_->[1]{id} } @data ] ],
+		@data
+	);
 }
 
 #----------
@@ -188,7 +227,24 @@ sub f_edit {
 	my $class = shift;
 	my $fobj = shift;
 
+	my $glomule = $fobj->glomule->id;
 
+	# -- load -- #
+
+	my $id = $fobj->bucket->get('id');
+
+	my $cat = $class->load($glomule,$id)
+		or $class->{_}->bail->("couldn't load category: $id");
+
+	# -- check for edits -- #
+
+	if ($fobj->bucket->get('submit')) {
+
+	}
+
+	# -- register -- #
+
+	$fobj->gholders->register('category',$cat->registerable);
 }
 
 #----------

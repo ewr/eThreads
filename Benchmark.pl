@@ -31,7 +31,7 @@ if (1) {
 	my $core = new eThreads::Object::Core;
 	$core->cgi_enable;
 
-	timethis(20,sub {
+	timethis(60,sub {
 		my $inst = $core->new_object("Instance",$core->cgi_r_handler);
 		$inst->go();
 		$inst->DESTROY;

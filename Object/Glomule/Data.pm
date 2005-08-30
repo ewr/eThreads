@@ -91,7 +91,7 @@ sub has_function {
 				qopts	=> [ map { $_->attributes } $f->qopts ],
 				modes	=> [ map { $_->name => $_->value } $f->modes ],
 			}
-		)->activate;
+		);
 	} else {
 		return undef;
 	}
