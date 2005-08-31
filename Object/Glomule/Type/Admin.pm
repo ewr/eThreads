@@ -394,6 +394,7 @@ sub f_subtemplates_edit {
 		$self->_->cache->update_times->set(
 			tbl		=> "subtemplates",
 			first	=> $look->id,
+			second	=> $template->id,
 			ts		=> time,
 		);
 	
@@ -448,7 +449,7 @@ sub f_qopts {
 		my $n = $fobj->bucket->get("name");
 
 		$self->_->utils->set_value(
-			tbl		=> "qopts",
+			tbl		=> $self->_->core->tbl_name('qopts'),
 			keys	=> {
 				glomule		=> $g,
 				opt			=> $o,

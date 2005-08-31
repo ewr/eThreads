@@ -43,7 +43,7 @@ sub set {
 			second	=> $a{second} || 0,
 		},
 		value_field	=> "ts",
-		value		=> $a{ts}
+		value		=> $a{ts} || time
 	);
 
 	$class->{_}->utils->set_value(
