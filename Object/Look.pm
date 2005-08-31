@@ -2,6 +2,8 @@ package eThreads::Object::Look;
 
 use Spiffy -Base;
 
+no warnings;
+
 field '_'		=> -ro;
 
 field 'id' => -ro;
