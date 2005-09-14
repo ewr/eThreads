@@ -1,24 +1,24 @@
 package eThreads::Object::Utils;
 
-use strict;
+use Spiffy -Base;
 
 #----------
 
+field '_' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub set_value {
-	my $class = shift;
 	my %args = @_;
 
 	$args{value_field} = "value" if (!$args{value_field});
@@ -28,7 +28,7 @@ sub set_value {
 	my @cargs;
 	my @cond;
 
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	foreach my $key (keys %{$args{keys}}) {
 		push @cond, "$key = ?";
@@ -42,7 +42,7 @@ sub set_value {
 		select 1 from $args{tbl} $cond
 	");
 
-	$class->{_}->bail->(0,"set_value select failure: ".$db->errstr) unless (
+	$self->_->bail->(0,"set_value select failure: ".$db->errstr) unless (
 		$select->execute(@cargs)
 	);
 
@@ -54,7 +54,7 @@ sub set_value {
 			update $args{tbl} set $args{value_field} = ? $cond
 		");
 
-		$class->{_}->bail->(0,"set_value update failure: ".$db->errstr) unless (
+		$self->_->bail->(0,"set_value update failure: ".$db->errstr) unless (
 			$update->execute($args{value},@cargs)
 		);
 	} elsif ($select->rows) {
@@ -64,7 +64,7 @@ sub set_value {
 		my $delete = $db->prepare("
 			delete from $args{tbl} $cond
 		");
-		$class->{_}->bail->(0,"set_value delete failure: ".$db->errstr) unless (
+		$self->_->bail->(0,"set_value delete failure: ".$db->errstr) unless (
 			$delete->execute(@cargs)
 		);
 	} elsif ($args{value} || $args{set_zero_val}) {
@@ -78,7 +78,7 @@ sub set_value {
 				$keys,$args{value_field}
 			) values (" . "?,"x(@cargs) . "?)
 		");
-		$class->{_}->bail->(0,"set_value create failure: ".$db->errstr) unless (
+		$self->_->bail->(0,"set_value create failure: ".$db->errstr) unless (
 			$create->execute(@cargs,$args{value})
 		);
 	} else {
@@ -88,12 +88,11 @@ sub set_value {
 #----------
 
 sub g_load_tbl {
-	my $class = shift;
 	my %args = @_;
 
 	my $tmp = {};
 
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 
 	my $where;
 	my @values;
@@ -119,7 +118,7 @@ sub g_load_tbl {
 		$args{extra}
 	");
 
-	$class->{_}->bail->("g_load_tbl: ".$db->errstr) unless (
+	$self->_->bail->("g_load_tbl: ".$db->errstr) unless (
 		$get_tbl->execute(@values)
 	);
 
@@ -142,7 +141,7 @@ sub g_load_tbl {
 #----------
 
 sub g_rec_populate {
-	my ($class,$uh,$t) = @_;
+	my ($uh,$t) = @_;
 	my $h = {};
  
 	foreach my $id (@$t) {
@@ -157,16 +156,15 @@ sub g_rec_populate {
 #----------
 
 sub get_unused_tbl_name {
-	my $class = shift;
 	my $prefix = shift || "generic";
 
-	my $check = $class->{_}->core->get_dbh->prepare("
+	my $check = $self->_->core->get_dbh->prepare("
 		show tables like ?
 	");
 
 	my $tbl;
 	do {
-		$tbl = $prefix . "_" . $class->random(6);
+		$tbl = $prefix . "_" . $self->random(6);
 		$check->execute($tbl);
 	} until (!$check->rows); 
 
@@ -176,7 +174,6 @@ sub get_unused_tbl_name {
 #----------
 
 sub create_table {
-	my $class = shift;
 	my $name = shift;
 	my $schema = shift;
 
@@ -193,13 +190,13 @@ sub create_table {
 	}
     
 	if ($sql) {
-		my $c = $class->{_}->core->get_dbh->prepare("
+		my $c = $self->_->core->get_dbh->prepare("
 			create table $name (
 				$sql " . join(',',@$keys) . "
 			)
 		");
 
-		$class->{_}->bail->(
+		$self->_->bail->(
 			"create table failure: ".$c->errstr
 		) unless ($c->execute);
 	}
@@ -210,7 +207,7 @@ sub create_table {
 #----------
 
 sub random {
-	my ($class,$x) = @_;
+	my $x = shift;
 	my @a = (48..57,65..90,97..122);
 
 	my @r;

@@ -17,6 +17,17 @@
 		</qopts>
 		<modes><mode name="Admin" value="1"/></modes>
 	</function>
+	<function name="looks/options">
+		<object>admin</object>
+		<sub>f_looks_options</sub>
+		<qopts>
+			<opt key="look" allowed="\d+" persist='1'/>
+			<opt key="submit" allowed=".*"/>
+			<opt key="copylocal" allowed="\d+" persist='1'/>
+			<opt key="confirm" allowed=".*"/>
+		</qopts>
+		<modes><mode name="Admin" value="1"/></modes>
+	</function>
 	<function name="templates">
 		<object>admin</object>
 		<sub>f_templates</sub>

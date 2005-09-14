@@ -59,8 +59,8 @@ sub new {
 	# -- read in our settings -- #
 
 	{ 
-		my $cfg = "/etc/apache2/perl/eThreads/cfg.main";
-#		my $cfg = "/web/ericrichardson.com/eTdev/cfg.main";
+#		my $cfg = "/etc/apache2/perl/eThreads/cfg.main";
+		my $cfg = "/web/ericrichardson.com/eTdev/cfg.main";
 
 		my $s;
 		open(CFG,$cfg) or die "Couldn't open settings: $cfg";

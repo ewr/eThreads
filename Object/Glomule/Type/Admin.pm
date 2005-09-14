@@ -121,6 +121,64 @@ sub f_looks {
 
 #----------
 
+sub f_looks_options {
+	my $fobj = shift;
+
+	# -- get info on our look -- #
+
+	my $look = $self->load_look( $fobj->bucket->get('look') );
+
+	# -- see if we have anything to do -- #
+
+	if (my $copyid = $fobj->bucket->get('copylocal')) {
+		# make sure this new look is valid
+		my $copylook = $self->load_look($copyid);
+	
+		if ($fobj->bucket->get('confirm')) {
+			my ($status,$msg) = $self->copy_look( 
+				$look,
+				$copylook
+			);
+
+			my $out = 
+				($status)
+					? "There was an error copying the look: $msg"
+					: "Look copied successfully.";
+
+			$fobj->gholders->register('message',$out);
+
+		} else {
+			$fobj->gholders->register(
+				'action',
+				"Clear look '".
+					$look->name.
+				"' and copy templates from look '".
+					$copylook->name.
+				"'"
+			);
+			$fobj->gholders->register('confirm',1);
+		}
+	}
+
+	# -- get a list of looks -- #
+
+	{
+		my $looks = $self->_->ocontainer->get_looks;
+
+		my @looks;
+		my $lid = $look->id;
+		while ( my ($id,$l) = each %{ $looks->{id} } ) {
+			next if ($id == $lid);
+			$fobj->gholders->register( 'looks.'.$id , $l );
+			push @looks, '/looks.'.$id;
+		}
+
+		$fobj->gholders->register( 'looks' , \@looks );
+	}
+}
+
+#----------
+
 sub f_templates {
 	my $fobj = shift;
 
@@ -742,15 +800,30 @@ sub _create_look {
 
 #----------
 
+sub copy_look {
+	my $to = shift;
+	my $from = shift;
+
+	# -- copy templates -- #
+
+	{
+		my $tmplts = $from->get_templates;
+		my @tmplts = map { $tmplts->{ $_ } } ( keys %$tmplts );
+		
+		foreach my $t (@tmplts) {
+			$self->copy_template( $to , $from , $t );
+		}
+	}
+}
+
+#----------
+
 sub load_look {
 	my $id = shift;
 
 	# validate this look
-	$self->_->ocontainer->is_valid_look($id)
+	my $look = $self->_->ocontainer->is_valid_look($id)
 		or $self->_->bail->("Look not found/improper ownership: $id");
-
-	my $look = $self->_->instance->new_object("Look");
-	$look->{id} = $id;
 
 	# look wants the original container, not admin
 	$self->_->cswitchboard->reroute_calls_for($look);
