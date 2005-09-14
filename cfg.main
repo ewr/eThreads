@@ -1,8 +1,8 @@
 db	=> {
 	type	=> "mysql",
 	db		=> "eTrev",
-	host	=> "",
-#	host	=> "sark.labs.ericrichardson.com",
+#	host	=> "",
+	host	=> "sark.labs.ericrichardson.com",
 	user	=> "eTrev",
 	pass	=> "p3rlr0cks",
 
@@ -33,10 +33,10 @@ db	=> {
 },
 
 dir		=> {
-#	cache		=> "/web/ericrichardson.com/eTdev/cached",
-#	controllers	=> "/web/ericrichardson.com/eTdev/Controllers",
-	cache		=> "/etc/apache2/perl/eThreads/cached",
-	controllers	=> "/etc/apache2/perl/eThreads/Controllers",
+	cache		=> "/web/ericrichardson.com/eTdev/cached",
+	controllers	=> "/web/ericrichardson.com/eTdev/Controllers",
+#	cache		=> "/etc/apache2/perl/eThreads/cached",
+#	controllers	=> "/etc/apache2/perl/eThreads/Controllers",
 },
 
 glomule_types	=> {
@@ -67,8 +67,8 @@ ping_methods	=> {
 },
 
 cache_obj	=> "Cache::MultiServer",
-auth_obj	=> "Auth::Internal",
-#auth_obj	=> "Auth::Cookies",
+#auth_obj	=> "Auth::Internal",
+auth_obj	=> "Auth::Cookies",
 auth_name	=> "eThreads",
 db_logging	=> 0,
 

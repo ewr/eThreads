@@ -11,6 +11,7 @@ use eThreads::Object::Template::Qopts;
 use eThreads::Object::Template::ShadowItem;
 use eThreads::Object::Template::Subtemplate;
 use eThreads::Object::Template::Walker;
+use eThreads::Object::Template::Writable;
 
 sub TABLE { "templates" }
 
@@ -36,6 +37,15 @@ field 'qopts'	=>
 			$self->cache_qopts 
 		}
 	!;
+
+# can't write on this object
+stub 'write';
+
+field 'writable'	=> 
+	-ro, 
+	-init=>q! bless { %$self } , 'eThreads::Object::Template::Writable'; !;
+
+#----------
 
 sub new {
 	my $data = shift;
@@ -250,7 +260,7 @@ sub list_available_qopts {
 			# this shouldn't happen, but there's always the possibility of 
 			# a bad setup
 			$self->_->bail->(
-				"Admin template doesn't have matching function: " . $self->path
+				"Admin template doesn't have matching function: " . $name
 			);
 		}
 

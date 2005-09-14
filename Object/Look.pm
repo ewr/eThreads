@@ -169,6 +169,24 @@ sub determine_template {
 
 #----------
 
+sub has_template_by_path {
+	my $path = shift;
+
+	if (!$path) { 
+		return undef;
+	}
+
+	my $tm = $self->get_templates;
+
+	if ($tm->{$path}) {
+		return 1;
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
 sub load_template_by_path {
 	my $path = shift;
 
