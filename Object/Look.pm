@@ -8,7 +8,23 @@ field '_'		=> -ro;
 
 field 'id' => -ro;
 field 'name' => -ro;
-field 'type' => -ro, 0;
+field 'type' => -ro;
+
+field 'templates'	=>
+	-ro,
+	-init=>q!
+		$self->_->cache->get(tbl=>'templates',first=>$self->id)
+			or $self->cache_template_map();
+	!;
+
+field 'subtemplates'	=>
+	-ro,
+	-init=>q!
+		$self->_->cache->get(tbl=>'subtemplates',first=>$self->id)
+			or $self->cache_subtemplates();
+	!;
+
+#----------
 
 sub new {
 	my $data 	= shift;
@@ -121,11 +137,12 @@ sub cache_subtemplates {
 
 	return $m;	
 }
+
 #----------
 
 sub determine_template {
 	# -- load the template map for this container and look -- #
-	my $tm = $self->get_templates;
+	my $tm = $self->templates;
 
 	my $uri = $self->_->RequestURI->unclaimed || '';
 
@@ -169,6 +186,23 @@ sub determine_template {
 
 #----------
 
+sub has_template_path_in_table {
+	my $table = shift;
+	my $path = shift;
+
+	if (!$path) {
+		return undef;
+	}
+
+	if (my $t = $self->$table->{$path}) {
+		return $t->{id};
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
 sub has_template_by_path {
 	my $path = shift;
 
@@ -176,10 +210,8 @@ sub has_template_by_path {
 		return undef;
 	}
 
-	my $tm = $self->get_templates;
-
-	if ($tm->{$path}) {
-		return 1;
+	if (my $t = $self->templates->{$path}) {
+		return $t->{id};
 	} else {
 		return undef;
 	}
@@ -194,17 +226,15 @@ sub load_template_by_path {
 		return undef;
 	}
 
-	my $tm = $self->get_templates;
-
 	my $ocache = $self->_->cache->objects;
 
-	if ($tm->{$path}) {
-		if (my $t = $ocache->get("Template",$tm->{$path}{id})) {
+	if (my $tref = $self->templates->{$path}) {
+		if (my $t = $ocache->get("Template",$tref->{id})) {
 			return $t;
 		} else {
 			my $t = $self->_->new_object(
 				"Template",
-				%{$tm->{$path}},
+				%$tref,
 				look	=> $self
 			);
 
@@ -228,7 +258,7 @@ sub load_template {
 	}
 
 	# load the template map
-	my $tm = $self->get_templates;
+	my $tm = $self->templates;
 
 	# turn it inside out
 	my $by_ids;
@@ -259,7 +289,7 @@ sub load_subtemplate_by_path {
 	}
 
 	# load the template map
-	my $tm = $self->get_subtemplates;
+	my $tm = $self->subtemplates;
 
 	if ( !$tm->{ $path } ) {
 		warn "no subtemplate for path: $path\n";
@@ -288,7 +318,7 @@ sub load_subtemplate {
 	}
 
 	# load the template map
-	my $tm = $self->get_subtemplates;
+	my $tm = $self->subtemplates;
 
 	# turn it inside out
 	my $by_ids;
@@ -310,32 +340,20 @@ sub load_subtemplate {
 
 #----------
 
-sub get_templates {
-	my $tm = $self->_->cache->get(
-		tbl		=> "templates",
-		first	=> $self->id,
-	);
+sub new_template {
+	my $t = $self->_->new_object('Template::Writable');
+	$t->look( $self );
 
-	if (!$tm) {
-		$tm = $self->cache_template_map();
-	}
-
-	return $tm;
+	return $t;
 }
 
 #----------
 
-sub get_subtemplates {
-	my $tm = $self->_->cache->get(
-		tbl		=> "subtemplates",
-		first	=> $self->id,
-	);
+sub new_subtemplate {
+	my $t = $self->_->new_object('Template::Subtemplate::Writable');
+	$t->look( $self );
 
-	if (!$tm) {
-		$tm = $self->cache_subtemplates();
-	}
-
-	return $tm;
+	return $t;
 }
 
 #----------
@@ -406,15 +424,15 @@ Load a subtemplate given a lookup name.  Returns a subtemplate object.
 
 Load a subtemplate given its ID.  Returns a subtemplate object.
 
-=item get_templates
+=item templates
 
-	my $tm = $look->load_templates;
+	my $tm = $look->templates;
 
 Used internally to load template map.
 
-=item get_subtemplates
+=item subtemplates
 
-	my $tm = $look->load_subtemplates;
+	my $tm = $look->subtemplates;
 
 Used internally to load subtemplate map.
 

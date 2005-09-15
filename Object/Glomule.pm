@@ -1,7 +1,6 @@
 package eThreads::Object::Glomule;
 
-use strict;
-use vars qw();
+use Spiffy -Base;
 
 use eThreads::Object::Glomule::Data;
 use eThreads::Object::Glomule::Data::Posts;
@@ -18,29 +17,38 @@ use eThreads::Object::Glomule::Type::NCManagement;
 
 #----------
 
+field '_' => -ro;
+
+field 'headers'	=> 
+	-ro,
+	-init=>q!
+		$self->_->cache->get(tbl=>'glomule_headers') 
+			or $self->cache_headers()
+	!;
+
+#----------
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub load {
-	my $class = shift;
 	my %a = @_;
 	
 	# -- make sure type is valid -- #
 
-	my $controller = $class->{_}->controller->get( $a{type} )
-		or $class->{_}->bail->("Invalid glomule type: $a{type}");
+	my $controller = $self->{_}->controller->get( $a{type} )
+		or $self->{_}->bail->("Invalid glomule type: $a{type}");
 
-	my $g = $class->{_}->new_object(
+	my $g = $self->{_}->new_object(
 		"Glomule::Data",
 		name		=> $a{name},
 		type		=> $a{type},
@@ -53,20 +61,19 @@ sub load {
 #----------
 
 sub typeobj {
-	my $class = shift;
 	my $type = shift;
 
-	if (my $obj = $class->{_}->cache->objects->get('glomuletype',$type)) {
+	if (my $obj = $self->{_}->cache->objects->get('glomuletype',$type)) {
 		return $obj;
 	} else {
-		my $c = $class->{_}->controller->get($type)
+		my $c = $self->{_}->controller->get($type)
 			or return undef;
 	
-		my $obj = $class->{_}->new_object(
+		my $obj = $self->{_}->new_object(
 			"Glomule::Type::" . $c->object
 		);
 
-		$class->{_}->cache->objects->set('glomuletype',$type,$obj);
+		$self->{_}->cache->objects->set('glomuletype',$type,$obj);
 
 		return $obj;
 	}
@@ -76,11 +83,10 @@ sub typeobj {
 #----------
 
 sub name2id {
-	my $class = shift;
 	my $name = shift;
-	my $container = shift || $class->{_}->container->id;
+	my $container = shift || $self->{_}->container->id;
 
-	my $gh = $class->load_headers;
+	my $gh = $self->headers;
 
 	if (
 		my $r = 
@@ -97,26 +103,8 @@ sub name2id {
 
 #----------
 
-sub load_headers {
-	my $class = shift;
-
-	my $gh = $class->{_}->cache->get(
-		tbl		=> "glomule_headers",
-	);
-
-	if (!$gh) {
-		$gh = $class->cache_headers();
-	}
-
-	return $gh;
-}
-
-#----------
-
 sub cache_headers {
-	my $class = shift;
-
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->{_}->core->get_dbh;
 
 	my $get_h = $db->prepare("
 		select 
@@ -125,11 +113,11 @@ sub cache_headers {
 			container,
 			natural_type
 		from
-			" . $class->{_}->core->tbl_name("glomule_headers") . "
+			" . $self->{_}->core->tbl_name("glomule_headers") . "
 	");
 
 	$get_h->execute() 
-		or $class->{_}->bail->(
+		or $self->{_}->bail->(
 			"glomule cache_headers failure: ".$db->errstr
 		);
 
@@ -150,7 +138,7 @@ sub cache_headers {
 		$gh->{name}{ $c }{ $n } = $data;
 	}
 
-	$class->{_}->cache->set(
+	$self->{_}->cache->set(
 		tbl		=> "glomule_headers",
 		ref		=> $gh,
 	);
@@ -161,17 +149,16 @@ sub cache_headers {
 #----------
 
 sub cache_data {
-	my $class = shift;
 	my $id = shift;
 
-	my $data = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{_}->core->tbl_name("glomule_data"),
+	my $data = $self->{_}->utils->g_load_tbl(
+		tbl		=> $self->{_}->core->tbl_name("glomule_data"),
 		ident	=> "id",
 		ids		=> [$id],
 		flat	=> 1,
 	);
 
-	$class->{_}->cache->set(
+	$self->{_}->cache->set(
 		tbl		=> "glomule_data",
 		first	=> $id,
 		ref		=> $data,

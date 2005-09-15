@@ -1,12 +1,17 @@
 package eThreads::Object::Template::Subtemplate;
 
-use base 'eThreads::Object::Template';
-
-use strict;
+use eThreads::Object::Template -Base;
+use eThreads::Object::Template::Subtemplate::Writable;
 
 #----------
 
-sub TABLE { "subtemplates" }
+const 'TABLE'	=> 'subtemplates';
+
+field 'writable'	=> 
+	-ro,
+	-init=>q! 
+		bless { %$self } , 'eThreads::Object::Template::Subtemplate::Writable';
+	!;
 
 #----------
 
@@ -18,23 +23,26 @@ sub type {
 	return undef;
 }
 
+sub qopts {
+	my @caller = caller;
+	$self->_->bail("called qopts on subtemplate: @caller");
+}
+
 #----------
 
 sub load_from_sub {
-	my $class = shift;
-
-	my $cache = $class->{_}->cache->get(
+	my $cache = $self->{_}->cache->get(
 		tbl		=> "subtemplates",
-		first	=> $class->{_}->container->id,
-		second	=> $class->{_}->look->id,
+		first	=> $self->{_}->container->id,
+		second	=> $self->{_}->look->id,
 	);
 
 	if (!$cache) {
-		$cache = $class->{_}->look->cache_subtemplates();
+		$cache = $self->{_}->look->cache_subtemplates();
 	}
 
-	if (my $tmplt = $cache->{ $class->{path} }) {
-		$class->{value} = $tmplt->{value};
+	if (my $tmplt = $cache->{ $self->{path} }) {
+		$self->{value} = $tmplt->{value};
 		return 1;
 	} else {
 		return undef;

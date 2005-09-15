@@ -245,7 +245,7 @@ sub determine_look {
 sub glomule_n2id {
 	my $name = shift;
 
-	my $gh = $self->_->glomule->load_headers;
+	my $gh = $self->_->glomule->headers;
 
 	if ( my $r = $gh->{name}{ $self->id }{ $name } ) {
 		return wantarray ? ($r->{id},$r) : $r->{id};
@@ -259,7 +259,7 @@ sub glomule_n2id {
 sub glomule_id2n {
 	my $id = shift;
 
-	my $gh = $self->_->glomule->load_headers;
+	my $gh = $self->_->glomule->headers;
 
 	if ( my $r = $gh->{container}{ $self->id }{ $id } ) {
 		return wantarray ? ($r->{name},$r) : $r->{name};

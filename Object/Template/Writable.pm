@@ -2,6 +2,8 @@ package eThreads::Object::Template::Writable;
 
 use eThreads::Object::Template -Base;
 
+const 'CAN_SET_TYPE' => 1;
+
 field 'look';
 field 'id';
 field 'path';
@@ -29,6 +31,21 @@ sub write {
 		# we're updating an existing template
 		warn "updating existing " . $self->id . "\n";
 
+		if ($self->CAN_SET_TYPE) {
+			# allow type update
+			$self->_->utils->set_value(
+				tbl		=> $self->TABLE,
+				keys	=> {
+					id	=> $self->id
+				},
+				value_field	=> 'type',
+				value		=> $self->type,
+			);
+		}
+
+		warn "calling set_value on tbl " . $self->TABLE . " with value: " . $self->value . "\n";
+
+		# update content
 		$self->_->utils->set_value(
 			tbl		=> $self->TABLE,
 			keys	=> {
@@ -46,7 +63,6 @@ sub write {
 		return $self;
 	} else {
 		# we're inserting a new template
-		warn "inserting new template\n";
 
 		# double-check that our path isn't used
 		if ( $self->look->has_template_by_path( $self->path ) ) {
@@ -55,15 +71,26 @@ sub write {
 			);
 		} 
 
-		$self->_->utils->set_value(
-			tbl			=> $self->TABLE,
-			keys		=> {
-				name	=> $self->path,
-				look	=> $self->look->id,
-				c_type	=> $self->{type}
-			},
-			value		=> $self->value
-		);
+		if ( $self->CAN_SET_TYPE ) {
+			$self->_->utils->set_value(
+				tbl			=> $self->TABLE,
+				keys		=> {
+					name	=> $self->path,
+					look	=> $self->look->id,
+					c_type	=> $self->{type}
+				},
+				value		=> $self->value
+			);
+		} else {
+			$self->_->utils->set_value(
+				tbl			=> $self->TABLE,
+				keys		=> {
+					name	=> $self->path,
+					look	=> $self->look->id,
+				},
+				value		=> $self->value
+			);
+		}
 
 		# update time on templates for the look
 		$self->_->cache->update_times->set(
@@ -71,9 +98,15 @@ sub write {
 			first	=> $self->look->id
 		);
 
+		# undef the template map if it exists
+		# FIXME: there should be a less intrusive way to do this
+		undef $self->look->{ $self->TABLE };
+
 		# get our id
-		my $id = $self->look->has_template_by_path( $self->path )
-			or $self->_->bail->("Couldn't get id for new template.");
+		my $id = $self->look->has_template_path_in_table( 
+			$self->TABLE, 
+			$self->path 
+		) or $self->_->bail->("Couldn't get id for new template.");
 
 		$self->id( $id );
 

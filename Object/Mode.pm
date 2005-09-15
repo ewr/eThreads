@@ -172,7 +172,7 @@ sub prewalk_glomule {
 		"GHolders::RegisterContext"
 	)->set($ctx);
 
-	$g->connect_to_gholders($rctx);
+	$g->gholders($rctx);
 
 	$class->{_}->gholders->register([$ctx,1]);
 

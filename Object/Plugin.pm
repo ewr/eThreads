@@ -1,37 +1,39 @@
 package eThreads::Object::Plugin;
 
-use strict;
+use Spiffy -Base;
 
 use eThreads::Object::Plugin::CountBlogComments;
+use eThreads::Object::Plugin::KillSpammers;
 use eThreads::Object::Plugin::RecentComments;
 
 #----------
 
+field '_'	=> -ro;
+field 'i'	=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub load {
-	my $class = shift;
 	my $type = shift;
 
-	my $plugin = $class->{_}->settings->{plugins}{ $type };
+	my $plugin = $self->{_}->settings->{plugins}{ $type };
 
 	return undef if (!$plugin);
 
 	my $pkg = "eThreads::Object::Plugin::$plugin";
 	eval "require $pkg";
-	return $class->{_}->switchboard->new_object('Plugin::'.$plugin,@_);
+	return $self->{_}->switchboard->new_object('Plugin::'.$plugin,@_);
 }
 
 #----------
@@ -52,7 +54,7 @@ be supersetted by plugin objects.
 To create a plugin, make an object like eThreads::Object::Plugin::Foo.  The 
 plugin should have an activate function, and this is where you'll create / 
 register / do / whatever your functionality.  Your object will be given a 
-custom switchboard that will have a register context at $class->{_}->rctx.
+custom switchboard that will have a register context at $self->{_}->rctx.
 
 =head1 AUTHOR
 

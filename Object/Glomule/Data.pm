@@ -1,14 +1,19 @@
 package eThreads::Object::Glomule::Data;
 
-use strict;
+use Spiffy -Base;
 
 #----------
 
+field '_' => -ro;
+field 'gholders';
+field 'controller'	=> -ro;
+field 'type'		=> -ro;
+field 'name'		=> -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		id			=> undef,
 		name		=> undef,
 		controller	=> undef,
@@ -16,73 +21,67 @@ sub new {
 		data		=> {},
 		@_,
 		_			=> $data,
-	} , $class ); 
+	} , $self ); 
 
-#	if (!$class->{name}) {
-#		$class->{_}->bail->("Invalid glomule data init: no name");
+#	if (!$self->{name}) {
+#		$self->{_}->bail->("Invalid glomule data init: no name");
 #	}
 
-	if (!$class->{type}) {
-		$class->{_}->bail->("Invalid glomule data init: no type");
+	if (!$self->{type}) {
+		$self->{_}->bail->("Invalid glomule data init: no type");
 	}
 
-	if (!$class->{controller}) {
-		$class->{_}->bail->("Invalid glomule data init: no controller");
+	if (!$self->{controller}) {
+		$self->{_}->bail->("Invalid glomule data init: no controller");
 	}
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
-
-	undef $class->{controller};
-	%{$class->{system}} = ();
-	undef $class->{system};
-	%{$class->{prefs}} = ();
-	undef $class->{prefs};
-	
+	undef $self->{controller};
+	%{$self->{system}} = ();
+	undef $self->{system};
+	%{$self->{prefs}} = ();
+	undef $self->{prefs};
 }
 
 #----------
 
 sub activate {
-	my $class = shift;
-
-	$class->load_info;
+	$self->load_info;
 
 	# -- load systems -- #
 
-	foreach my $s ( $class->controller->systems ) {
+	foreach my $s ( $self->controller->systems ) {
 		my $obj 
-			= $class->{system}{ $s->name } 
-				= $class->{_}->system->load($s->object);
+			= $self->{system}{ $s->name } 
+				= $self->{_}->system->load($s->object);
 
-		$class->{_}->objects->activate($obj);
+		$self->{_}->objects->activate($obj);
 	}
 
 	# -- register prefs -- #
 
-	$class->register_prefs( scalar $class->controller->prefs );
+	$self->register_prefs( scalar $self->controller->prefs );
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub has_function {
-	my $class = shift;
 	my $func = shift;
 
 	# strip any leading slashes
 	$func =~ s!^/!!;
 
-	if (my $f = $class->controller->has_function($func)) {
-		my $fobj = $class->{_}->new_object(
+	if (my $f = $self->controller->has_function($func)) {
+		my $fobj = $self->{_}->new_object(
 			'Glomule::Function',
-			$class, 
+			$self, 
 			{
 				name	=> $f->name,
 				object	=> $f->object,
@@ -99,79 +98,40 @@ sub has_function {
 
 #----------
 
-sub connect_to_gholders {
-	my $class = shift;
-	my $gholders = shift;
-
-	$class->{gholders} = $gholders;
-
-	return 1;
-}
-
-#----------
-
-sub gholders {
-	shift->{gholders};
-}
-
-#----------
-
-sub controller {
-	shift->{controller};
-}
-
-#----------
-
 sub system {
-	my $class = shift;
 	my $sys = shift;
-
-	$class->{system}{ $sys };
-}
-
-#----------
-
-sub type {
-	shift->{type};
-}
-
-#----------
-
-sub name {
-	shift->{name};
+	$self->{system}{ $sys };
 }
 
 #----------
 
 sub data {
-	my $class = shift;
 	my $name = shift;
-	return $class->{data}{$name};
+	return $self->{data}{$name};
 }
 
 #----------
 
 sub register_data {
-	my $class = shift;
 	my $name = shift;
 	my $value = shift;
 
-	$class->{_}->utils->set_value(
+	$self->{_}->utils->set_value(
 		tbl		=> "glomule_data",
 		keys	=> {
 			ident	=> $name,
-			id		=> scalar $class->id,
+			id		=> scalar $self->id,
 		},
 		value	=> $value,
 	);
 
-	$class->{_}->cache->update_times->set(
+	$self->{_}->cache->update_times->set(
 		tbl		=> "glomule_data",
-		first	=> scalar $class->id,
+		first	=> scalar $self->id,
 		ts		=> time,
 	);
 
-	$class->{data}{ $name } = $value;
+	$self->{data}{ $name } = $value;
 
 	return 1;
 }
@@ -179,52 +139,48 @@ sub register_data {
 #----------
 
 sub id {
-	my $class = shift;
-
-	if ($class->{id}) {
+	if ($self->{id}) {
 		if ( wantarray ) {
-			my $gh = $class->{_}->glomule->load_headers;
-			return ( $class->{id} , $gh->{id}{ $class->{id} } );
+			my $gh = $self->{_}->glomule->headers;
+			return ( $self->{id} , $gh->{id}{ $self->{id} } );
 		} else {
-			return $class->{id};
+			return $self->{id};
 		}
 	} else {
-		$class->{_}->glomule->name2id($class->{name});
+		$self->{_}->glomule->name2id($self->{name});
 	}
 }
 
 #----------
 
 sub load_info {
-	my $class = shift;
-
-	if (!$class->{name}) {
+	if (!$self->{name}) {
 		# try the default name
-		$class->{name} = $class->controller->default;
+		$self->{name} = $self->controller->default;
 	}
 
 	# -- figure out our id -- #
 
-	my ($id,$gh) = $class->id;
+	my ($id,$gh) = $self->id;
 
 	if (!$id) {
 		# we need to create our glomule
-		$class->initialize;
+		$self->initialize;
 
 		# now we get this again, since we're too lazy to get the 
 		# object elsewise
-		($id,$gh) = $class->id;
+		($id,$gh) = $self->id;
 	}
 
 	# -- load glomule data -- #
 
-	my $gd = $class->{_}->cache->get(
+	my $gd = $self->{_}->cache->get(
 		tbl		=> "glomule_data",
 		first	=> $id,
 	);
 
 	if (!$gd) {
-		$gd = $class->{_}->glomule->cache_data(
+		$gd = $self->{_}->glomule->cache_data(
 			$id
 		);
 	}
@@ -233,8 +189,8 @@ sub load_info {
 
 	foreach my $h ($gh,$gd) {
 		while ( my ($k,$v) = each %$h ) {
-			next if ($class->{data}{$k});
-			$class->{data}{$k} = $v;
+			next if ($self->{data}{$k});
+			$self->{data}{$k} = $v;
 		}
 	}
 
@@ -244,33 +200,31 @@ sub load_info {
 #----------
 
 sub initialize {
-	my $class = shift;
-
 	# ok, we need to create an entry in glomule_headers and get an id 
 	# for our efforts
 
-	my $ins = $class->{_}->core->get_dbh->prepare("
+	my $ins = $self->{_}->core->get_dbh->prepare("
 		insert into 
-			" . $class->{_}->core->tbl_name("glomule_headers") . "
+			" . $self->{_}->core->tbl_name("glomule_headers") . "
 		(id,container,name,natural_type,parent) 
 		values(0,?,?,?,?)
 	");
 
 	$ins->execute(
-		$class->{_}->container->id,
-		$class->{name},
-		$class->TYPE,
+		$self->{_}->container->id,
+		$self->{name},
+		$self->TYPE,
 		0
-	) or $class->{_}->bail->("couldn't init glomule: " . $ins->errstr);
+	) or $self->{_}->bail->("couldn't init glomule: " . $ins->errstr);
 
-	$class->{_}->cache->update_times->set(
+	$self->{_}->cache->update_times->set(
 		tbl	=> "glomule_headers",
 		ts	=> time,
 	);
 
 	# -- now create tables -- #
 
-	$class->create_tables;
+	$self->create_tables;
 
 	return 1;
 }
@@ -278,89 +232,83 @@ sub initialize {
 #----------
 
 sub create_tables {
-	my $class = shift;
-	
 	# -- create headers tbl -- #
 
-	my $headers = $class->{_}->utils->create_table(
-		$class->{_}->utils->get_unused_tbl_name("glomheaders"),
-		$class->header_fields
+	my $headers = $self->{_}->utils->create_table(
+		$self->{_}->utils->get_unused_tbl_name("glomheaders"),
+		$self->header_fields
 	);
 
-	$class->register_data("headers",$headers);
+	$self->register_data("headers",$headers);
 
 	# -- now create data tbl -- #
 
-	my $data = $class->{_}->utils->create_table(
-		$class->{_}->utils->get_unused_tbl_name("glomdata"),
-		$class->_data_tbl_fields,
+	my $data = $self->{_}->utils->create_table(
+		$self->{_}->utils->get_unused_tbl_name("glomdata"),
+		$self->_data_tbl_fields,
 	);
 
-	$class->register_data("data",$data);
+	$self->register_data("data",$data);
 }
 
 #----------
 
 sub register_prefs {
-	my $class = shift;
 	my $prefs = shift;
 
 	foreach my $p (@$prefs) {
-		my $obj = $class->{_}->new_object("Glomule::Pref")->init($p);
-		$class->{prefs}{ $p->{name} } = $obj;
+		my $obj = $self->{_}->new_object("Glomule::Pref")->init($p);
+		$self->{prefs}{ $p->{name} } = $obj;
 	}
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub load_prefs {
-	my $class = shift;
-
-	my $core = $class->{_}->core;
+	my $core = $self->{_}->core;
 
 	# -- first load glomule-wide prefs -- #
 
-	my $gp = $class->{_}->cache->get(
+	my $gp = $self->{_}->cache->get(
 		tbl		=> "prefs",
-		first	=> $class->{id},
+		first	=> $self->{id},
 	);
 
 	if (!$gp) {
-		$gp = $class->cache_glomule_prefs;
+		$gp = $self->cache_glomule_prefs;
 	}
 
 	# -- next load look-specific prefs -- #
 
-	my $lp = $class->{_}->cache->get(
+	my $lp = $self->{_}->cache->get(
 		tbl		=> "prefs",
-		first	=> $class->{id},
-		second	=> $class->{_}->look->id
+		first	=> $self->{id},
+		second	=> $self->{_}->look->id
 	);
 
 	if (!$lp) {
-		$lp = $class->cache_look_prefs;
+		$lp = $self->cache_look_prefs;
 	}
 
 	foreach my $ps ($gp,$lp) {
 		while ( my ($k,$v) = each %$ps ) {
-			my $obj = $class->pref($k);
+			my $obj = $self->pref($k);
 			next if (!$obj);
 			$obj->set($v);
 		}
 	}
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub pref {
-	my $class = shift;
 	my $pref = shift;
 
-	return $class->{prefs}{ $pref };
+	return $self->{prefs}{ $pref };
 }
 
 #----------
