@@ -763,29 +763,59 @@ sub copy_look {
 
 		foreach my $t (@tmplts) {
 			# get a template object for the from template
-			my $fromobj = $from->load( $t->{id} );
+			my $fromobj = $from->load_template( $t->{id} );
 
 			# check if we have a template in the to look with the same name
 			if ( my $existing = $to->load_template_by_path( $t->{path} ) ) {
 				my $write = $existing->writable;
 
 				$write->value( $fromobj->value );
-				$write->type( $fromobj->type );
+				$write->type( $fromobj->{type} );
 
 				$write->write;
 			} else {
 				# new template
-				my $new = $self->_->new_object('Template::Writable');
+				my $new = $to->new_template;
 
 				$new->look( $to );
 				$new->path( $fromobj->path );
-				$new->type( $fromobj->type );
+				$new->type( $fromobj->{type} );
 				$new->value( $fromobj->value );
 
 				$new->write;
 			}
 		}
 	}
+
+	# -- copy subtemplates -- #
+
+	{
+		# get the templates in the "from" look and map to an array
+		my $tmplts = $from->subtemplates;
+		my @tmplts = map { $tmplts->{ $_ } } ( keys %$tmplts );
+
+		foreach my $t (@tmplts) {
+			# get a template object for the from template
+			my $fromobj = $from->load_subtemplate( $t->{id} );
+
+			# check if we have a template in the to look with the same name
+			if ( my $existing = $to->load_subtemplate_by_path( $t->{path} ) ) {
+				my $write = $existing->writable;
+				$write->value( $fromobj->value );
+				$write->write;
+			} else {
+				# new template
+				my $new = $to->new_subtemplate;
+
+				$new->look( $to );
+				$new->path( $fromobj->path );
+				$new->value( $fromobj->value );
+
+				$new->write;
+			}
+		}
+	}
+
 }
 
 #----------

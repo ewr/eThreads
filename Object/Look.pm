@@ -292,7 +292,6 @@ sub load_subtemplate_by_path {
 	my $tm = $self->subtemplates;
 
 	if ( !$tm->{ $path } ) {
-		warn "no subtemplate for path: $path\n";
 		return undef;
 	}
 

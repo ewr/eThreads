@@ -29,8 +29,6 @@ sub write {
 
 	if ($self->id) {
 		# we're updating an existing template
-		warn "updating existing " . $self->id . "\n";
-
 		if ($self->CAN_SET_TYPE) {
 			# allow type update
 			$self->_->utils->set_value(
@@ -38,12 +36,10 @@ sub write {
 				keys	=> {
 					id	=> $self->id
 				},
-				value_field	=> 'type',
-				value		=> $self->type,
+				value_field	=> 'c_type',
+				value		=> $self->{type},
 			);
 		}
-
-		warn "calling set_value on tbl " . $self->TABLE . " with value: " . $self->value . "\n";
 
 		# update content
 		$self->_->utils->set_value(
@@ -65,9 +61,12 @@ sub write {
 		# we're inserting a new template
 
 		# double-check that our path isn't used
-		if ( $self->look->has_template_by_path( $self->path ) ) {
+		if ( $self->look->has_template_path_in_table( 
+			$self->TABLE, 
+			$self->path 
+		) ) {
 			$self->_->bail->(
-				'Template with path "'.$self->path.'" already exists.'
+				'Name "'.$self->path.'" already exists in ' . $self->TABLE
 			);
 		} 
 
