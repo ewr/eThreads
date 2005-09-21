@@ -43,7 +43,7 @@ sub f_looks {
 	my $fobj = shift;
 
 	# get info on the looks for this container
-	my $looks = $self->_->ocontainer->get_looks;
+	my $looks = $self->_->ocontainer->looks;
 
 	# -- see if we're creating a new look -- #
 

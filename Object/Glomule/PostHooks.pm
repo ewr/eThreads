@@ -39,11 +39,12 @@ sub hooks {
 
 sub run {
 	my $post = shift;
+	my $gtype = shift;
 
 	my $status = 1;
 	foreach my $h ( $self->hooks ) {
 		# run the hook
-		my ($s,$msg) = $h->( $self , $post );
+		my ($s,$msg) = $h->( $self , $post , $gtype );
 
 		if ($s == $self->OK || $s == $self->PASS ) {
 			# cool, next

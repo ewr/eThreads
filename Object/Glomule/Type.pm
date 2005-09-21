@@ -230,8 +230,8 @@ sub post {
 	{
 		my $h = $fobj->glomule->posthooks;
 
-		$h->run( $post )
-			or $self->_->bail( 'Denied by PostHook: ' . $h->msg );
+		$h->run( $post , $self )
+			or $self->_->bail->( 'Denied by PostHook: ' . $h->msg );
 	}
 
 	# -- Now proceed to posting -- #

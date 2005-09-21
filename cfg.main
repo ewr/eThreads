@@ -50,6 +50,7 @@ plugins			=> {
 	CountBlogComments	=> "CountBlogComments",
 	RecentComments		=> "RecentComments",
 	KillSpammers		=> "KillSpammers",
+	BannedWords			=> "BannedWords",
 },
 
 modes		=> {
@@ -108,4 +109,8 @@ plugin_cfg	=> {
 		'64.21.21.236'	=> 1,
 		'66.29.2.244'	=> 1,
 	},
+	BannedWords		=> [
+		'phentermine',
+
+	],
 }
