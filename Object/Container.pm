@@ -5,6 +5,11 @@ use Spiffy -Base;
 field '_'		=> -ro;
 field 'path' 	=> -ro;
 field 'data'	=> -ro, -init=>q!$self->load_data!;
+field 'looks'	=>
+	-init=>q!
+		$self->_->cache->get( tbl=>"looks" , first=>$self->id )
+			or $self->cache_looks();
+	!, -ro;
 
 sub new {
 	my $data = shift;
@@ -153,16 +158,13 @@ sub cache_data {
 #----------
 
 sub get_default_look {
-	my $looks = $self->get_looks;
-
-	$self->_->bail->("Container has no default look") 
-		if (!$looks->{DEFAULT});
+	if (!$self->looks->{DEFAULT}) {
+		$self->_->bail->("Container has no default look");
+	}
 
 	my $l = $self->_->new_object(
 		"Look",
-		id		=> $looks->{DEFAULT}->{id},
-		name	=> $looks->{DEFAULT}->{name},
-		type	=> $looks->{DEFAULT}->{type}
+		%{ $self->looks->{DEFAULT} }
 	);
 
 	return $l;
@@ -173,14 +175,10 @@ sub get_default_look {
 sub is_valid_look_name {
 	my $name = shift;
 
-	my $looks = $self->get_looks;
-
-	if (my $l = $looks->{name}{ $name }) {
+	if (my $l = $self->looks->{name}{ $name }) {
 		my $obj = $self->_->new_object(
 			'Look',
-			id		=> $l->{id},
-			name	=> $l->{name},
-			type	=> $l->{type}
+			%$l
 		);
 	
 		return $obj;
@@ -194,14 +192,10 @@ sub is_valid_look_name {
 sub is_valid_look {
 	my $id = shift;
 
-	my $looks = $self->get_looks;
-
-	if (my $l = $looks->{id}{ $id }) {
+	if (my $l = $self->looks->{id}{ $id }) {
 		my $obj = $self->_->new_object(
 			'Look',
-			id		=> $l->{id},
-			name	=> $l->{name},
-			type	=> $l->{type}
+			%$l
 		);
 	
 		return $obj;
@@ -212,32 +206,33 @@ sub is_valid_look {
 
 #----------
 
-sub get_looks {
-	my $looks = $self->_->cache->get(tbl=>"looks");
-
-	if (!$looks) {
-		$looks = $self->_->instance->cache_looks();
-	}
-
-	return $looks->{ $self->id };
-}
-
-#----------
-
 sub determine_look {
 	# -- figure out what look we're using -- #
 
-	my $look = $self->_->raw_queryopts->get('look');
+	my $uri = $self->_->RequestURI->unclaimed || '';
+
+	my $look = '';
+	{
+		my @parts = split("/",$uri);
+
+		foreach my $p (@parts) {
+			next if (!$p);
+			my $test = $look ? ( $look . "/" . $p ) : $p;
+			if ( $self->looks->{name}{ $test } ) {
+				$look = $test;
+			} else {
+				last;
+			}
+		}
+	}
+
+	$self->_->RequestURI->claim($look);
 
 	if ($look && (my $obj = $self->is_valid_look_name($look))) {
 		return $obj;
 	} else {
 		return $self->get_default_look;
 	}
-
-	#$self->{look} = $look;
-
-	#return $look;
 }
 
 #----------
@@ -266,6 +261,48 @@ sub glomule_id2n {
 	} else {
 		return undef;
 	}
+}
+
+#----------
+
+sub cache_looks {
+	my $get = $self->_->core->get_dbh->prepare("
+		select 
+			id,
+			name,
+			type,
+			is_default 
+		from 
+			" . $self->_->core->tbl_name("looks") . "
+		where 
+			container = ?
+	");
+
+	$get->execute( $self->id ) 
+		or $self->_->bail->("cache_looks failure: ".$get->errstr);
+
+	my ($id,$n,$t,$d);
+	$get->bind_columns( \($id,$n,$t,$d) );
+
+	my $l = {};
+	while ($get->fetch) {
+		my $ref = {
+			name		=> $n,
+			id			=> $id,
+			type		=> $t,
+		};
+		$l->{id}{$id} = $ref;
+		$l->{name}{$n} = $ref;
+		$l->{DEFAULT} = $ref if ($d);
+	}
+
+	$self->_->cache->set(
+		tbl		=> "looks",
+		first	=> $self->id,
+		ref		=> $l,
+	);
+
+	return $l;
 }
 
 #----------

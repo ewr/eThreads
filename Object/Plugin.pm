@@ -2,14 +2,11 @@ package eThreads::Object::Plugin;
 
 use Spiffy -Base;
 
-use eThreads::Object::Plugin::CountBlogComments;
-use eThreads::Object::Plugin::KillSpammers;
-use eThreads::Object::Plugin::RecentComments;
-
 #----------
 
 field '_'	=> -ro;
 field 'i'	=> -ro;
+field 'cfg';
 
 sub new {
 	my $data = shift;
@@ -33,7 +30,13 @@ sub load {
 
 	my $pkg = "eThreads::Object::Plugin::$plugin";
 	eval "require $pkg";
-	return $self->{_}->switchboard->new_object('Plugin::'.$plugin,@_);
+	my $o = $self->{_}->switchboard->new_object('Plugin::'.$plugin,@_);
+
+	if (my $cfg = $self->_->settings->{plugin_cfg}{ $plugin }) {
+		$o->cfg($cfg);
+	}
+
+	return $o;
 }
 
 #----------

@@ -2,6 +2,8 @@ package eThreads::Object::Glomule::Data;
 
 use Spiffy -Base;
 
+use eThreads::Object::Glomule::PostHooks;
+
 #----------
 
 field '_' => -ro;
@@ -9,6 +11,10 @@ field 'gholders';
 field 'controller'	=> -ro;
 field 'type'		=> -ro;
 field 'name'		=> -ro;
+
+field 'posthooks'	=> 
+	-ro, 
+	-init=>q!$self->_->new_object('Glomule::PostHooks')!;
 
 sub new {
 	my $data = shift;
@@ -147,7 +153,7 @@ sub id {
 			return $self->{id};
 		}
 	} else {
-		$self->{_}->glomule->name2id($self->{name});
+		$self->_->container->glomule_n2id( $self->{name} );
 	}
 }
 
@@ -210,10 +216,12 @@ sub initialize {
 		values(0,?,?,?,?)
 	");
 
+	my $typeobj = $self->_->glomule->typeobj( $self->type );
+
 	$ins->execute(
 		$self->{_}->container->id,
 		$self->{name},
-		$self->TYPE,
+		$self->type,
 		0
 	) or $self->{_}->bail->("couldn't init glomule: " . $ins->errstr);
 
@@ -222,33 +230,14 @@ sub initialize {
 		ts	=> time,
 	);
 
+	# FIXME: this is invasive.  cache needs to handle this somehow on update
+	undef $self->_->glomule->{headers};
+
 	# -- now create tables -- #
 
-	$self->create_tables;
+	$typeobj->create_tables($self);
 
 	return 1;
-}
-
-#----------
-
-sub create_tables {
-	# -- create headers tbl -- #
-
-	my $headers = $self->{_}->utils->create_table(
-		$self->{_}->utils->get_unused_tbl_name("glomheaders"),
-		$self->header_fields
-	);
-
-	$self->register_data("headers",$headers);
-
-	# -- now create data tbl -- #
-
-	my $data = $self->{_}->utils->create_table(
-		$self->{_}->utils->get_unused_tbl_name("glomdata"),
-		$self->_data_tbl_fields,
-	);
-
-	$self->register_data("data",$data);
 }
 
 #----------

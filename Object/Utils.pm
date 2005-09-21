@@ -1,6 +1,7 @@
 package eThreads::Object::Utils;
 
 use Spiffy -Base;
+no warnings;
 
 #----------
 
@@ -94,7 +95,7 @@ sub g_load_tbl {
 
 	my $db = $self->_->core->get_dbh;
 
-	my $where;
+	my $where = '';
 	my @values;
 	if ($args{get_all}) {
 		# $where stays null

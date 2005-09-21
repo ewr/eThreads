@@ -48,8 +48,12 @@ sub f_looks {
 	# -- see if we're creating a new look -- #
 
 	if ( $fobj->bucket->get('create') ) {
-		warn "creating look\n";
-		if ( $self->_create_look($fobj->bucket->get('name')) ) {
+		my $name = $fobj->bucket->get('name');
+
+		my $write = $self->_->ocontainer->new_look();
+		$write->name($name);
+		
+		if ( $write->write ) {
 			$fobj->gholders->register('message',"New look created");
 			warn "created look\n";
 			$looks = $self->_->ocontainer->get_looks;

@@ -19,6 +19,41 @@ sub type {
 	return $self->{type_obj};
 }
 
+sub delete {
+	if ( !$self->id ) {
+		return undef;
+	}
+
+	# just write a null value...  set_value will handle the delete
+	$self->_->utils->set_value(
+		tbl		=> $self->TABLE,
+		keys	=> {
+			id	=> $self->id
+		},
+		value	=> undef,
+	);
+
+	# remove the appropriate cache file
+	$self->_->cache->expire(
+		tbl		=> $self->TABLE,
+		first	=> $self->look->id,
+		second	=> $self->id
+	);
+
+	# make sure we don't keep a cached templates hash in mem
+	# FIXME: there should be a less intrusive way to do this
+
+	undef $self->look->{ $self->TABLE };
+
+	# update the timestamp on the look
+	$self->_->cache->update_times->set(
+		tbl		=> $self->TABLE,
+		first	=> $self->look->id
+	);
+
+	return 1;
+}
+
 sub write {
 	if (!$self->look) {
 		$self->_->bail->('Unable to write template without a look');

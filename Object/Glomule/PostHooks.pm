@@ -8,6 +8,8 @@ const 'OK'		=> 10;
 const 'PASS'	=> 5;
 const 'FAIL'	=> 0;
 
+field 'msg';
+
 sub new {
 	my $swb = shift;
 	$self = bless { _ => $swb } , $self;
@@ -31,6 +33,34 @@ sub register {
 
 sub hooks {
 	wantarray ? @{ $self->{hooks} } : $self->{hooks};
+}
+
+#----------
+
+sub run {
+	my $post = shift;
+
+	my $status = 1;
+	foreach my $h ( $self->hooks ) {
+		# run the hook
+		my ($s,$msg) = $h->( $self , $post );
+
+		if ($s == $self->OK || $s == $self->PASS ) {
+			# cool, next
+			next;
+		} else {
+			$self->msg($msg);
+			$status = 0;
+			last;
+		}
+	}
+
+	if ($status) {
+		# we're cool
+		return $self->OK;
+	} else {
+		return $self->FAIL;
+	}
 }
 
 

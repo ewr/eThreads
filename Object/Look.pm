@@ -14,7 +14,7 @@ field 'templates'	=>
 	-ro,
 	-init=>q!
 		$self->_->cache->get(tbl=>'templates',first=>$self->id)
-			or $self->cache_template_map();
+			or $self->cache_templates();
 	!;
 
 field 'subtemplates'	=>
@@ -23,6 +23,10 @@ field 'subtemplates'	=>
 		$self->_->cache->get(tbl=>'subtemplates',first=>$self->id)
 			or $self->cache_subtemplates();
 	!;
+
+field 'is_admin'	=> 
+	-ro,
+	-init=>q! ( $self->{type} eq "ADMIN" ) ? 1 : undef !;
 
 #----------
 
@@ -46,26 +50,8 @@ sub DESTROY {
 
 #----------
 
-sub cachable {
-	return {
-		id		=> $self->id,
-		name	=> $self->name,
-		type	=> $self->type,
-	};
-}
-
-#----------
-
-sub is_admin { 
-	return ( $self->{type} eq "ADMIN" ) ? 1 : undef;
-}
-
-#----------
-
-sub cache_template_map {
-	my $db = $self->_->core->get_dbh;
-
-	my $get_templates = $db->prepare("
+sub cache_templates {
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			name,
 			c_type,
@@ -76,14 +62,14 @@ sub cache_template_map {
 			look = ? 
 	");
 
-	$self->bail("cache_template_map error: ".$db->errstr) 
-		unless ( $get_templates->execute( $self->id ) );
+	$get->execute( $self->id )
+		or $self->_->bail->('cache_templates error: ' . $get->errstr);
 
 	my ($name,$type,$id);
-	$get_templates->bind_columns( \($name,$type,$id) );
+	$get->bind_columns( \($name,$type,$id) );
 
 	my $m = {};
-	while ($get_templates->fetch) {
+	while ($get->fetch) {
 		$m->{ $name } = {
 			path	=> $name,
 			type	=> $type,
@@ -141,7 +127,7 @@ sub cache_subtemplates {
 #----------
 
 sub determine_template {
-	# -- load the template map for this container and look -- #
+	# -- load the template map for this look -- #
 	my $tm = $self->templates;
 
 	my $uri = $self->_->RequestURI->unclaimed || '';
@@ -376,15 +362,11 @@ what template should be called.
 
 Return a new look object.  You should pass it the look id.
 
-=item cachable 
-
-Return the cachable items for the look.  These are just id and name.
-
 =item id 
 
 Return the look id
 
-=item cache_template_map
+=item cache_templates
 
 Cache the template map for the look.
 
