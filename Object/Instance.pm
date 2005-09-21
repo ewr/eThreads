@@ -304,51 +304,6 @@ sub cache_user_headers {
 
 #----------
 
-sub cache_looks {
-	my $class = shift;
-
-	my $db = $class->{_}->core->get_dbh;
-
-	my $get_looks = $db->prepare("
-		select 
-			id,
-			name,
-			container,
-			type,
-			is_default 
-		from 
-			" . $class->{_}->core->tbl_name("looks") . "
-	");
-
-	$class->{_}->bail->("cache_looks failure: ".$db->errstr) 
-		unless ($get_looks->execute);
-
-	my ($id,$n,$c,$t,$d);
-	$get_looks->bind_columns( \($id,$n,$c,$t,$d) );
-
-	my $l = {};
-	while ($get_looks->fetch) {
-		my $ref = {
-			name		=> $n,
-			id			=> $id,
-			container	=> $c,
-			type		=> $t,
-		};
-		$l->{$c}{id}{$id} = $ref;
-		$l->{$c}{name}{$n} = $ref;
-		$l->{$c}{DEFAULT} = $ref if ($d);
-	}
-
-	$class->{_}->cache->set(
-		tbl	=> "looks",
-		ref	=> $l,
-	);
-
-	return $l;
-}
-
-#----------
-
 sub cache_domains {
 	my $class = shift;
 

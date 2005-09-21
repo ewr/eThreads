@@ -1,6 +1,7 @@
 package eThreads::Object::Mode;
 
-use strict;
+use Spiffy -Base;
+no warnings;
 
 use eThreads::Object::Mode::Admin;
 use eThreads::Object::Mode::Auth;
@@ -8,40 +9,26 @@ use eThreads::Object::Mode::Normal;
 
 #----------
 
-sub IS_ADMIN { 0; }
+const 'IS_ADMIN' => 0;
 
-sub new {
-	die "Cannot directly load Mode object\n";
-}
+field '_' 		=> -ro;
+field 'path'	=> -ro;
+field 'mode'	=> -init=>q! ref($self) =~ /::([^:]+)$/; $1 !, -ro;
 
-#----------
-
-sub path {
-	return shift->{path};
-}
-
-#----------
-
-sub mode {
-	my $class = shift;
-	my ($mode) = ref($class) =~ m!::([^:]+)$!;
-	return $mode;
-}
+stub 'new';
 
 #----------
 
 sub determine_container {
-	my $class = shift;
-
 	# -- load our container cache -- #
 
-	my $gh = $class->{_}->instance->load_containers();
+	my $gh = $self->_->instance->load_containers();
 
 	# -- match as much container as possible -- #
 
-	my $container = $class->{root}{name};
+	my $container = $self->{root}{name};
 	{
-		my @parts = split( "/" , $class->{_}->RequestURI->unclaimed );
+		my @parts = split( "/" , $self->_->RequestURI->unclaimed );
 
 		foreach my $p (@parts) {
 			next if (!$p);
@@ -56,9 +43,9 @@ sub determine_container {
 		$container = "/" if (!$container);
 	}
 
-	$class->{_}->RequestURI->claim($container);
+	$self->_->RequestURI->claim($container);
 
-	my $c = $class->get_container($container);
+	my $c = $self->get_container($container);
 
 	#$c->{path} = $container;
 	#$c->{id} = $gh->{$container};
@@ -69,12 +56,11 @@ sub determine_container {
 #----------
 
 sub get_container {
-	my $class	= shift;
 	my $path 	= shift;
 
-	my $gh = $class->{_}->instance->load_containers();
+	my $gh = $self->_->instance->load_containers();
 
-	my $c = $class->{_}->instance->new_object(
+	my $c = $self->_->instance->new_object(
 		"Container",
 		path	=> $path,
 		id		=> $gh->{ $path },
@@ -86,35 +72,34 @@ sub get_container {
 #----------
 
 sub prewalk_plugin {
-	my $class = shift;
 	my $i = shift;
 
 	my $type = $i->args->{type} || $i->args->{DEFAULT};
 	my $named = $i->args->{ctx};
 
-	my $obj = $class->{_}->plugins->load($type,i=>$i)
-		or $class->{_}->bail->("Plugin didn't load: $type");
+	my $obj = $self->_->plugins->load($type,i=>$i)
+		or $self->_->bail->("Plugin didn't load: $type");
 
 	# -- get an empty context under the plugin space -- #
 
-	my $ctx = $class->{_}->gholders->get_unused_child("plugin." . $type);
+	my $ctx = $self->_->gholders->get_unused_child("plugin." . $type);
 
 	# -- if we want a named context, create that -- #
 
 	if ($named) {
-		$class->{_}->gholders->register_blank($ctx);
-		$class->{_}->gholders->new_named_ctx($named,$ctx);
+		$self->_->gholders->register_blank($ctx);
+		$self->_->gholders->new_named_ctx($named,$ctx);
 	}
 
 	# -- create a register context for the plugin -- #
 
-	my $rctx = $class->{_}->instance->new_object(
+	my $rctx = $self->_->instance->new_object(
 		"GHolders::RegisterContext"
 	)->set($ctx);
 
 	# -- create a custom switchboard for the plugin -- #
 
-	my $swb = $class->{_}->switchboard->custom;
+	my $swb = $self->_->switchboard->custom;
 
 	# -- connect the pieces together -- #
 
@@ -124,7 +109,7 @@ sub prewalk_plugin {
 
 	# -- activate the plugin -- #
 	
-	$class->{_}->objects->activate($obj);
+	$self->_->objects->activate($obj);
 
 	# -- register plugin in shadow item notes -- #
 
@@ -134,7 +119,6 @@ sub prewalk_plugin {
 #----------
 
 sub walk_plugin {
-	my $class = shift;
 	my $i = shift;
 
 	my $obj = $i->note("object");
@@ -149,7 +133,6 @@ sub walk_plugin {
 #----------
 
 sub prewalk_glomule {
-	my $class = shift;
 	my $type = shift;
 	my $i = shift;
 
@@ -158,7 +141,7 @@ sub prewalk_glomule {
 
 	# -- try to load the glomule -- #
 
-	my $g = $class->{_}->glomule->load(
+	my $g = $self->_->glomule->load(
 		type	=> $type,
 		name	=> $glomule,
 		i		=> $i
@@ -166,18 +149,18 @@ sub prewalk_glomule {
 
 	# -- get an empty context under the plugin space -- #
 
-	my $ctx = $class->{_}->gholders->get_unused_child("glomule." . $type);
+	my $ctx = $self->_->gholders->get_unused_child("glomule." . $type);
 
-	my $rctx = $class->{_}->instance->new_object(
+	my $rctx = $self->_->instance->new_object(
 		"GHolders::RegisterContext"
 	)->set($ctx);
 
-	$g->connect_to_gholders($rctx);
+	$g->gholders($rctx);
 
-	$class->{_}->gholders->register([$ctx,1]);
+	$self->_->gholders->register([$ctx,1]);
 
 	if ($named) {
-		$class->{_}->gholders->new_named_ctx($named,$ctx);
+		$self->_->gholders->new_named_ctx($named,$ctx);
 	}
 
 	# set our object in the ObjectTree
@@ -190,19 +173,18 @@ sub prewalk_glomule {
 #----------
 
 sub walk_glomule {
-	my $class = shift;
 	my $type = shift;
 	my $i = shift;
 
-	#$class->{_}->instance->check_rights_for_glomule($glomule);
+	#$self->_->instance->check_rights_for_glomule($glomule);
 
 	my $g = $i->note("object")
-		or $class->{_}->bail->("Couldn't find object in walk");
+		or $self->_->bail->("Couldn't find object in walk");
 
 	if ( my $func = $g->has_function( $i->args->{function} ) ) {
 		$func->activate->execute( $i->args );
 	} else {
-		$class->{_}->bail->(
+		$self->_->bail->(
 			"Unknown glomule function: "
 		#	. $glomule
 		#	. "/"
@@ -255,7 +237,7 @@ plugin and makes the proper function call.
 
 =item walk_glomule
 
-	$walker->register(['blog',sub { $class->walk_glomule("blog",@_); }]);
+	$walker->register(['blog',sub { $self->walk_glomule("blog",@_); }]);
 
 Should be registered as the walker for each glomule type.  Creates an 
 object for the glomule and makes the proper function call.  

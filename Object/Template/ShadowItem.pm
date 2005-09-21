@@ -1,97 +1,82 @@
 package eThreads::Object::Template::ShadowItem;
 
-#@ISA = qw( eThreads::Object::Template::Item );
-
-use strict;
+use Spiffy -Base;
+use Scalar::Util;
 
 #----------
 
+field '_' => -ro;
+
+field 'children'	=> 
+	-ro,
+	-init=>q!
+		my $shadowc = [];
+		@$shadowc = 
+			map { 
+				$self->_->switchboard->new_object(
+					"Template::ShadowItem",item=>$_,parent=>$self
+				);
+			} @{ $self->{item}->children };
+		$shadowc;
+	!;
+	
+field 'parent'		=> 
+	-ro,
+	-init=>q!
+		if ( my $p = $self->item->parent ) {
+			$self->_->switchboard->new_object(
+				"Template::ShadowItem",
+				item => $p
+			);
+		} else { 
+			undef;
+		}
+	!;
+
+field 'item' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		item	=> undef,
 		notes	=> {},
 		@_,
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	Scalar::Util::weaken( $self->{parent} );
+
+	return $self;
 }
 
 #----------
 
 sub note {
-	my $class = shift;
 	my $key = shift;
 	my $val = shift;
 
-	$class->{notes}{$key} = $val if ($val);
+	$self->{notes}{$key} = $val if ($val);
 
-	return $class->{notes}{$key};
-}
-
-#----------
-
-sub children {
-	my $class = shift;
-
-	if ($class->{children}) {
-		return $class->{children};
-	} else {
-		my $shadowc = [];
-
-		@$shadowc = 
-			map { 
-				$class->{_}->switchboard->new_object(
-					"Template::ShadowItem",item=>$_
-				);
-			} @{ $class->{item}->children };
-
-		$class->{children} = $shadowc;
-
-		return $class->{children};
-	}
+	return $self->{notes}{$key};
 }
 
 #----------
 
 sub type {
-	shift->{item}->type(@_);
-}
-
-#----------
-
-sub parent {
-	my $class = shift;
-
-	if ($class->{parent}) {
-		return $class->{parent};
-	} else {
-		if (my $p = $class->{item}->parent) {
-			$class->{parent} = $class->{_}->switchboard->new_object(
-				"Template::ShadowItem",
-				item => $p
-			);
-
-			return $class->{parent};
-		} else {
-			return undef;
-		}
-	}
+	$self->item->type(@_);
 }
 
 #----------
 
 sub content {
-	shift->{item}->content(@_);
+	$self->item->content(@_);
 }
 
 #----------
 
 sub args {
-	shift->{item}->args(@_);
+	$self->item->args(@_);
 }
 
 #----------

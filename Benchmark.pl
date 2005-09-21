@@ -3,8 +3,8 @@
 use strict;
 use vars qw( $core );
 
-#use lib qw( /etc/apache2/perl );
-use lib qw( ./ );
+use lib qw( /etc/apache2/perl );
+#use lib qw( ./ );
 
 #use Apache::RequestRec ();
 #use Apache::RequestIO ();

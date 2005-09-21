@@ -43,13 +43,17 @@ sub f_looks {
 	my $fobj = shift;
 
 	# get info on the looks for this container
-	my $looks = $self->_->ocontainer->get_looks;
+	my $looks = $self->_->ocontainer->looks;
 
 	# -- see if we're creating a new look -- #
 
 	if ( $fobj->bucket->get('create') ) {
-		warn "creating look\n";
-		if ( $self->_create_look($fobj->bucket->get('name')) ) {
+		my $name = $fobj->bucket->get('name');
+
+		my $write = $self->_->ocontainer->new_look();
+		$write->name($name);
+		
+		if ( $write->write ) {
 			$fobj->gholders->register('message',"New look created");
 			warn "created look\n";
 			$looks = $self->_->ocontainer->get_looks;
@@ -190,10 +194,8 @@ sub f_templates {
 	# -- templates -- #
 
 	{
-		my $tm = $look->get_templates;
-
 		my @o;
-		while ( my ($p,$obj) = each %$tm ) {
+		while ( my ($p,$obj) = each %{ $look->templates } ) {
 			next if ($p =~ m!^\.!);
 
 			my $link = $self->_->queryopts->link("/templates/edit",{
@@ -223,10 +225,8 @@ sub f_templates {
 	# -- subtemplates -- #
 
 	{
-		my $tm = $look->get_subtemplates;
-
 		my @o;
-		while ( my ($p,$obj) = each %$tm ) {
+		while ( my ($p,$obj) = each %{ $look->subtemplates } ) {
 			next if ($p =~ m!^\.!);
 
 			my $link = $self->_->queryopts->link("/subtemplates/edit",{
@@ -275,34 +275,22 @@ sub f_templates_new {
 			if ($path !~ m!^[\w/\.]+$!);
 
 		# make sure path doesn't already exist
-		my $tm = $look->get_templates;
 		$self->_->bail->("Path already exists: $path") 
-			if ($tm->{ $path });
+			if ($look->templates->{ $path });
 
 		# make sure content type is valid
 		$self->_->bail->("Invalid content type: $type") 
 			if (!$self->_->settings->{content_types}{ $type });
 
 		# now create the new template
-		my $db = $self->_->core->get_dbh;
-		my $insert = $db->prepare("
-			insert into " . $self->_->core->tbl_name("templates") . "(
-				id,look,name,c_type,value
-			) values(0,?,?,?,?)
-		");
+		my $new = $look->new_template;
 
-		$insert->execute($look->id,$path,$type,$content) 
-			or $self->_->bail->("new template failed: ".$db->errstr);
+		$new->path( $path );
+		$new->type( $type );
+		$new->value( $content );
 
-		# FIXME - This should be a better interface
-		my $id = $self->_->core->{db}->get_message_id();
-
-		$self->_->cache->update_times->set(
-			tbl		=> "templates",
-			first	=> $look->id,
-			ts		=> time,
-		);
-	
+		$new->write;
+		
 		$fobj->gholders->register("message","created new template");
 	} else {
 		# prepare a list of content types
@@ -339,20 +327,10 @@ sub f_templates_edit {
 	$self->_->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
-		$self->_->utils->set_value(
-			tbl		=> "templates",
-			keys	=> {
-				id	=> $template->id,
-			},
-			value	=> $fobj->bucket->get("content")
-		);
+		my $writable = $template->writable;
 
-		$self->_->cache->update_times->set(
-			tbl		=> "templates",
-			first	=> $look->id,
-			second	=> $template->id,
-			ts		=> time,
-		);
+		$writable->value( $fobj->bucket->get("content") );
+		$writable->write;
 	
 		$template = $look->load_template(
 			$fobj->bucket->get("template")
@@ -394,31 +372,18 @@ sub f_subtemplates_new {
 			if ($path !~ m!^[\w/]+$!);
 
 		# make sure path doesn't already exist
-		my $tm = $look->get_subtemplates;
 		$self->_->bail->("Path already exists: $path") 
-			if ($tm->{ $path });
+			if ($look->subtemplates->{ $path });
 
-		# now create the new template
-		my $db = $self->_->core->get_dbh;
-		my $insert = $db->prepare("
-			insert into " . $self->_->core->tbl_name("subtemplates") . "(
-				id,look,name,value
-			) values(0,?,?,?)
-		");
+		# get a new subtemplate object
+		my $new = $look->new_subtemplate;
 
-		$insert->execute($look->id,$path,$content) 
-			or $self->_->bail->("new template failed: ".$db->errstr);
+		$new->path( $path );
+		$new->value( $content );
 
-		# FIXME - This should be a better interface
-		my $id = $self->_->core->{db}->get_message_id();
+		$new->write;
 
-		$self->_->cache->update_times->set(
-			tbl		=> "subtemplates",
-			first	=> $look->id,
-			ts		=> time,
-		);
-	
-		$fobj->gholders->register("message","created new template");
+		$fobj->gholders->register("message","created new subtemplate");
 	} else {
 		# do nothing!
 	}
@@ -441,20 +406,9 @@ sub f_subtemplates_edit {
 	$self->_->bail->("Invalid template") if (!$template);
 
 	if ($fobj->bucket->get("submit")) {
-		$self->_->utils->set_value(
-			tbl		=> "subtemplates",
-			keys	=> {
-				id	=> $template->id,
-			},
-			value	=> $fobj->bucket->get("content")
-		);
-
-		$self->_->cache->update_times->set(
-			tbl		=> "subtemplates",
-			first	=> $look->id,
-			second	=> $template->id,
-			ts		=> time,
-		);
+		my $writable = $template->writable;
+		$writable->value( $fobj->bucket->get('content') );
+		$writable->write;
 	
 		$template = $look->load_subtemplate(
 			$fobj->bucket->get("template")
@@ -807,13 +761,65 @@ sub copy_look {
 	# -- copy templates -- #
 
 	{
-		my $tmplts = $from->get_templates;
+		# get the templates in the "from" look and map to an array
+		my $tmplts = $from->templates;
 		my @tmplts = map { $tmplts->{ $_ } } ( keys %$tmplts );
-		
+
 		foreach my $t (@tmplts) {
-			$self->copy_template( $to , $from , $t );
+			# get a template object for the from template
+			my $fromobj = $from->load_template( $t->{id} );
+
+			# check if we have a template in the to look with the same name
+			if ( my $existing = $to->load_template_by_path( $t->{path} ) ) {
+				my $write = $existing->writable;
+
+				$write->value( $fromobj->value );
+				$write->type( $fromobj->{type} );
+
+				$write->write;
+			} else {
+				# new template
+				my $new = $to->new_template;
+
+				$new->look( $to );
+				$new->path( $fromobj->path );
+				$new->type( $fromobj->{type} );
+				$new->value( $fromobj->value );
+
+				$new->write;
+			}
 		}
 	}
+
+	# -- copy subtemplates -- #
+
+	{
+		# get the templates in the "from" look and map to an array
+		my $tmplts = $from->subtemplates;
+		my @tmplts = map { $tmplts->{ $_ } } ( keys %$tmplts );
+
+		foreach my $t (@tmplts) {
+			# get a template object for the from template
+			my $fromobj = $from->load_subtemplate( $t->{id} );
+
+			# check if we have a template in the to look with the same name
+			if ( my $existing = $to->load_subtemplate_by_path( $t->{path} ) ) {
+				my $write = $existing->writable;
+				$write->value( $fromobj->value );
+				$write->write;
+			} else {
+				# new template
+				my $new = $to->new_subtemplate;
+
+				$new->look( $to );
+				$new->path( $fromobj->path );
+				$new->value( $fromobj->value );
+
+				$new->write;
+			}
+		}
+	}
+
 }
 
 #----------

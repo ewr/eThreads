@@ -32,6 +32,12 @@ sub claim {
 		return undef;
 	}
 
+	# if they didn't claim the initial /, but /claim matches, pretend they 
+	# claimed that.
+	if ($part !~ m!^/! && $class->{URI} =~ m!^/$part!) {
+		$part = '/'.$part;
+	}
+
 	$class->{URI} =~ s!^$part!!;
 
 	return 1;

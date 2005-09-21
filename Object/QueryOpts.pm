@@ -84,10 +84,15 @@ sub link {
 
 	# start with the basics...
 
+	# FIXME: this check for default look shouldn't happen here.
+
 	my @pieces = (
 		$self->_->domain->path,
 		$self->_->mode->path,
 		$self->_->container->path,
+		( $self->_->look->id == $self->_->container->get_default_look->id ) 
+			? '' 
+			: $self->_->look->name,
 		$tmplt
 	);
 

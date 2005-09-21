@@ -1,48 +1,40 @@
 package eThreads::Object::Mode::Normal;
 
-@ISA = qw( eThreads::Object::Mode );
-
-use strict;
+use eThreads::Object::Mode -Base;
 
 #----------
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 	my $path = shift;
 
-	$class = bless({
+	$self = bless({
 		_		=> $data,
 		path	=> $path || undef,
-		container	=> undef,
-		look		=> undef,
-		template	=> undef,
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub go {
-	my $class = shift;
-
 	# figure out container, look, and then template
-	$class->{_}->switchboard->register("container",
-		$class->determine_container()
+	$self->_->switchboard->register("container",
+		$self->determine_container()
 	);
 
-	$class->{_}->switchboard->register("look",
-		$class->{_}->container->determine_look()
+	$self->_->switchboard->register("look",
+		$self->_->container->determine_look()
 	);
 
-	$class->{_}->switchboard->register("template",
-		$class->{_}->look->determine_template()
+	$self->_->switchboard->register("template",
+		$self->_->look->determine_template()
 	);
 
 	# load the content type module
-	$class->{_}->switchboard->register("content_type",
-		$class->{_}->template->type
+	$self->_->switchboard->register("content_type",
+		$self->_->template->type
 	);
 
 	# the walker phase of operation here has to be broken up into two steps.  
@@ -58,23 +50,23 @@ sub go {
 	# first, though, we need a clone of our template tree so that we can 
 	# store information like objects in their proper places
 
-	my $shadow = $class->{_}->template->shadow_tree;
+	my $shadow = $self->_->template->shadow_tree;
 
 	# -- walk the template to see what we're using -- #
 
 	{
-		my $walker = $class->{_}->instance->new_object("Template::Walker");
+		my $walker = $self->_->instance->new_object("Template::Walker");
 
-		foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
+		foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 			# -- register the walker -- #
 			$walker->register(
-				[ $t , sub { return $class->prewalk_glomule($t,@_); } ]
+				[ $t , sub { return $self->prewalk_glomule($t,@_); } ]
 			);
 		}
 
 		# register plugin walker
 		$walker->register(
-			['plugin', sub { return $class->prewalk_plugin(@_); } ]
+			['plugin', sub { return $self->prewalk_plugin(@_); } ]
 		);
 
 		$walker->walk_template_tree(
@@ -83,23 +75,23 @@ sub go {
 	}
 
 	{
-		my $walker = $class->{_}->instance->new_object("Template::Walker");
+		my $walker = $self->_->instance->new_object("Template::Walker");
 
-		foreach my $t (keys %{$class->{_}->settings->{glomule_types}}) {
+		foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 			# -- register the walker -- #
 			$walker->register(
-				[ $t , sub { return $class->walk_glomule($t,@_); } ]
+				[ $t , sub { return $self->walk_glomule($t,@_); } ]
 			);
 
 			# -- and also register the handler -- #
-			$class->{_}->gholders->register(
-				[ $t , sub { return $class->handle_glomule($t,@_); } ]
+			$self->_->gholders->register(
+				[ $t , sub { return $self->handle_glomule($t,@_); } ]
 			);
 		}
 
 		# register plugin walker
-		$walker->register(['plugin', sub { return $class->walk_plugin(@_); } ]);
-		$class->{_}->gholders->register(
+		$walker->register(['plugin', sub { return $self->walk_plugin(@_); } ]);
+		$self->_->gholders->register(
 			['plugin',sub { return undef; }]
 		);
 
@@ -111,39 +103,38 @@ sub go {
 	# -- now actually process the template -- #
 
 	my $content;
-	$class->{_}->gholders->handle_template_tree(
+	$self->_->gholders->handle_template_tree(
 		$shadow,
 		$content
 	);
 
-	my $r = $class->{_}->ap_request;
+	my $r = $self->_->ap_request;
 
-	$r->set_last_modified( $class->{_}->last_modified->get );
+	$r->set_last_modified( $self->_->last_modified->get );
 
-	$r->content_type( $class->{_}->content_type->type );
+	$r->content_type( $self->_->content_type->type );
 	$r->print($content);
 
-	return $class->{_}->core->code('OK');
+	return $self->_->core->code('OK');
 }
 
 #----------
 
 sub handle_glomule {
-	my $class = shift;
 	my $type = shift;
 	my $i = shift;
 
 	my $glomule = $i->args->{name} || $i->args->{glomule};
 
-	my $ctx = $class->{_}->gholders->get_context;
+	my $ctx = $self->_->gholders->get_context;
 	my $gctx = $i->note('ctx');
 
-	$class->{_}->gholders->set_context($gctx) 
+	$self->_->gholders->set_context($gctx) 
 		if ($gctx);
 
-	$class->{_}->gholders->handle_template_tree($i,$_[0]);
+	$self->_->gholders->handle_template_tree($i,$_[0]);
 
-	$class->{_}->gholders->set_context($ctx)
+	$self->_->gholders->set_context($ctx)
 		if ($gctx);;
 
 	return undef;

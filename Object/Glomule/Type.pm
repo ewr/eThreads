@@ -6,10 +6,6 @@ use Spiffy -Base;
 
 field '_'			=> -ro;
 
-field 'posthooks'	=> 
-	-ro, 
-	-init=>q!$self->_->new_object('Glomule::PostHooks')!;
-
 field 'pings'		=> 
 	-ro,
 	-init=>q!$self->_->new_object('System::Ping')!;
@@ -231,28 +227,11 @@ sub post {
 
 	# -- Here we run through our post hooks -- #
 
-	if (0) {
-		my $status = 1;
-		my $msg;
-		foreach my $h ( $self->posthooks->hooks ) {
-			# run the hook
-			my $s;
-			($s,$msg) = $h->( $post );
+	{
+		my $h = $fobj->glomule->posthooks;
 
-			if ($s) {
-				# cool, next
-				next;
-			} else {
-				$status = 0;
-				last;
-			}
-		}
-
-		if ($status) {
-			# we're cool, post
-		} else {
-			$self->_->bail->( "Post Hook error: $msg" );
-		}
+		$h->run( $post , $self )
+			or $self->_->bail->( 'Denied by PostHook: ' . $h->msg );
 	}
 
 	# -- Now proceed to posting -- #
@@ -361,6 +340,34 @@ sub edit_fields {
 	}
 
 	return $fields;
+}
+
+#----------
+
+sub create_tables {
+	my $dataobj = shift;
+
+	if ( !$dataobj ) {
+		$self->_->bail->('Unable to create tables without data object.');
+	}
+
+	# -- create headers tbl -- #
+
+	my $headers = $self->_->utils->create_table(
+		$self->_->utils->get_unused_tbl_name("glomheaders"),
+		$self->header_fields
+	);
+
+	$dataobj->register_data("headers",$headers);
+
+	# -- now create data tbl -- #
+
+	my $data = $self->_->utils->create_table(
+		$self->_->utils->get_unused_tbl_name("glomdata"),
+		$self->_data_tbl_fields,
+	);
+
+	$dataobj->register_data("data",$data);
 }
 
 #----------

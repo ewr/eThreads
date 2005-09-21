@@ -99,7 +99,7 @@ sub go {
 		name	=> '.ADMIN',
 	);
 
-	$g->connect_to_gholders($class->{_}->gholders);
+	$g->gholders($class->{_}->gholders);
 
 	if ( my $func = $g->has_function( $class->{_}->template->path ) ) {
 		$func->activate->execute();

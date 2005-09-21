@@ -1,21 +1,18 @@
 package eThreads::Object::Mode::Auth;
 
-@ISA = qw( eThreads::Object::Mode::Normal );
-
-use strict;
+use eThreads::Object::Mode::Normal -Base;
 
 #----------
 
 sub go {
-	my $class = shift;
 	my $r = shift;
 
-	my $user = $class->{_}->auth->authenticate
-		or return $class->{_}->auth->unauthorized;
+	my $user = $self->_->auth->authenticate
+		or return $self->_->auth->unauthorized;
 
-	$class->{_}->switchboard->register("user",$user);
+	$self->_->switchboard->register("user",$user);
 
-	$class->SUPER::go($r);
+	super;
 }
 
 #----------
