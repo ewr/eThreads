@@ -425,7 +425,7 @@ sub handle_link {
 	my $args = {};
 	%$args = %{$i->args};
 
-	foreach my $c (@{$i->children}) {
+	while ( my $c = $i->children->next ) {
 		$self->handle_link_qopt($c,$args);
 	}
 
@@ -527,11 +527,11 @@ sub _handle_unknown {
 		$ret .= join(',',@args) . ' ';
 
 		# opening tag or single?  single if no children
-		if (!@{ $i->children }) {
+		if (!$i->children->count) {
 			$ret .= '/}';
 		} else {
 			$ret .= '}';
-			foreach my $c (@{ $i->children }) {
+			while ( my $c = $i->children->next ) {
 				$ret .= $self->_handle_unknown($c);
 			}
 			$ret .= '{/' . $i->type . '}';
@@ -575,10 +575,9 @@ sub handle {
 sub handle_template_tree {
 	my $tree = shift;
 
-	foreach my $i ( @{ $tree->children } ) {
-		if ($self->handle($i,$_[0])) {
-			$self->handle_template_tree($i,$_[0]);
-		}
+	while ( my $i = $tree->children->next ) {
+		$self->handle( $i , $_[0] ) 
+			and $self->handle_template_tree( $i , $_[0] );
 	}
 
 	return 1;

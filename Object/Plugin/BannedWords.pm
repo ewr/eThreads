@@ -1,6 +1,7 @@
 package eThreads::Object::Plugin::BannedWords;
 
 use eThreads::Object::Plugin -Base;
+no warnings;
 
 #----------
 

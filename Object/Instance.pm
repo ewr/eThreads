@@ -38,6 +38,11 @@ sub new {
 		$class->new_object('Utils');
 	});
 
+	# load up the XMLFunction object
+	$swb->register('xmlfunc',sub {
+		$class->new_object('XMLFunction');
+	});
+
 	# create cache object
 	$swb->register('cache',$class->new_object(
 		$class->{_}->settings->{cache_obj}

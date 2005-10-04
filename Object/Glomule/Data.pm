@@ -2,6 +2,8 @@ package eThreads::Object::Glomule::Data;
 
 use Spiffy -Base;
 
+use Scalar::Util;
+
 use eThreads::Object::Glomule::PostHooks;
 
 #----------
@@ -29,9 +31,7 @@ sub new {
 		_			=> $data,
 	} , $self ); 
 
-#	if (!$self->{name}) {
-#		$self->{_}->bail->("Invalid glomule data init: no name");
-#	}
+#	Scalar::Util::weaken( $self->{controller} );
 
 	if (!$self->{type}) {
 		$self->{_}->bail->("Invalid glomule data init: no type");

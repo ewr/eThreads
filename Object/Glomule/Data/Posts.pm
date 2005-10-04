@@ -1,36 +1,20 @@
 package eThreads::Object::Glomule::Data::Posts;
 
-use strict;
+use Spiffy -Base;
 
 #----------
+
+field 'posts';
+field 'count';
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
-		posts	=> undef,
-		count	=> undef,
+	$self = bless ( {
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
-}
-
-#----------
-
-sub posts {
-	my $class = shift;
-	@_ and $class->{posts} = shift;
-	return $class->{posts};
-}
-
-#----------
-
-sub count {
-	my $class = shift;
-	@_ and $class->{count} = shift;
-	return $class->{count};
+	return $self;
 }
 
 #----------

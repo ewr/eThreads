@@ -43,7 +43,7 @@ sub set_value {
 		select 1 from $args{tbl} $cond
 	");
 
-	$self->_->bail->(0,"set_value select failure: ".$db->errstr) unless (
+	$self->_->bail->("set_value select failure: ".$db->errstr) unless (
 		$select->execute(@cargs)
 	);
 
@@ -55,7 +55,7 @@ sub set_value {
 			update $args{tbl} set $args{value_field} = ? $cond
 		");
 
-		$self->_->bail->(0,"set_value update failure: ".$db->errstr) unless (
+		$self->_->bail->("set_value update failure: ".$db->errstr) unless (
 			$update->execute($args{value},@cargs)
 		);
 	} elsif ($select->rows) {
@@ -65,7 +65,7 @@ sub set_value {
 		my $delete = $db->prepare("
 			delete from $args{tbl} $cond
 		");
-		$self->_->bail->(0,"set_value delete failure: ".$db->errstr) unless (
+		$self->_->bail->("set_value delete failure: ".$db->errstr) unless (
 			$delete->execute(@cargs)
 		);
 	} elsif ($args{value} || $args{set_zero_val}) {
@@ -79,7 +79,7 @@ sub set_value {
 				$keys,$args{value_field}
 			) values (" . "?,"x(@cargs) . "?)
 		");
-		$self->_->bail->(0,"set_value create failure: ".$db->errstr) unless (
+		$self->_->bail->("set_value create failure: ".$db->errstr) unless (
 			$create->execute(@cargs,$args{value})
 		);
 	} else {

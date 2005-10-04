@@ -28,6 +28,34 @@ sub go {
 		$self->_->container->determine_look()
 	);
 
+	my $content;
+	if ( $self->_->xmlfunc->uri_has_xml_prefix ) {
+		$content = $self->handle_xml_function;
+	} else {
+		$content = $self->handle_template;
+	}
+
+	my $r = $self->_->ap_request;
+
+	$r->set_last_modified( $self->_->last_modified->get );
+
+	$r->content_type( $self->_->content_type->type );
+	$r->print($content);
+
+	return $self->_->core->code('OK');
+}
+
+#----------
+
+sub handle_xml_function {
+	my $xmlfunc = $self->_->xmlfunc->determine_function;
+
+
+}
+
+#----------
+
+sub handle_template {
 	$self->_->switchboard->register("template",
 		$self->_->look->determine_template()
 	);
@@ -108,14 +136,7 @@ sub go {
 		$content
 	);
 
-	my $r = $self->_->ap_request;
-
-	$r->set_last_modified( $self->_->last_modified->get );
-
-	$r->content_type( $self->_->content_type->type );
-	$r->print($content);
-
-	return $self->_->core->code('OK');
+	return $content;
 }
 
 #----------

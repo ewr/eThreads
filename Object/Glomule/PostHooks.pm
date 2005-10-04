@@ -12,7 +12,7 @@ field 'msg';
 
 sub new {
 	my $swb = shift;
-	$self = bless { _ => $swb } , $self;
+	$self = bless { _ => $swb , hooks => [] } , $self;
 
 	return $self;
 }

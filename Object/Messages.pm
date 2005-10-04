@@ -1,55 +1,58 @@
 package eThreads::Object::Messages;
 
-use strict;
+use Spiffy -Base;
+no warnings;
+
+field '_' => -ro;
 
 #----------
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless({
+	$self = bless({
 		_			=> $data,
 		messages	=> undef,
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub bail {
-	my $class = shift;
 	my $err = shift;
 
 	warn time . ": $err\n";
-	$class->print("ERROR",$err);
+	$self->print("ERROR",$err);
 }
 
 #----------
 
 sub print {
-	my $class = shift;
 	my $name = shift;
 	my $text = shift;
 
 	# prevent recursion
-	if ($class->{STATUS}) {
+	if ($self->{STATUS}) {
 		die "recursion in message print.";
 	} else {
-		$class->{STATUS} = 1;
+		$self->{STATUS} = 1;
 	}
 
-	my $msgs = $class->load_messages;
+	my $msgs = $self->load_messages;
 
 	my $msg = $msgs->{ $name } || $msgs->{ERROR};
 
 	$msg =~ s!#TEXT#!$text!;
 
-	$class->{_}->ap_request->custom_response(
-		$class->{_}->core->code('OK'),
-		$msg
-	);
+#	$self->_->ap_request->custom_response(
+#		$self->_->core->code('OK'),
+#		$msg
+#	);
+
+	$self->_->ap_request->content_type('text/html');
+	$self->_->ap_request->print($msg);
 
 	exit;
 }
@@ -57,12 +60,10 @@ sub print {
 #----------
 
 sub load_messages {
-	my $class = shift;
-
-	my $msgs = $class->{_}->cache->get(tbl=>"messages");
+	my $msgs = $self->_->cache->get(tbl=>"messages");
 
 	if (!$msgs) {
-		$msgs = $class->cache_messages;
+		$msgs = $self->cache_messages;
 	}
 
 	return $msgs;
@@ -71,13 +72,11 @@ sub load_messages {
 #----------
 
 sub cache_messages {
-	my $class = shift;
-
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			ident,value
 		from 
-			" . $class->{_}->core->tbl_name("messages") . "
+			" . $self->_->core->tbl_name("messages") . "
 	");
 
 	$get->execute() 
@@ -129,7 +128,7 @@ interface so that it can call back to Instance.
 
 	$obj->bail("error message");
 
-	$class->{_}->bail->("error message");
+	$self->_->bail->("error message");
 
 This is a special case that uses the ERROR Message.  It will usually be 
 registered as "bail" with the switchboard.  Note that for the switchboard 

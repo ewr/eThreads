@@ -46,6 +46,7 @@ use eThreads::Object::System::Ping::XMLRPC;
 use eThreads::Object::Template;
 use eThreads::Object::User;
 use eThreads::Object::Utils;
+use eThreads::Object::XMLFunction;
 
 use strict;
 
