@@ -1,33 +1,40 @@
 package eThreads::Object::System;
 
-use strict;
+use Spiffy -Base;
 
 #----------
 
+field '_' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub load {
-	my $class = shift;
 	my $sys = shift;
 
-	if (my $obj = $class->{_}->cache->objects->get("systemobj",$sys)) {
-		return $obj;
-	} else {
-		my $obj = $class->{_}->new_object("System::" . $sys);
-		$class->{_}->cache->objects->set("systemobj",$sys,$obj);
-		return $obj;
-	}
+	# system objects can hold data, so we can't cache them.  perhaps in the 
+	# future it might work to put a little storage area into Glomule::Data, 
+	# so that we can let them have scratchpads there.  This will do for now, 
+	# but it'll want optimization.
+
+	$self->_->new_object('System::'.$sys,@_);
+
+#	if (my $obj = $self->_->cache->objects->get("systemobj",$sys)) {
+#		return $obj;
+#	} else {
+#		my $obj = $self->_->new_object("System::" . $sys);
+#		$self->_->cache->objects->set("systemobj",$sys,$obj);
+#		return $obj;
+#	}
 }
 
 #----------

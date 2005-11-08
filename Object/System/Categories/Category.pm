@@ -1,159 +1,128 @@
 package eThreads::Object::System::Categories::Category;
 
-use strict;
+use Spiffy -Base;
+no warnings;
+
+use Scalar::Util;
+
+use eThreads::Object::System::Categories::Category::Posts;
+use eThreads::Object::System::Categories::Category::Writable;
+
+#----------
+
+field '_' => -ro;
+
+field 'id' => -ro;
+field 'name' => -ro;
+
+field 'data' => 
+	-init=>q! 
+		$self->load_data 
+			or $self->cache_data
+	!, -ro;
+
+field 'glomule' => -ro;
+field 'catobj' => -ro;
+
+stub 'write';
+stub 'write_data';
+stub 'delete';
+field 'writable'	=> 
+	-init=>q!
+		bless 
+			{ %$self },
+			'eThreads::Object::System::Categories::Category::Writable';
+	!, -ro;
+
+field 'posts'		=> 
+	-init=>q!
+		$self->_->new_object('System::Categories::Category::Posts',$self->id);
+	!, -ro;
 
 #----------
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
 		name	=> undef,
 		id		=> undef,
 		glomule	=> undef,
-		data	=> {
-			icon		=> undef,
-			descript	=> undef,
-		},
+		catobj	=> undef,
 		@_,
-	} , $class ); 
+	} , $self ); 
 
-	if (!$class->{name} || !$class->{glomule}) {
-		$class->{_}->bail->("Improperly initialized category.");
+	if (!$self->{catobj}) {
+		$self->_->bail->('Category init requires glomule.');
 	}
 
-	return $class;
-}
+	Scalar::Util::weaken( $self->{catobj} );
 
-#----------
+	$self->{glomule} = $self->catobj->glomule->id
+		or $self->_->bail->('Unable to find glomule id.');
 
-sub activate {
-	my $class = shift;
-
-	if (!$class->id) {
-		$class->initialize;
-	}
-
-	$class->load_data;
-
-	return $class;
-}
-
-#----------
-
-sub id {
-	return shift->{id};
-}
-
-#----------
-
-sub name {
-	return shift->{name};
-}
-
-#----------
-
-sub data {
-	my $class = shift;
-	my $ident = shift;
-
-	return $class->{data}{ $ident };
+	return $self;
 }
 
 #----------
 
 sub registerable {
-	my $class = shift;
-
 	return {
-		id		=> $class->{id},
-		name	=> $class->{name},
-		%{$class->{data}}
+		id		=> $self->{id},
+		name	=> $self->{name},
+		%{$self->{data}}
 	};
 }
 
 #----------
 
 sub sql {
-	my $class = shift;
 
-}
-
-#----------
-
-sub initialize {
-	my $class = shift;
-
-	# -- prep work -- #
-
-	# clean up our name
-	$class->{name} =~ s!(?:^\W*|\W$)!!g;
-
-	# -- check for duplicate -- #
-
-	# make sure category with this name doesn't already exist
-	my $check = $class->{_}->core->get_dbh->prepare("
-		select
-			id
-		from 
-			" . $class->{_}->core->tbl_name('cat_headers') . "
-		where 
-			glomule = ?
-			and name = ?
-	");
-
-	$check->execute($class->{glomule},$class->{name}) 
-		or $class->{_}->bail->("category init check failed:".$check->errstr);
-	
-	if ($check->rows) {
-		$class->{_}->bail->(
-			"Can't init category -- already exists: $class->{name}"
-		);
-	}
-
-	# -- continue with category initialization -- #
-
-	my $create = $class->{_}->core->get_dbh->prepare("
-		insert into 
-			" . $class->{_}->core->tbl_name('cat_headers') . "
-		(id,glomule,name) 
-		values(0,?,?)
-	");
-
-	$create->execute($class->{glomule},$class->{name}) 
-		or $class->{_}->bail->("category init create failed: ".$create->errstr);
-
-	# FIXME - this is a MySQL specific hack
-	$class->{id} = $create->{'mysql_insertid'};
-
-	# -- update ts for cat_headers -- #
-
-	$class->{_}->cache->update_times->set(
-		tbl		=> "cat_headers",
-		first	=> $class->{glomule},
-	);
-
-	return $class->{id};
 }
 
 #----------
 
 sub load_data {
-	my $class = shift;
-
-	my $data = $class->{_}->cache->get(
+	$self->_->cache->get(
 		tbl		=> "cat_data",
-		first	=> $class->{glomule},
+		first	=> $self->glomule,
+		second	=> $self->id
 	);
+}
 
-	while ( my ($k,$v) = each %{ $data->{ $class->id } } ) {
-		next if ($class->{data}{$k});
-		$class->{data}{$k} = $v;
+#----------
+
+sub cache_data {
+	my $get = $self->_->core->get_dbh->prepare("
+		select
+			ident,
+			value
+		from 
+			" . $self->_->core->tbl_name('cat_data') . " 
+		where 
+			id = ?
+	");
+
+	$get->execute( $self->id ) 
+		or $self->_->bail->('category cache_data failure: ' . $get->errstr);
+
+	my ($ident,$value);
+	$get->bind_columns( \($ident,$value) );
+
+	my $data = {};
+	while ( $get->fetch ) {
+		$data->{ $ident } = $value;
 	}
 
-	return $class->{data};
+	$self->_->cache->set(
+		tbl		=> 'cat_data',
+		first	=> $self->glomule,
+		second	=> $self->id,
+		ref		=> $data,
+	);
+
+	$data;
 }
 
 #----------

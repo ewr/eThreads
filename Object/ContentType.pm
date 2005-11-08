@@ -1,18 +1,14 @@
 package eThreads::Object::ContentType;
 
-use strict;
+use Spiffy -Base;
+no warnings;
 
 #----------
 
-sub new {
-	die "Cannot call ContentType object directly\n";
-}
+stub 'type';
+stub 'new';
 
-#----------
-
-sub type {
-	return shift->{type};
-}
+field '_' => -ro;
 
 #----------
 

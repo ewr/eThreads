@@ -60,7 +60,7 @@ sub get_container {
 
 	my $gh = $self->_->instance->load_containers();
 
-	my $c = $self->_->instance->new_object(
+	my $c = $self->_->new_object(
 		"Container",
 		path	=> $path,
 		id		=> $gh->{ $path },
@@ -93,7 +93,7 @@ sub prewalk_plugin {
 
 	# -- create a register context for the plugin -- #
 
-	my $rctx = $self->_->instance->new_object(
+	my $rctx = $self->_->new_object(
 		"GHolders::RegisterContext"
 	)->set($ctx);
 
@@ -151,7 +151,7 @@ sub prewalk_glomule {
 
 	my $ctx = $self->_->gholders->get_unused_child("glomule." . $type);
 
-	my $rctx = $self->_->instance->new_object(
+	my $rctx = $self->_->new_object(
 		"GHolders::RegisterContext"
 	)->set($ctx);
 

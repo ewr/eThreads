@@ -1,45 +1,29 @@
 package eThreads::Object::System::Format::Markdown;
 
-@ISA = qw( eThreads::Object::System::Format );
-
-use strict;
+use eThreads::Object::System -Base;
+no warnings;
 
 use Digest::MD5;
 
 #----------
 
-sub new {
-	my $class = shift;
-	my $switch = shift;
-
-	$class = bless( { _=>$switch } , $class );
-
-	return $class;
-}
-
-#----------
-
 sub activate {
-	my $class = shift;
-
-	$class->{g} = $class->_init_globals;
-
-	return $class;
+	$self->{g} = $self->_init_globals;
+	return $self;
 }
 
 #----------
 
 sub format {
-	my $class = shift;
 	my $text = shift;
 
 	my $sum = Digest::MD5::md5_hex($text);
 
-	if (my $ftxt = $class->{_}->cache->memory->get_raw("markdown",$sum)) {
+	if (my $ftxt = $self->_->cache->memory->get_raw("markdown",$sum)) {
 		return $ftxt;
 	} else {
-		my $ftxt = $class->Markdown($text);
-		$class->{_}->cache->memory->set_raw("markdown",$sum,$ftxt);
+		my $ftxt = $self->Markdown($text);
+		$self->_->cache->memory->set_raw("markdown",$sum,$ftxt);
 		return $ftxt;
 	}
 }
@@ -47,8 +31,6 @@ sub format {
 #----------
 
 sub _init_globals {
-	my $class = shift;
-
 	my $g = {};
 
 	$g->{nested_brackets} = qr{
@@ -87,7 +69,6 @@ sub Markdown {
 	# and <img> tags get encoded.
 	#
 
-	my $class = shift;
 	my $text = shift;
 
 	# Clear the global hashes. If we don't clear these, you get conflicts
@@ -106,7 +87,7 @@ sub Markdown {
 	$text .= "\n\n";
 	
 	# Convert all tabs to spaces.
-	$text = $class->_Detab($text);
+	$text = $self->_Detab($text);
 
 	# Strip any lines consisting only of spaces and tabs.
 	# This makes subsequent regexen easier to write, because we can
@@ -115,18 +96,18 @@ sub Markdown {
 	$text =~ s/^[ \t]+$//mg;
 
 	# Turn block-level HTML blocks into hash entries
-	$text = $class->_HashHTMLBlocks($text);
+	$text = $self->_HashHTMLBlocks($text);
 
 	# Strip link definitions, store in hashes.
-	$text = $class->_StripLinkDefinitions($text);
+	$text = $self->_StripLinkDefinitions($text);
 
 	# _EscapeSpecialChars() must be called very early, to get
 	# backslash escapes processed.
-	$text = $class->_EscapeSpecialChars($text);
+	$text = $self->_EscapeSpecialChars($text);
 
-	$text = $class->_RunBlockGamut($text);
+	$text = $self->_RunBlockGamut($text);
 
-	$text = $class->_UnescapeSpecialChars($text);
+	$text = $self->_UnescapeSpecialChars($text);
 
 	return $text . "\n";
 }
@@ -136,31 +117,30 @@ sub _RunBlockGamut {
 # These are all the transformations that form block-level
 # tags like paragraphs, headers, and list items.
 #
-	my $class = shift;
 	my $text = shift;
 
-	$text = $class->_DoHeaders($text);
+	$text = $self->_DoHeaders($text);
 
 	# Do Horizontal Rules:
-	$text =~ s{^( ?\* ?){3,}$}{\n<hr$class->{g}{empty_element_suffix}\n}gm;
-	$text =~ s{^( ?- ?){3,}$}{\n<hr$class->{g}{empty_element_suffix}\n}gm;
+	$text =~ s{^( ?\* ?){3,}$}{\n<hr$self->{g}{empty_element_suffix}\n}gm;
+	$text =~ s{^( ?- ?){3,}$}{\n<hr$self->{g}{empty_element_suffix}\n}gm;
 
-	$text = $class->_DoLists($text);
+	$text = $self->_DoLists($text);
 
-	$text = $class->_DoCodeBlocks($text);
+	$text = $self->_DoCodeBlocks($text);
 
-	$text = $class->_DoBlockQuotes($text);
+	$text = $self->_DoBlockQuotes($text);
 
 	# Make links out of things like `<http://example.com/>`
-	$text = $class->_DoAutoLinks($text);
+	$text = $self->_DoAutoLinks($text);
 
 	# We already ran _HashHTMLBlocks() before, in Markdown(), but that
 	# was to escape raw HTML in the original Markdown source. This time,
 	# we're escaping the markup we've just created, so that we don't wrap
 	# <p> tags around block-level tags.
-	$text = $class->_HashHTMLBlocks($text);
+	$text = $self->_HashHTMLBlocks($text);
 
-	$text = $class->_FormParagraphs($text);
+	$text = $self->_FormParagraphs($text);
 
 	return $text;
 }
@@ -172,31 +152,29 @@ sub _RunSpanGamut {
 # tags like paragraphs, headers, and list items.
 #
 
-	my $class = shift;
 	my $text = shift;
 
-	$text = $class->_DoCodeSpans($text);
+	$text = $self->_DoCodeSpans($text);
 
 	# Fix unencoded ampersands and <'s:
-	$text = $class->_EncodeAmpsAndAngles($text);
+	$text = $self->_EncodeAmpsAndAngles($text);
 
 	# Process anchor and image tags. Images must come first,
 	# because ![foo][f] looks like an anchor.
-	$text = $class->_DoImages($text);
-	$text = $class->_DoAnchors($text);
+	$text = $self->_DoImages($text);
+	$text = $self->_DoAnchors($text);
 
 
-	$text = $class->_DoItalicsAndBold($text);
+	$text = $self->_DoItalicsAndBold($text);
 	
 	# Do hard breaks:
-	$text =~ s/ {2,}\n/ <br$class->{g}{empty_element_suffix}\n/g;
+	$text =~ s/ {2,}\n/ <br$self->{g}{empty_element_suffix}\n/g;
 
 	return $text;
 }
 
 
 sub _DoAutoLinks {
-	my $class = shift;
 	my $text = shift;
 
 	$text =~ s{<((https?|ftp):[^'">\s]+)>}{<a href="$1">$1</a>}gi;
@@ -211,7 +189,7 @@ sub _DoAutoLinks {
 		)
 		>
 	}{
-		$class->_EncodeEmailAddress($1);
+		$self->_EncodeEmailAddress($1);
 	}egix;
 	
 	return $text;
@@ -234,7 +212,6 @@ sub _EncodeEmailAddress {
 #	mailing list: <http://tinyurl.com/yu7ue>
 #
 
-	my $class = shift;
 	my $addr = shift;
 
 	srand;
@@ -272,7 +249,6 @@ sub _EncodeEmailAddress {
 
 
 sub _HashHTMLBlocks {
-	my $class = shift;
 	my $text = shift;
 
 	# Hashify HTML blocks:
@@ -306,7 +282,7 @@ sub _HashHTMLBlocks {
 				)
 			}{
 				my $key = Digest::MD5::md5_hex($1);
-				$class->{g}{html_blocks}{$key} = $1;
+				$self->{g}{html_blocks}{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egmx;
 
@@ -326,7 +302,7 @@ sub _HashHTMLBlocks {
 				)
 			}{
 				my $key = Digest::MD5::md5_hex($1);
-				$class->{g}{html_blocks}{$key} = $1;
+				$self->{g}{html_blocks}{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egmx;
 	# Special case just for <hr />. It was easier to make a special case than
@@ -347,7 +323,7 @@ sub _HashHTMLBlocks {
 				)
 			}{
 				my $key = Digest::MD5::md5_hex($1);
-				$class->{g}{html_blocks}{$key} = $1;
+				$self->{g}{html_blocks}{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egx;
 
@@ -360,7 +336,6 @@ sub _StripLinkDefinitions {
 # Strips link definitions from text, stores the URLs and titles in
 # hash references.
 #
-	my $class = shift;
 	my $text   		= shift;
 
 	# Link defs are in the form: ^[id]: url "optional title"
@@ -383,10 +358,10 @@ sub _StripLinkDefinitions {
 						(?:\n+|\Z)
 					}
 					{}mx) {
-		$class->{g}{urls}{lc $1} = $2;	# Link IDs are case-insensitive
+		$self->{g}{urls}{lc $1} = $2;	# Link IDs are case-insensitive
 		if ($3) {
-			$class->{g}{titles}{lc $1} = $3;
-			$class->{g}{titles}{lc $1} =~ s/"/&quot;/g;
+			$self->{g}{titles}{lc $1} = $3;
+			$self->{g}{titles}{lc $1} =~ s/"/&quot;/g;
 		}
 	}
 
@@ -399,7 +374,6 @@ sub _DoImages {
 	# Turn Markdown image shortcuts into <img> tags.
 	#
 
-	my $class = shift;
 	my $text   		= shift;
 
 	#
@@ -422,18 +396,18 @@ sub _DoImages {
 		my $alt_text    = $2;
 		my $link_id     = lc $3;
 
-		if (defined $class->{g}{urls}{$link_id}) {
-			my $url = $class->{g}{urls}{$link_id};
+		if (defined $self->{g}{urls}{$link_id}) {
+			my $url = $self->{g}{urls}{$link_id};
 			$url =~ s! \* !&#42;!gx;		# We've got to encode these to avoid
 			$url =~ s! _  !&#95;!gx;		# conflicting with italics/bold.
 			$result = "<img src=\"$url\" alt=\"$alt_text\"";
-			if (defined $class->{g}{titles}{$link_id}) {
-				my $title = $class->{g}{titles}{$link_id};
+			if (defined $self->{g}{titles}{$link_id}) {
+				my $title = $self->{g}{titles}{$link_id};
 				$title =~ s! \* !&#42;!gx;
 				$title =~ s! _  !&#95;!gx;
 				$result .=  " title=\"$title\"";
 			}
-			$result .= $class->{g}{empty_element_suffix};
+			$result .= $self->{g}{empty_element_suffix};
 		}
 		else {
 			# If there's no such link ID, leave intact:
@@ -479,7 +453,7 @@ sub _DoImages {
 			$title =~ s! _  !&#95;!gx;
 			$result .=  " title=$title"; # $title already quoted
 		}
-		$result .= $class->{g}{empty_element_suffix};
+		$result .= $self->{g}{empty_element_suffix};
 
 		$result;
 	}xsge;
@@ -493,7 +467,6 @@ sub _DoAnchors {
 	# Turn Markdown link shortcuts into XHTML <a> tags.
 	#
 
-	my $class = shift;
 	my $text   		= shift;
 
 	#
@@ -502,7 +475,7 @@ sub _DoAnchors {
 	$text =~ s{
 		(					# wrap whole match in $1
 		  \[
-		    ($class->{g}{nested_brackets})	# link text = $2
+		    ($self->{g}{nested_brackets})	# link text = $2
 		  \]
 		  [ ]?				# one optional space
 		  \[(.*?)\]			# link ID = $3
@@ -517,13 +490,13 @@ sub _DoAnchors {
 			$link_id = lc $link_text;     # for shortcut links like [this][].
 		}
 
-		if (defined $class->{g}{urls}{$link_id}) {
-			my $url = $class->{g}{urls}{$link_id};
+		if (defined $self->{g}{urls}{$link_id}) {
+			my $url = $self->{g}{urls}{$link_id};
 			$url =~ s! \* !&#42;!gx;		# We've got to encode these to avoid
 			$url =~ s! _  !&#95;!gx;		# conflicting with italics/bold.
 			$result = "<a href=\"$url\"";
-			if ( defined $class->{g}{titles}{$link_id} ) {
-				my $title = $class->{g}{titles}{$link_id};
+			if ( defined $self->{g}{titles}{$link_id} ) {
+				my $title = $self->{g}{titles}{$link_id};
 				$title =~ s! \* !&#42;!gx;
 				$title =~ s! _  !&#95;!gx;
 				$result .=  " title=\"$title\"";
@@ -542,7 +515,7 @@ sub _DoAnchors {
 	$text =~ s{
 		(				# wrap whole match in $1
 		  \[
-		    ($class->{g}{nested_brackets})	# link text = $2
+		    ($self->{g}{nested_brackets})	# link text = $2
 		  \]
 		  \(			# literal paren
 		  	[ \t]*
@@ -580,7 +553,6 @@ sub _DoAnchors {
 
 
 sub _DoHeaders {
-	my $class = shift;
 	my $text = shift;
 
 	# Setext-style headers:
@@ -591,11 +563,11 @@ sub _DoHeaders {
 	#	  --------
 	#
 	$text =~ s{ (.+)[ \t]*\n=+[ \t]*\n+ }{
-		"<h1>"  .  $class->_RunSpanGamut($1)  .  "</h1>\n\n";
+		"<h1>"  .  $self->_RunSpanGamut($1)  .  "</h1>\n\n";
 	}egx;
 	
 	$text =~ s{ (.+)[ \t]*\n-+[ \t]*\n+ }{
-		"<h2>"  .  $class->_RunSpanGamut($1)  .  "</h2>\n\n";
+		"<h2>"  .  $self->_RunSpanGamut($1)  .  "</h2>\n\n";
 	}egx;
 
 
@@ -615,7 +587,7 @@ sub _DoHeaders {
 			\n+
 		}{
 			my $h_level = length($1);
-			"<h$h_level>"  .  $class->_RunSpanGamut($2)  .  "</h$h_level>\n\n";
+			"<h$h_level>"  .  $self->_RunSpanGamut($2)  .  "</h$h_level>\n\n";
 		}egmx;
 
 	return $text;
@@ -626,9 +598,8 @@ sub _DoLists {
 	#
 	# Form HTML ordered (numbered) and unordered (bulleted) lists.
 	#
-	my $class = shift;
 	my $text = shift;
-	my $less_than_tab = $class->{g}{tab_width} - 1;
+	my $less_than_tab = $self->{g}{tab_width} - 1;
 
 	$text =~ s{
 			(
@@ -652,7 +623,7 @@ sub _DoLists {
 			# Turn double returns into triple returns, so that we can make a
 			# paragraph for the last item in a list, if necessary:
 			$list =~ s/\n{2,}/\n\n\n/g;
-			my $result = $class->_ProcessListItems($list);
+			my $result = $self->_ProcessListItems($list);
 			$result = "<$list_type>\n" . $result . "</$list_type>\n";
 			$result;
 		}egmx;
@@ -661,7 +632,6 @@ sub _DoLists {
 }
 
 sub _ProcessListItems {
-	my $class = shift;
 	my $list_str = shift;
 
 	# trim trailing blank lines:
@@ -681,14 +651,14 @@ sub _ProcessListItems {
 		my $leading_space = $2;
 
 		if ($leading_line or ($item =~ m/\n{2,}/)) {
-			$item = $class->_RunBlockGamut($class->_Outdent($item));
+			$item = $self->_RunBlockGamut($self->_Outdent($item));
 			#$item =~ s/\n+/\n/g;
 		}
 		else {
 			# Recursion for sub-lists:
-			$item = $class->_DoLists($class->_Outdent($item));
+			$item = $self->_DoLists($self->_Outdent($item));
 			chomp $item;
-			$item = $class->_RunSpanGamut($item);
+			$item = $self->_RunSpanGamut($item);
 		}
 
 		"<li>" . $item . "</li>\n";
@@ -704,7 +674,6 @@ sub _DoCodeBlocks {
 	#	Process Markdown `<pre><code>` blocks.
 	#	
 
-	my $class = shift;
 	my $text = shift;
 
 	$text =~ s{
@@ -713,11 +682,11 @@ sub _DoCodeBlocks {
 			(\n+)			# $3 = newlines after colon
 			(	            # $4 = the code block -- one or more lines, starting with a space/tab
 			  (?:
-			    (?:[ ]{$class->{g}{tab_width}} | \t)  # Lines must start with a tab or a tab-width of spaces
+			    (?:[ ]{$self->{g}{tab_width}} | \t)  # Lines must start with a tab or a tab-width of spaces
 			    .*\n+
 			  )+
 			)
-			((?=^[ ]{0,$class->{g}{tab_width}}\S)|\Z)	# Lookahead for non-space at line-start, or end of doc
+			((?=^[ ]{0,$self->{g}{tab_width}}\S)|\Z)	# Lookahead for non-space at line-start, or end of doc
 		}{
 			my $prevchar  = $1;
 			my $newlines  = $3;
@@ -734,8 +703,8 @@ sub _DoCodeBlocks {
 			unless (($prevchar =~ m/\s/) or ($prevchar eq "")) {
 					$prefix = "$prevchar:";
 			}
-			$codeblock = $class->_EncodeCode($class->_Outdent($codeblock));
-			$codeblock = $class->_Detab($codeblock);
+			$codeblock = $self->_EncodeCode($self->_Outdent($codeblock));
+			$codeblock = $self->_Detab($codeblock);
 			$codeblock =~ s/\A\n+//; # trim leading newlines
 			$codeblock =~ s/\s+\z//; # trim trailing whitespace
 
@@ -774,7 +743,6 @@ sub _DoCodeSpans {
 	#         ... type <code>`bar`</code> ...
 	#
 
-	my $class = shift;
 	my $text = shift;
 
 	my $backtick_count;
@@ -789,7 +757,7 @@ sub _DoCodeSpans {
 			my $c = $2;
 			$c =~ s/^[ \t]*//g; # leading whitespace
 			$c =~ s/[ \t]*$//g; # trailing whitespace
-			$c = $class->_EncodeCode($c);
+			$c = $self->_EncodeCode($c);
 			"<code>$c</code>";
 		@egsx;
 
@@ -798,7 +766,6 @@ sub _DoCodeSpans {
 
 
 sub _DoItalicsAndBold {
-	my $class = shift;
 	my $text = shift;
 
 	# <strong> must go first:
@@ -811,7 +778,6 @@ sub _DoItalicsAndBold {
 
 
 sub _DoBlockQuotes {
-	my $class = shift;
 	my $text = shift;
 
 	$text =~ s{
@@ -826,7 +792,7 @@ sub _DoBlockQuotes {
 		}{
 			my $bq = $1;
 			$bq =~ s/^[ \t]*>[ \t]?//gm;	# trim one level of quoting
-			$bq = $class->_RunBlockGamut($bq);		# recurse
+			$bq = $self->_RunBlockGamut($bq);		# recurse
 			$bq =~ s/^/\t/g;
 			
 			"<blockquote>\n$bq\n</blockquote>\n\n";
@@ -843,7 +809,6 @@ sub _FormParagraphs {
 	#		$text - string to process with html <p> tags
 	#
 
-	my $class = shift;
 	my $text = shift;
 
 	# Strip leading and trailing lines:
@@ -857,8 +822,8 @@ sub _FormParagraphs {
 	# Wrap <p> tags.
 	#
 	foreach (@grafs) {
-		unless (defined( $class->{g}{html_blocks}{$_} )) {
-			$_ = $class->_RunSpanGamut($_);
+		unless (defined( $self->{g}{html_blocks}{$_} )) {
+			$_ = $self->_RunSpanGamut($_);
 			s/^([ \t]*)/<p>/;
 			$_ .= "</p>";
 		}
@@ -868,8 +833,8 @@ sub _FormParagraphs {
 	# Unhashify HTML blocks
 	#
 	foreach (@grafs) {
-		if (defined( $class->{g}{html_blocks}{$_} )) {
-			$_ = $class->{g}{html_blocks}{$_};
+		if (defined( $self->{g}{html_blocks}{$_} )) {
+			$_ = $self->{g}{html_blocks}{$_};
 		}
 	}
 
@@ -878,9 +843,8 @@ sub _FormParagraphs {
 
 
 sub _EscapeSpecialChars {
-	my $class = shift;
 	my $text = shift;
-	my $tokens ||= $class->_TokenizeHTML($text);
+	my $tokens ||= $self->_TokenizeHTML($text);
 
 	$text = '';   # rebuild $text from the tokens
 	my $in_pre = 0;	 # Keep track of when we're inside <pre> or <code> tags.
@@ -894,13 +858,13 @@ sub _EscapeSpecialChars {
 			# corresponding MD5 checksum value; this is likely
 			# overkill, but it should prevent us from colliding
 			# with the escape values by accident.
-			$cur_token->[1] =~  s! \* !${ $class->{g}{escape_table} }{'*'}!gx;
-			$cur_token->[1] =~  s! _  !${ $class->{g}{escape_table} }{'_'}!gx;
+			$cur_token->[1] =~  s! \* !${ $self->{g}{escape_table} }{'*'}!gx;
+			$cur_token->[1] =~  s! _  !${ $self->{g}{escape_table} }{'_'}!gx;
 			$text .= $cur_token->[1];
 		} else {
 			my $t = $cur_token->[1];
 			if (! $in_pre) {
-				$t = $class->_EncodeBackslashEscapes($t);
+				$t = $self->_EncodeBackslashEscapes($t);
 				# $t =~ s{([a-z])/([a-z])}{$1&thinsp;/&thinsp;$2}ig;
 			}
 			$text .= $t;
@@ -914,7 +878,6 @@ sub _EncodeAmpsAndAngles {
 	# Smart processing for ampersands and angle brackets that need to be 
 	# encoded.
 
-	my $class = shift;
 	my $text = shift;
 
 	# Ampersand-encoding based entirely on Nat Irons's Amputator MT plugin:
@@ -934,7 +897,6 @@ sub _EncodeCode {
 	# The point is that in code, these characters are literals,
 	# and lose their special Markdown meanings.
 	#
-	my $class = shift;
     local $_ = shift;
 
 	# Encode all ampersands; HTML entities are not
@@ -946,12 +908,12 @@ sub _EncodeCode {
 	s! >  !&gt;!gx;
 
 	# Now, escape characters that are magic in Markdown:
-	s! \* !${ $class->{g}{escape_table} }{'*'}!gx;
-	s! _  !${ $class->{g}{escape_table} }{'_'}!gx;
-	s! {  !${ $class->{g}{escape_table} }{'{'}!gx;
-	s! }  !${ $class->{g}{escape_table} }{'}'}!gx;
-	s! \[ !${ $class->{g}{escape_table} }{'['}!gx;
-	s! \] !${ $class->{g}{escape_table} }{']'}!gx;
+	s! \* !${ $self->{g}{escape_table} }{'*'}!gx;
+	s! _  !${ $self->{g}{escape_table} }{'_'}!gx;
+	s! {  !${ $self->{g}{escape_table} }{'{'}!gx;
+	s! }  !${ $self->{g}{escape_table} }{'}'}!gx;
+	s! \[ !${ $self->{g}{escape_table} }{'['}!gx;
+	s! \] !${ $self->{g}{escape_table} }{']'}!gx;
 
 	return $_;
 }
@@ -963,22 +925,21 @@ sub _EncodeBackslashEscapes {
 	#   Returns:    The string, with after processing the following backslash
 	#               escape sequences.
 	#
-	my $class = shift;
     local $_ = shift;
 
-    s! \\\\  !${ $class->{g}{escape_table} }{'\\'}!gx;		# Must process escaped backslashes first.
-    s! \\`   !${ $class->{g}{escape_table} }{'`'}!gx;
-    s! \\\*  !${ $class->{g}{escape_table} }{'*'}!gx;
-    s! \\_   !${ $class->{g}{escape_table} }{'_'}!gx;
-    s! \\\{  !${ $class->{g}{escape_table} }{'{'}!gx;
-    s! \\\}  !${ $class->{g}{escape_table} }{'}'}!gx;
-    s! \\\[  !${ $class->{g}{escape_table} }{'['}!gx;
-    s! \\\]  !${ $class->{g}{escape_table} }{']'}!gx;
-    s! \\\(  !${ $class->{g}{escape_table} }{'('}!gx;
-    s! \\\)  !${ $class->{g}{escape_table} }{')'}!gx;
-    s! \\\#  !${ $class->{g}{escape_table} }{'#'}!gx;
-    s! \\\.  !${ $class->{g}{escape_table} }{'.'}!gx;
-    s{ \\!  }{${ $class->{g}{escape_table} }{'!'}}gx;
+    s! \\\\  !${ $self->{g}{escape_table} }{'\\'}!gx;		# Must process escaped backslashes first.
+    s! \\`   !${ $self->{g}{escape_table} }{'`'}!gx;
+    s! \\\*  !${ $self->{g}{escape_table} }{'*'}!gx;
+    s! \\_   !${ $self->{g}{escape_table} }{'_'}!gx;
+    s! \\\{  !${ $self->{g}{escape_table} }{'{'}!gx;
+    s! \\\}  !${ $self->{g}{escape_table} }{'}'}!gx;
+    s! \\\[  !${ $self->{g}{escape_table} }{'['}!gx;
+    s! \\\]  !${ $self->{g}{escape_table} }{']'}!gx;
+    s! \\\(  !${ $self->{g}{escape_table} }{'('}!gx;
+    s! \\\)  !${ $self->{g}{escape_table} }{')'}!gx;
+    s! \\\#  !${ $self->{g}{escape_table} }{'#'}!gx;
+    s! \\\.  !${ $self->{g}{escape_table} }{'.'}!gx;
+    s{ \\!  }{${ $self->{g}{escape_table} }{'!'}}gx;
 
     return $_;
 }
@@ -989,10 +950,9 @@ sub _UnescapeSpecialChars {
 	# Swap back in all the special characters we've hidden.
 	#
 
-	my $class = shift;
 	my $text = shift;
 
-	while( my($char, $hash) = each(%{ $class->{g}{escape_table} }) ) {
+	while( my($char, $hash) = each(%{ $self->{g}{escape_table} }) ) {
 		$text =~ s/$hash/$char/g;
 	}
     return $text;
@@ -1015,7 +975,6 @@ sub _TokenizeHTML {
 	#       <http://www.bradchoate.com/past/mtregex.php>
 	#
 
-	my $class = shift;
     my $str = shift;
     my $pos = 0;
     my $len = length $str;
@@ -1047,10 +1006,9 @@ sub _Outdent {
 	# Remove one level of line-leading tabs or spaces
 	#
 
-	my $class = shift;
 	my $text = shift;
 	
-	$text =~ s/^(\t|[ ]{1,$class->{g}{tab_width}})//gm;
+	$text =~ s/^(\t|[ ]{1,$self->{g}{tab_width}})//gm;
 	return $text;
 }
 
@@ -1061,10 +1019,9 @@ sub _Detab {
 	# <http://www.nntp.perl.org/group/perl.macperl.anyperl/154>
 	#
 
-	my $class = shift;
 	my $text = shift;
 	
-	$text =~ s/(.*?)\t/$1.(' ' x ($class->{g}{tab_width} - length($1) % $class->{g}{tab_width}))/ge;
+	$text =~ s/(.*?)\t/$1.(' ' x ($self->{g}{tab_width} - length($1) % $self->{g}{tab_width}))/ge;
 	return $text;
 }
 

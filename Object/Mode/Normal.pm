@@ -28,12 +28,7 @@ sub go {
 		$self->_->container->determine_look()
 	);
 
-	my $content;
-	if ( $self->_->xmlfunc->uri_has_xml_prefix ) {
-		$content = $self->handle_xml_function;
-	} else {
-		$content = $self->handle_template;
-	}
+	my $content = $self->handle_template;
 
 	my $r = $self->_->ap_request;
 
@@ -43,14 +38,6 @@ sub go {
 	$r->print($content);
 
 	return $self->_->core->code('OK');
-}
-
-#----------
-
-sub handle_xml_function {
-	my $xmlfunc = $self->_->xmlfunc->determine_function;
-
-
 }
 
 #----------
@@ -83,7 +70,7 @@ sub handle_template {
 	# -- walk the template to see what we're using -- #
 
 	{
-		my $walker = $self->_->instance->new_object("Template::Walker");
+		my $walker = $self->_->new_object("Template::Walker");
 
 		foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 			# -- register the walker -- #
@@ -103,7 +90,7 @@ sub handle_template {
 	}
 
 	{
-		my $walker = $self->_->instance->new_object("Template::Walker");
+		my $walker = $self->_->new_object("Template::Walker");
 
 		foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 			# -- register the walker -- #

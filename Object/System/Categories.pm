@@ -1,50 +1,60 @@
 package eThreads::Object::System::Categories;
 
+use eThreads::Object::System -Base;
+no warnings;
+
 use eThreads::Object::System::Categories::Category;
 
-use strict;
-
 #----------
+
+field '_' => -ro;
+
+field 'glomule';
+field 'headers'	=> 
+	-init=>q!
+		$self->_->cache->get(tbl=>"cat_headers",first=>$self->glomule)
+			or $self->cache_headers($self->glomule);
+	!, -ro;
 
 sub new {
-	my $class = shift;
-	my $data = shift;
-
-	$class = bless ( {
-		_		=> $data,
-	} , $class ); 
-
-	return $class;
-}
-
-#----------
-
-sub get_sql_for {
-	my $class = shift;
+	$self = super;
 	my $glomule = shift;
-	my $cat = shift;
-	
-	my $obj = $class->is_valid_cat($glomule,$cat)
-		or $class->{_}->bail->("Invalid category: $cat");
 
-	return $obj->sql;
+	$self->glomule($glomule);
+
+	return $self;
 }
 
 #----------
 
 sub is_valid_name {
-	warn "args: @_\n";
-	my $class = shift;
-	my $glomule = shift;
 	my $cat = shift;
 
-	warn "looking for cat $cat on glomule $glomule\n";
+	if (my $c = $self->headers->{ name }{ $cat }) {
+		return 1;
+	} else {
+		return undef;
+	}
+}
 
-	my $cache = $class->get_headers($glomule);
+#----------
 
-	if (my $c = $cache->{ name }{ $cat }) {
-		# valid, create an object
-		return $class->load($glomule,$c->{id});
+sub is_valid_id {
+	my $cat = shift;
+
+	if (my $c = $self->headers->{ id }{ $cat }) {
+		return 1;
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
+sub load_by_name {
+	my $cat = shift;
+	if ( my $c = $self->headers->{ name }{ $cat }) {
+		return $self->load( $c->{id} );
 	} else {
 		return undef;
 	}
@@ -53,18 +63,15 @@ sub is_valid_name {
 #----------
 
 sub load {
-	my $class = shift;
-	my $glomule = shift;
 	my $id = shift;
 
-	my $cache = $class->get_headers($glomule);
-
-	my $c = $cache->{id}{ $id };
+	my $c = $self->headers->{id}{ $id };
 
 	return undef if (!$c);
 
-	my $obj = $class->{_}->new_object(
+	my $obj = $self->_->new_object(
 		"System::Categories::Category",
+		catobj => $self,
 		%$c
 	);
 
@@ -73,30 +80,37 @@ sub load {
 
 #----------
 
+sub new_category {
+	$self->_->new_object(
+		'System::Categories::Category::Writable',
+		catobj => $self
+	);
+}
+
+#----------
+
 sub get_primary {
-	my $class = shift;
-	my $glomule = shift;
 	my $id = shift;
 
 	# -- make sure we have an id -- #
 
-	$class->{_}->bail->("Category get_primary called with no id.")
+	$self->_->bail->("Category get_primary called with no id.")
 		if (!$id);
 
 	# -- look up primary category -- #
 
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			cat
 		from 
-			" . $class->{_}->core->get_tbl("category_primary") . "
+			" . $self->_->core->get_tbl("category_primary") . "
 		where 
 			glomule = ?
 			and id = ?
 	");
 
-	$get->execute($glomule,$id)
-		or $class->{_}->bail->("get_primary failure: " . $get->errstr);
+	$get->execute( scalar $self->glomule->id , $id )
+		or $self->_->bail->("get_primary failure: " . $get->errstr);
 
 	# -- return undef if we didn't find anything -- #
 
@@ -104,36 +118,16 @@ sub get_primary {
 
 	# -- load our category -- #
 
-	return $class->load( $get->fetchrow_arrayref );
-}
-
-#----------
-
-sub get_headers {
-	my $class = shift;
-	my $glomule = shift;
-
-	my $c = $class->{_}->cache->get(tbl=>"cat_headers",first=>$glomule);
-
-	if (!$c) {
-		$c = $class->cache_headers($glomule);
-	}
-
-	return $c;
+	return $self->load( $get->fetchrow_arrayref );
 }
 
 #----------
 
 sub load_all {
-	my $class = shift;
-	my $glomule = shift;
-
-	my $headers = $class->get_headers($glomule);
-
 	my $cats = { name => {} , id => {} };
-	while (my ($id,$c) = each %{$headers->{id}}) {
+	while (my ($id,$c) = each %{$self->headers->{id}}) {
 		$cats->{name}{ $id } = $cats->{id}{ $c->{id} } 
-			= $class->{_}->new_object(
+			= $self->_->new_object(
 				"System::Categories::Category",
 				%$c
 			);
@@ -145,21 +139,18 @@ sub load_all {
 #----------
 
 sub cache_headers {
-	my $class = shift;
-	my $glomule = shift;
-
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			id,
 			name
 		from 
-			" . $class->{_}->core->tbl_name('cat_headers') . "
+			" . $self->_->core->tbl_name('cat_headers') . "
 		where 
 			glomule = ?
 	");
 
-	$get->execute($glomule)
-		or $class->{_}->bail->("cache_cat_headers failure: " . $get->errstr);
+	$get->execute(scalar $self->glomule->id)
+		or $self->_->bail->("cache_cat_headers failure: " . $get->errstr);
 
 	my ($id,$n);
 	$get->bind_columns( \($id,$n) );
@@ -169,13 +160,13 @@ sub cache_headers {
 		$cat->{name}{ $n } = $cat->{id}{ $id } = {
 			id			=> $id,
 			name		=> $n,
-			glomule		=> $glomule
+			glomule		=> scalar $self->glomule->id
 		};
 	}
 
-	$class->{_}->cache->set(
-		tbl		=> "cat_headers",
-		first	=> $glomule,
+	$self->_->cache->set(
+		tbl		=> 'cat_headers',
+		first	=> scalar $self->glomule->id,
 		ref		=> $cat
 	);
 
@@ -185,21 +176,18 @@ sub cache_headers {
 #----------
 
 sub f_main {
-	my $class = shift;
 	my $fobj = shift;
-
-	my $glomule = $fobj->glomule->id;
 
 	if (my $name = $fobj->bucket->get('name')) {
 		# -- create a new category -- #
 
 		# check to make sure it doesn't exist
-		if ($class->is_valid_name( $glomule , $name )) {
+		if ($self->is_valid_name( $name )) {
 			$fobj->gholders->register("message","Category exists: $name");
 		} else {
-			my $cat = $class->{_}->new_object("System::Categories::Category",
+			my $cat = $self->_->new_object("System::Categories::Category",
 				name	=> $name,
-				glomule	=> $fobj->glomule->id
+				glomule	=> $self->glomule
 			)->activate;
 		
 			$fobj->gholders->register("message","Created category $name");
@@ -209,7 +197,7 @@ sub f_main {
 	# -- load all categories -- #
 
 	my @data;
-	my $cats = $class->load_all($glomule);
+	my $cats = $self->load_all;
 	
 	while (my ($id,$c) = each %{ $cats->{id} }) {
 		push @data, [ 'categories.' . $id , $c->registerable ];
@@ -224,17 +212,14 @@ sub f_main {
 #----------
 
 sub f_edit {
-	my $class = shift;
 	my $fobj = shift;
-
-	my $glomule = $fobj->glomule->id;
 
 	# -- load -- #
 
 	my $id = $fobj->bucket->get('id');
 
-	my $cat = $class->load($glomule,$id)
-		or $class->{_}->bail->("couldn't load category: $id");
+	my $cat = $self->load($id)
+		or $self->_->bail->("couldn't load category: $id");
 
 	# -- check for edits -- #
 
@@ -245,26 +230,6 @@ sub f_edit {
 	# -- register -- #
 
 	$fobj->gholders->register('category',$cat->registerable);
-}
-
-#----------
-
-sub qopts_main {
-	return [
-
-	{
-		name	=> "name",
-		allowed	=> '.+',
-		d_value	=> undef,
-	},
-
-	];
-}
-
-#----------
-
-sub qopts_edit {
-	return [];
 }
 
 #----------

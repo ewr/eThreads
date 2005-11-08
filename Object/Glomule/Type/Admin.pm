@@ -167,7 +167,7 @@ sub f_looks_options {
 	# -- get a list of looks -- #
 
 	{
-		my $looks = $self->_->ocontainer->get_looks;
+		my $looks = $self->_->ocontainer->looks;
 
 		my @looks;
 		my $lid = $look->id;

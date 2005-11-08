@@ -1,27 +1,26 @@
 package eThreads::Object::Auth;
 
-use strict;
+use Spiffy -Base;
+no warnings;
 
 #----------
 
-sub new {
-	die "Cannot call Auth object directly\n";
-}
+field '_' => -ro;
+stub 'new';
 
 #----------
 
 sub is_valid_login {
-	my $class = shift;
 	my $user = shift;
 	my $pass = shift;
 	my $crypted = shift;
 
-	my $headers = $class->{_}->cache->get(
+	my $headers = $self->_->cache->get(
 		tbl		=> "user_headers"
 	);
 
 	if (!$headers) {
-		$headers = $class->{_}->instance->cache_user_headers;
+		$headers = $self->_->instance->cache_user_headers;
 	}
 
 	my $ref = $headers->{u}{ $user };
@@ -35,8 +34,8 @@ sub is_valid_login {
 
 	if ($cpass eq $ref->{password}) {
 		# -- successful authentication -- #
-		my $obj = $class->{user} 
-			= $class->{_}->instance->new_object("User",id=>$ref->{id});
+		my $obj = $self->{user} 
+			= $self->_->new_object("User",id=>$ref->{id});
 		return $obj;
 	} else {
 		# -- invalid password -- #
@@ -48,8 +47,6 @@ sub is_valid_login {
 #----------
 
 sub allowed {
-	my $class = shift;
-
 	return 1;
 }
 

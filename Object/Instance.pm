@@ -1,103 +1,93 @@
 package eThreads::Object::Instance;
 
-use strict;
+use Spiffy -Base;
+no warnings;
+
+field '_' => -ro;
 
 sub new {
-	my $class 	= shift;
+	# this is going to be core's switchboard accessors
+	my $data = shift;
 
-	# this is going to be core
-	my $core 	= shift;
-
+	# request handler
 	my $r = shift;
 
-	$class = bless ( 
-		{ 
-			_			=> undef,
-		} , $class );
+	# -- create our self object -- #
 
-	# create objects object
-	$class->{objects} = eThreads::Object::Objects->new($class);
+	$self = bless { _ => undef } , $self;
 
-	# create switchboard object
-	my $swb = new eThreads::Object::Switchboard;
-	$swb->reroute_calls_for($class);
-	$class->{objects}->register($swb);
+	# create instance objects object
+	$self->{objects} = eThreads::Object::Objects->new($self);
 
-	$swb->register('core',$core);
-	$swb->register('settings',$core->settings);
+	# create custom switchboard object
+	my $swb = $data->switchboard->custom;
+	$swb->reroute_calls_for($self);
+	$self->{objects}->register($swb);
 
 	# register ourself with switchboard
-	$swb->register('instance',$class);
+	$swb->register('instance',$self);
 	$swb->register('ap_request',$r);
 
 	# register objects with switchboard
-	$swb->register('objects',$class->{objects});
+	$swb->register('objects',$self->{objects});
 
 	# load up the utils object
 	$swb->register('utils',sub {
-		$class->new_object('Utils');
-	});
-
-	# load up the XMLFunction object
-	$swb->register('xmlfunc',sub {
-		$class->new_object('XMLFunction');
+		$self->_->new_object('Utils');
 	});
 
 	# create cache object
-	$swb->register('cache',$class->new_object(
-		$class->{_}->settings->{cache_obj}
+	$swb->register('cache',$self->_->new_object(
+		$self->_->settings->{cache_obj}
 	));
 
 	$swb->register('messages',sub {
-		$class->new_object('Messages');
+		$self->_->new_object('Messages');
 	});
 
 	# register our bail object
 	$swb->register('bail',sub {
-		sub { $class->{_}->messages->bail(@_); }
+		sub { $self->_->messages->bail(@_); }
 	});
 
 	# -- register some accessors lazily -- #
 
-	$swb->register('RequestURI', $class->new_object('RequestURI') );
+	$swb->register('RequestURI', $self->_->new_object('RequestURI') );
 
 	$swb->register('auth',sub {
-		$class->new_object($class->{_}->settings->{auth_obj});
+		$self->_->new_object($self->_->settings->{auth_obj});
 	});
 
 	$swb->register('raw_queryopts',sub {
-		$class->new_object('QueryOpts::Raw');
+		$self->_->new_object('QueryOpts::Raw');
 	});
 
 	$swb->register('queryopts',sub {
-		$class->new_object('QueryOpts');
+		$self->_->new_object('QueryOpts');
 	});
 
-	$swb->register("gholders", $class->new_object("GHolders") );
+	$swb->register("gholders", $self->_->new_object("GHolders") );
 
-	$swb->register('glomule', $class->new_object('Glomule'));
+	$swb->register('glomule', $self->_->new_object('Glomule'));
 
 	$swb->register("last_modified",sub {
-		$class->new_object("LastModifiedTime");
+		$self->_->new_object("LastModifiedTime");
 	});
 
 	$swb->register("plugins",sub {
-		$class->new_object("Plugin");
+		$self->_->new_object("Plugin");
 	});
 
 	# create system object
 	$swb->register('system',sub {
-		$class->{_}->new_object('System');
+		$self->_->new_object('System');
 	});
-
-	# point to core's controller object
-	$swb->register('controller',$class->{_}->core->controller);
 
 	# -- continue with initialization -- #
 
-	# set our root...  this will set $class->{root} to be a Container 
+	# set our root...  this will set $self->{root} to be a Container 
 	# object for the root
-	$swb->register("domain",$class->determine_domain());
+	$swb->register("domain",$self->determine_domain());
 
 	# what we do here is a sort of tree shaped lookup to see what 
 	# all is going on.  We determine the mode, the mode determines the 
@@ -105,55 +95,42 @@ sub new {
 	# look determines the template
 
 	# figure out our mode
-	$swb->register("mode",$class->determine_mode());
+	$swb->register("mode",$self->determine_mode());
 
 	# -- now return -- #
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub go {
-	my $class = shift;
-
-	return $class->{_}->mode->go;
+	$self->_->mode->go;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
-
-	$class->{objects}->DESTROY;
-	undef $class->{objects};
+	$self->{objects}->DESTROY;
+	undef $self->{objects};
 }
 
 #----------
 
 sub new_object {
-	my $class = shift;
-	my $type = shift;
-
-	my $obj = $class->{_}->objects->create(
-		$type,
-		$class->{_},
-		@_
-	);
-
-	return $obj;
+	my @caller = caller;
+	$self->_->bail->("new_object called on instance: @caller");
 }
 
 #----------
 
 sub check_rights_for_glomule {
-	my $class = shift;
 	my $glomule = shift;
 
 	if (1) {
 		return 1;
 	} else {
-		$class->{_}->bail->(
+		$self->_->bail->(
 			"Cannot instantiate this glomule here.  Insufficient rights."
 		);
 	}
@@ -164,18 +141,16 @@ sub check_rights_for_glomule {
 #--------------#
 
 sub ap_request {
-	return shift->{ap_request};
+	return $self->{ap_request};
 }
 
 #----------
 
 sub load_domains {
-	my $class = shift;
-
-	my $d = $class->{_}->cache->get(tbl=>"domains");
+	my $d = $self->_->cache->get(tbl=>"domains");
 
 	if (!$d) {
-		$d = $class->cache_domains();
+		$d = $self->cache_domains();
 	}
 
 	return $d;
@@ -184,16 +159,15 @@ sub load_domains {
 #----------
 
 sub load_containers {
-	my $class = shift;
-	my $id = shift || $class->{_}->domain->id;
+	my $id = shift || $self->_->domain->id;
 
-	my $c = $class->{_}->cache->get(
+	my $c = $self->_->cache->get(
 		tbl		=> "containers",
 		first	=> $id,
 	);
 
 	if (!$c) {
-		$c = $class->{_}->instance->cache_containers($id);
+		$c = $self->_->instance->cache_containers($id);
 	}
 
 	return $c;
@@ -204,15 +178,13 @@ sub load_containers {
 #--------------------#
 
 sub determine_mode {
-	my $class = shift;
-
-	my $u = $class->{_}->RequestURI->unclaimed;
+	my $u = $self->_->RequestURI->unclaimed;
 
 	my $obj;
-	while ( my ($m,$s) = each %{ $class->{_}->settings->{modes} }) {
+	while ( my ($m,$s) = each %{ $self->_->settings->{modes} }) {
 		if ($u =~ m!^(/?$s)!) {
-			$class->{_}->RequestURI->claim($1);
-			$obj =  $class->new_object("Mode::$m",$s);
+			$self->_->RequestURI->claim($1);
+			$obj =  $self->_->new_object("Mode::$m",$s);
 			last;
 		} else {
 			# do nothing
@@ -220,26 +192,24 @@ sub determine_mode {
 	}
 
 	# reset the counter for each
-	keys %{ $class->{_}->settings->{modes} };
+	keys %{ $self->_->settings->{modes} };
 
 	if ($obj) {
 		return $obj;
 	} else {
 		# if we've found nothing, our mode is Normal 
-		return $class->new_object("Mode::Normal");
+		return $self->_->new_object("Mode::Normal");
 	}
 }
 
 #----------
 
 sub determine_domain {
-	my $class = shift;
+	my $db = $self->_->core->get_dbh;
 
-	my $db = $class->{_}->core->get_dbh;
-
-	if (!$class->{_}->settings->{virtual_root}) {
-		my $root = $class->new_object("Domain",
-			%{$class->{_}->core->get_default_domain}
+	if (!$self->_->settings->{virtual_root}) {
+		my $root = $self->_->new_object("Domain",
+			%{$self->_->core->get_default_domain}
 		);
 
 		return $root;
@@ -254,14 +224,14 @@ sub determine_domain {
 
 	my $domain = $ENV{HTTP_X_FORWARDED_HOST} || $ENV{SERVER_NAME};
 
-	my $d = $class->load_domains;
+	my $d = $self->load_domains;
 
 	my $croot;
 	if ( my $dref = $d->{d}{ $domain } ) {
-		$croot = $class->new_object("Domain",%$dref);
+		$croot = $self->_->new_object("Domain",%$dref);
 	} else {
-		$croot = $class->new_object("Domain",
-			%{$class->{_}->core->get_default_domain}
+		$croot = $self->_->new_object("Domain",
+			%{$self->_->core->get_default_domain}
 		);
 	}
 
@@ -273,14 +243,12 @@ sub determine_domain {
 #------------------#
 
 sub cache_user_headers {
-	my $class = shift;
-
-	my $db = $class->{_}->core->get_dbh;
+	my $db = $self->_->core->get_dbh;
 	my $get = $db->prepare("
 		select 
 			id,user,password 
 		from 
-			" . $class->{_}->core->tbl_name("user_headers") . " 
+			" . $self->_->core->tbl_name("user_headers") . " 
 	");
 
 	$get->execute();
@@ -299,7 +267,7 @@ sub cache_user_headers {
 		$headers->{u}{ $u } = $headers->{id}{ $id } = $user;
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "user_headers",
 		ref		=> $headers,
 	);
@@ -310,20 +278,18 @@ sub cache_user_headers {
 #----------
 
 sub cache_domains {
-	my $class = shift;
-
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			id,
 			domain,
 			path
 		from 
-			" . $class->{_}->core->tbl_name("domains") . "
+			" . $self->_->core->tbl_name("domains") . "
 		
 	");
 
 	$get->execute 
-		or $class->{_}->bail->("cache_domains error: ".$get->errstr);
+		or $self->_->bail->("cache_domains error: ".$get->errstr);
 
 	my ($id,$d,$p);
 	$get->bind_columns( \($id,$d,$p) );
@@ -342,17 +308,17 @@ sub cache_domains {
 	# now get aliases
 
 	{
-		my $get_a = $class->{_}->core->get_dbh->prepare("
+		my $get_a = $self->_->core->get_dbh->prepare("
 			select 
 				domain,
 				alias
 			from 
-				" . $class->{_}->core->tbl_name("domain_aliases") . "
+				" . $self->_->core->tbl_name("domain_aliases") . "
 	
 		");
 
 		$get_a->execute() 
-			or $class->{_}->bail->("get domain aliases failure: ".$get_a->errstr);
+			or $self->_->bail->("get domain aliases failure: ".$get_a->errstr);
 		
 		my ($d,$a);
 		$get_a->bind_columns( \($d,$a) );
@@ -364,49 +330,12 @@ sub cache_domains {
 
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "domains",
 		ref		=> $domains,
 	);
 
 	return $domains;
-}
-
-#----------
-
-sub cache_containers {
-	my $class = shift;
-	my $domain = shift;
-
-	my $db = $class->{_}->core->get_dbh;
-
-	my $get_glomules = $db->prepare("
-		select 
-			id,name 
-		from 
-			" . $class->{_}->core->tbl_name("containers") . " 
-		where 
-			domain = ?
-	");
-
-	$class->{_}->bail("cache_glomule_hash error: ".$db->errstr) 
-		unless ($get_glomules->execute( $domain ));
-
-	my ($id,$name);
-	$get_glomules->bind_columns(\$id,\$name);
-
-	my $g = {};
-	while ($get_glomules->fetch) {
-		$g->{$name} = $id;
-	}
-
-	$class->{_}->cache->set(
-		tbl		=> "containers",
-		first	=> $domain,
-		ref		=> $g,
-	);
-
-	return $g;
 }
 
 #----------

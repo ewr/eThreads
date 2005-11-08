@@ -1,7 +1,5 @@
 package eThreads::Object::QueryOpts;
 
-use strict;
-
 use Spiffy -Base;
 
 # Spiffy turns warnings on, and we get complaints about uninitialized vars
@@ -41,7 +39,7 @@ sub DESTROY {
 #----------
 
 sub new_bucket {
-	return $self->_->instance->new_object('QueryOpts::Bucket',@_);
+	$self->_->new_object('QueryOpts::Bucket',@_);
 }
 
 #----------
@@ -307,16 +305,25 @@ sub load_qkeys_to_input {
 	# ignore an empty first part since we get a / first
 	shift @parts if (!$parts[0]);
 
+	my @claim;
 	foreach my $k (@{ $self->_->template->qkeys }) {
+		# grab something off parts from unclaimed
 		my $v = shift @parts;
-		next if (!$v || $v eq "-");
 
+		# if we didn't get anything we're done.
+		last if (!$v);
+
+		# add to our claim
+		push @claim, $v;
+
+		# we claim this -, but we don't assign it to anything
+		next if ($v eq "-");
+
+		# assign value into queryopts
 		$self->_->raw_queryopts->set($k,$v);
 	}
 
-	# for now we're just going to say, "hey, we're last," and claim 
-	# all remaining URI no matter if we used it or not
-	$self->_->RequestURI->claim($qkeys);
+	$self->_->RequestURI->claim( join('/',@claim) );
 
 	return 1;
 }

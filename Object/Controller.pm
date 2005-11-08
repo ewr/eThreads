@@ -1,52 +1,63 @@
 package eThreads::Object::Controller;
 
-use eThreads::Object::Controller::Object;
+use Spiffy -Base;
+no warnings;
 
-use strict;
+use eThreads::Object::Controller::Object;
 
 #----------
 
+field '_' => -ro;
+
+field 'controllers' => 
+	-init=>q!
+		$self->read_controllers
+	!, -ro;
+
+field 'list' => 
+	-init=>q!
+		my $c = [];
+		@$c = map { $_ } keys %{ $self->controllers };
+		$c;
+	!, -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_		=> $data,
-	} , $class ); 
+	} , $self ); 
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub get {
-	my $class = shift;
 	my $type = shift;
-
-	return $class->{controllers}{ $type };
+	return $self->controllers->{ $type };
 }
 
 #----------
 
-sub activate {
-	my $class = shift;
-
+sub read_controllers {
 	# -- list files in Controllers dir -- #
 
-	opendir(DIR,$class->{_}->settings->{dir}{controllers})
-		or $class->{_}->bail->("couldn't open controller dir: $!");
+	opendir(DIR,$self->_->settings->{dir}{controllers})
+		or $self->_->bail->("couldn't open controller dir: $!");
 	
 	my @files = grep { /xml$/ } readdir(DIR);
 	
 	closedir DIR;
 
+	my $controllers = {};
 	foreach my $f (@files) {
-		my $c = $class->{_}->new_object("Controller::Object",$f);
+		my $c = $self->_->new_object("Controller::Object",$f);
 
-		$class->{controllers}{ $c->type } = $c;
+		$controllers->{ $c->type } = $c;
 	}
 
-	return $class;
+	$controllers;
 }
 
 #----------

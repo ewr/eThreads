@@ -367,10 +367,13 @@ sub _restore_tree {
 	my $children = $i->{children};
 	undef $i->{children};
 	$i = CORE::bless $i , 'eThreads::Object::Template::Item';
-	foreach my $c ( @$children ) {
-		$i->children->push(
-			$self->_restore_tree( $c , $i )
-		);
+	
+	if ( $children ) {
+		foreach my $c ( @$children ) {
+			$i->children->push(
+				$self->_restore_tree( $c , $i )
+			);
+		}
 	}
 	$i->{parent} = $p;
 	Scalar::Util::weaken($i->{parent});

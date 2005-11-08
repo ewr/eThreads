@@ -69,7 +69,7 @@ sub activate_walk {
 	$class->count_comments_for($ids,$htbl);
 
 	foreach my $post (@$ids) {
-		my $gh = $class->{_}->instance->new_object(
+		my $gh = $class->{_}->new_object(
 			"GHolders::GHolder",
 			"comment_count",
 			$post->[1]

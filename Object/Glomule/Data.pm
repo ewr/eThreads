@@ -18,6 +18,8 @@ field 'posthooks'	=>
 	-ro, 
 	-init=>q!$self->_->new_object('Glomule::PostHooks')!;
 
+field 'buckets'		=> [];
+
 sub new {
 	my $data = shift;
 
@@ -44,6 +46,12 @@ sub new {
 	return $self;
 }
 
+sub new_bucket {
+	my $b = $self->_->new_object('Glomule::Data::Bucket');
+	push @{ $self->buckets } , $b;
+	$b;
+}
+
 #----------
 
 sub DESTROY {
@@ -64,7 +72,7 @@ sub activate {
 	foreach my $s ( $self->controller->systems ) {
 		my $obj 
 			= $self->{system}{ $s->name } 
-				= $self->{_}->system->load($s->object);
+				= $self->{_}->system->load($s->object,$self);
 
 		$self->{_}->objects->activate($obj);
 	}

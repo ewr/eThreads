@@ -1,68 +1,57 @@
 package eThreads::Object::Mode::Admin;
 
-@ISA = qw( eThreads::Object::Mode );
-
-use strict;
+use eThreads::Object::Mode -Base;
+no warnings;
 
 #----------
 
-sub IS_ADMIN { 1; }
+const 'IS_ADMIN' => 1;
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 	my $path = shift;
 
-	$class = bless({
+	$self = bless({
 		_		=> $data,
 		path	=> $path || undef,
-	},$class);
+	},$self);
 
-	return $class;
-}
-
-#----------
-
-sub activate {
-	my $class = shift;
-
+	return $self;
 }
 
 #----------
 
 sub go {
-	my $class = shift;
-
 	# authenticate is responsible for checking if they've already provided 
 	# the proper authentication tokens.  if they haven't we call unauthorized, 
 	# which is responsible for printing a login (be it a page or just sending 
 	# WWW-Authenticate) for the user.
 
-	my $user = $class->{_}->auth->authenticate
-		or return $class->{_}->auth->unauthorized;
+	my $user = $self->_->auth->authenticate
+		or return $self->_->auth->unauthorized;
 
-	$class->{_}->switchboard->register("user",$user);
+	$self->_->switchboard->register("user",$user);
 
 	# if we've gotten here they authenticated fine, now we need to figure 
 	# out what container we're accessing before we check admin rights
 
-	$class->{_}->switchboard->register("ocontainer",
-		$class->determine_container()
+	$self->_->switchboard->register("ocontainer",
+		$self->determine_container()
 	);
 
 	# we also load our default admin container
 
-	$class->{_}->switchboard->register("container",
-		$class->load_admin_container
+	$self->_->switchboard->register("container",
+		$self->load_admin_container
 	);
 
 	# create a custom switchboard with container as container for modules that 
 	# need things that way
 
-	my $cswitchboard = $class->{_}->switchboard->custom;
-	$cswitchboard->register("container",$class->{_}->ocontainer);
+	my $cswitchboard = $self->_->switchboard->custom;
+	$cswitchboard->register("container",$self->_->ocontainer);
 
-	$class->{_}->switchboard->register("cswitchboard",$cswitchboard);
+	$self->_->switchboard->register("cswitchboard",$cswitchboard);
 
 	# give this custom board to the user object
 	$cswitchboard->reroute_calls_for($user);
@@ -70,7 +59,7 @@ sub go {
 	# now check if they have rights
 
 	if (!$user->has_rights("admin")) {
-		$class->{_}->bail->("Insufficient rights");
+		$self->_->bail->("Insufficient rights");
 	}
 
 	# if we made it this far, we're ok to be here and we can go ahead 
@@ -79,68 +68,66 @@ sub go {
 	# use the admin container to determine look and then the 
 	# appropriate template
 
-	$class->{_}->switchboard->register("look",
-		$class->{_}->container->determine_look()
+	$self->_->switchboard->register("look",
+		$self->_->container->determine_look()
 	);
 
-	$class->{_}->switchboard->register("template",
-		$class->{_}->look->determine_template()
+	$self->_->switchboard->register("template",
+		$self->_->look->determine_template()
 	);
 
 	# load the content type module
-	$class->{_}->switchboard->register("content_type",
-		$class->{_}->template->type
+	$self->_->switchboard->register("content_type",
+		$self->_->template->type
 	);
 
 	# now let our content run so there'll be something to run through
 
-	my $g = $class->{_}->glomule->load(
+	my $g = $self->_->glomule->load(
 		type	=> 'admin',
 		name	=> '.ADMIN',
 	);
 
-	$g->gholders($class->{_}->gholders);
+	$g->gholders($self->_->gholders);
 
-	if ( my $func = $g->has_function( $class->{_}->template->path ) ) {
+	if ( my $func = $g->has_function( $self->_->template->path ) ) {
 		$func->activate->execute();
 	} else {
-		$class->{_}->bail->(
+		$self->_->bail->(
 			"Unknown admin glomule function: "
-			. $class->{_}->template->path
+			. $self->_->template->path
 		);
 	}
 
 	# now handle the template tree and generate our actual content
 	
 	my $content;
-	$class->{_}->gholders->handle_template_tree(
-		$class->{_}->template->get_tree,
+	$self->_->gholders->handle_template_tree(
+		$self->_->template->get_tree,
 		$content
 	);
 
-	my $r = $class->{_}->ap_request;
+	my $r = $self->_->ap_request;
 
-	$r->content_type( $class->{_}->content_type->type );
+	$r->content_type( $self->_->content_type->type );
 	$r->print($content);
 
-	return $class->{_}->core->code('OK');
+	return $self->_->core->code('OK');
 }
 
 #----------
 
 sub load_admin_container {
-	my $class = shift;
-
 	# load an empty container
-	my $c = $class->{_}->instance->new_object("Container");
+	my $c = $self->_->new_object("Container");
 
 	# load the container cache...  
-	my $gh = $class->{_}->instance->load_containers(
-		$class->{_}->settings->{default_domain}{id}
+	my $gh = $self->_->domain->load_containers(
+		$self->_->settings->{default_domain}{id}
 	);
 
 	$c->{id} = $gh->{".ADMIN"} 
-		or $class->{_}->bail->("Admin Container not found.");
+		or $self->_->bail->("Admin Container not found.");
 
 	return $c;
 }

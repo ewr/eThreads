@@ -1,16 +1,7 @@
-package eThreads::Object::XMLFunction;
+package eThreads::Object::System::XMLFunction;
 
-use Spiffy -Base;
+use eThreads::Object::System -Base;
 no warnings;
-
-field '_' => -ro;
-
-sub new {
-	my $data = shift;
-	$self = bless { _ => $data } , $self;
-
-	return $self;
-}
 
 #----------
 
@@ -38,7 +29,11 @@ sub uri_has_xml_prefix {
 
 #----------
 
-sub determine_function {
-	$self->_->bail->("In determine_function for XMLFunction");
+sub f_handle_xmlfunction {
+	my $fobj = shift;
+
+	# -- we need a new queryopts 
+
+	$self->_->bail->('in f_handle_xmlfunction');	
 }
 

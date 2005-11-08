@@ -1,7 +1,6 @@
 package eThreads::Object::Glomule::Type::Blog;
 
 use eThreads::Object::Glomule::Type -Base;
-
 no warnings;
 
 use Date::Format;
@@ -22,18 +21,6 @@ sub new {
 		_		=> $data,
 	} , $self);
 
-	return $self;
-}
-
-#----------
-
-sub DESTROY {
-
-}
-
-#----------
-
-sub activate {
 	return $self;
 }
 
@@ -77,7 +64,7 @@ sub f_main {
 	my $posts;
 	if ($category) {
 		# see if this is a valid category
-		my $cat = $fobj->glomule->system('categories')->is_valid_name($category)
+		my $cat = $fobj->glomule->system('categories')->load_by_name($category)
 			or $self->_->bail->("Invalid category: $category");
 
 		$fobj->gholders->register(['category', $cat->registerable ]);
@@ -471,9 +458,16 @@ sub f_add_post_to_category {
 
 	# make sure it is a valid post
 
+	my $p = $self->get_post_information($fobj,$id);
+
 	# make sure it is a valid category
 
+	my $c = $fobj->glomule->system('categories')->load( $cat )
+		or $self->_->bail->('Not a valid category id: ' . $cat);
+
 	# add post to the category
+
+	$c->posts->add( $id );
 }
 
 #----------
