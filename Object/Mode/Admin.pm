@@ -121,12 +121,16 @@ sub load_admin_container {
 	# load an empty container
 	my $c = $self->_->new_object("Container");
 
-	# load the container cache...  
-	my $gh = $self->_->domain->load_containers(
-		$self->_->settings->{default_domain}{id}
-	);
+	my $d = 
+		( $self->_->domain->id == $self->_->settings->{default_domain}{id} )
+			? $self->_->domain
+			: $self->_->new_object('Domain',
+				%{$self->_->core->get_default_domain}
+			  );
 
-	$c->{id} = $gh->{".ADMIN"} 
+	my $containers = $d->load_containers;
+
+	$c->{id} = $containers->{'.ADMIN'}
 		or $self->_->bail->("Admin Container not found.");
 
 	return $c;

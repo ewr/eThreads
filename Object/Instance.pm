@@ -166,6 +166,9 @@ sub load_domains {
 sub load_containers {
 	my $id = shift || $self->_->domain->id;
 
+	my @caller = caller;
+	warn "caller: @caller\n";
+
 	my $c = $self->_->cache->get(
 		tbl		=> "containers",
 		first	=> $id,

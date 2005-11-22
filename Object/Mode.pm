@@ -22,7 +22,7 @@ stub 'new';
 sub determine_container {
 	# -- load our container cache -- #
 
-	my $gh = $self->_->instance->load_containers();
+	my $gh = $self->_->domain->load_containers();
 
 	# -- match as much container as possible -- #
 
@@ -58,7 +58,7 @@ sub determine_container {
 sub get_container {
 	my $path 	= shift;
 
-	my $gh = $self->_->instance->load_containers();
+	my $gh = $self->_->domain->load_containers();
 
 	my $c = $self->_->new_object(
 		"Container",
