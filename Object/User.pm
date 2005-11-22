@@ -1,14 +1,31 @@
 package eThreads::Object::User;
 
-use strict;
+use Spiffy -Base;
+
+field '_' => -ro;
+
+field 'headers' => 
+	-ro, 
+	-init=>q!
+		$self->load_headers
+			or $self->cache_headers
+	!;
+
+field '_data' => 
+	-ro,
+	-init=>q!
+		$self->load_data
+	!;
+
+field 'id' 			=> -ro;
+field 'username' 	=> -ro;
 
 #----------
 
 sub new {
-	my $class 	= shift;
 	my $data 	= shift;
 
-	$class = bless ( {
+	$self = bless ( {
 		_			=> $data,
 		id			=> undef,
 		username	=> undef,
@@ -18,137 +35,148 @@ sub new {
 		url			=> undef,
 		rights		=> undef,
 		@_
-	} , $class );
+	} , $self );
 
-	if (!$class->{id}) {
-		$class->{_}->bail->("No id given to User module");
+	if (!$self->{id}) {
+		$self->_->bail->("No id given to User module");
 	}
 
-	$class->_validate_user;
+	$self->_validate_user;
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub cachable {
-	my $class = shift;
 	return {
-		id			=> $class->id,
-		username	=> $class->username,
-		email		=> $class->data("email"),
-		vemail		=> $class->data("vemail"),
-		url			=> $class->data("url"),
-		name		=> $class->data("name"),
+		id			=> $self->id,
+		username	=> $self->username,
+		email		=> $self->data("email"),
+		vemail		=> $self->data("vemail"),
+		url			=> $self->data("url"),
+		name		=> $self->data("name"),
 	};
 }
 
 #----------
 
 sub _validate_user {
-	my $class = shift;
+	my $user = 
+		$self->headers->{id}{ $self->id }
+			or $self->_->bail->("Attempted to load user with invalid ID");
 
-	my $headers = $class->{_}->cache->get(
-		tbl		=> "user_headers",
-	);
-
-	if (!$headers) {
-		$headers = $class->{_}->instance->cache_user_headers;
-	}
-
-	my $ref = $headers->{id}{ $class->id };
-
-	if (!$ref) {
-		$class->{_}->bail->("Invalid id given to User");
-	}
-
-	$class->{username} = $ref->{username};
+	$self->{username} = $user->{username};
 
 	return 1;
 }
 
 #----------
 
-sub id {
-	return shift->{id};
+sub load_headers {
+	$self->_->cache->get(
+		tbl	=> 'user_headers'
+	);
 }
 
 #----------
 
-sub username {
-	return shift->{username};
+sub cache_headers {
+	my $get = $self->_->core->get_dbh->prepare("
+		select 
+			id,user,password 
+		from 
+			" . $self->_->core->tbl_name("user_headers") . " 
+	");
+
+	$get->execute();
+
+	my ($id,$u,$p);
+	$get->bind_columns( \($id,$u,$p) );
+
+	my $headers = { u => {} , id => {} };
+	while ($get->fetch) {
+		my $user = {
+			id			=> $id,
+			username	=> $u,
+			password	=> $p,
+		};
+
+		$headers->{u}{ $u } = $headers->{id}{ $id } = $user;
+	}
+
+	$self->_->cache->set(
+		tbl		=> "user_headers",
+		ref		=> $headers,
+	);
+
+	return $headers;
 }
 
 #----------
 
 sub data {
-	my $class = shift;
 	my $key = shift;
 
-	if (!$class->{data}) {
-		$class->get_user_info;
+	if (!$self->{data}) {
+		$self->get_user_info;
 	}
 
-	return $class->{data}{ $key };
+	return $self->{data}{ $key };
 }
 
 #----------
 
-sub get_user_info {
-	my $class = shift;
-
-	if (!$class->{id}) {
-		$class->{_}->bail->("Can't get user info with no id.");
+sub load_data {
+	if ( !$self->id ) {
+		$self->_->bail->("Can't get user info with no id.");
 	}
 
-	my $user = $class->{_}->utils->g_load_tbl(
+	my $user = $self->_->utils->g_load_tbl(
 		tbl		=> "user_data",
 		ident	=> "id",
-		ids		=> [ $class->{id} ],
+		ids		=> [ $self->id ],
 		flat	=> 1,
 	);
 
-	$class->{data} = $user;
+	$self->{data} = $user;
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub has_rights {
-	my $class = shift;
 	my $type = shift;
 
-	if (!$class->{rights}) {
-		$class->get_rights;
+	if (!$self->{rights}) {
+		$self->get_rights;
 	}
 
-	return $class->{rights}{ $type };
+	return $self->{rights}{ $type };
 }
 
 #----------
 
 sub get_rights {
-	my $class = shift;
-
 	# this will most likely need to evolve into some sort of a tree lookup 
 	# mechanism so that you can have recursive rights and all that.  for 
 	# now, though, we'll just build a tree of the current container and 0.  
 	# at whatever point this lookup needs a deeper tree, this is the place 
 	# to insert it.
 
-	my @tree = ( '0' , $class->{_}->container->id );
+	my @tree = ( '0' , $self->_->container->id );
 
-	my $rights = $class->{_}->utils->g_load_tbl(
-		tbl		=> $class->{_}->core->tbl_name("rights"),
+	my $rights = $self->_->utils->g_load_tbl(
+		tbl		=> $self->_->core->tbl_name("rights"),
 		ident	=> "container",
-		extra	=> "and user=" . $class->{id},
+		extra	=> "and user=" . $self->{id},
 		ids		=> \@tree,
 	);
 
-	$class->{rights} = $class->{_}->utils->g_rec_populate($rights,\@tree);
+	$self->{rights} = $self->_->utils->g_rec_populate($rights,\@tree);
 
-	return $class;
+	return $self;
 }
 
 #----------

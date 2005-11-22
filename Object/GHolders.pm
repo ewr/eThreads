@@ -6,11 +6,17 @@ use strict;
 no warnings;
 
 use eThreads::Object::GHolders::GHolder;
+use eThreads::Object::GHolders::Link;
 use eThreads::Object::GHolders::RegisterContext;
 
 #----------
 
-field '_'	=> -ro;
+const 'valid_objects'	=> {
+	'Link'		=> 1,
+};
+
+field '_'		=> -ro;
+field 'root'	=> -ro;
 
 sub new {
 	my $data = shift;
@@ -25,9 +31,7 @@ sub new {
 #----------
 
 sub DESTROY {
-	#$self->cleanup_gholders($self->{p});
-
-	undef $self->{p};
+	undef $self->{root};
 	undef $self->{context};
 
 	return 1;
@@ -39,7 +43,7 @@ sub gholder_init {
 	my $i = $self->_;
 
 	my $t = $i->new_object('GHolders::GHolder');
-	$self->{p} = $self->{context} = $t;
+	$self->{root} = $self->{context} = $t;
 
 	my $raw 	= $i->new_object('GHolders::GHolder','raw',$t);
 	my $foreach = $i->new_object('GHolders::GHolder','foreach',$t);
@@ -71,58 +75,26 @@ sub register {
 	}
 
 	foreach my $gh (@gholders) {
-		my $var;
+		$self->root->register( $gh->[0] , $gh->[1] );
+	}
 
-		if ( my $ref = $self->exists($gh->[0]) ) {
-			$var = $ref;
-		} elsif ( $gh->[0] =~ /\./ ) {
-			my ($h,$k) = $gh->[0] =~ m!^(.*)\.([^\.]+)$!;
+	1;
+}
 
-			if (my $ref = $self->exists($h)) {
-				if ( my $child = $ref->has_child($k) ) {
-					$var = $child;
-				} else {
-					$var = $self->_->new_object(
-						'GHolders::GHolder',$k,$ref
-					);
-				}
-			} else {
-				# we need to create the levels under this
-				my $parent = $self->{p};
-				foreach my $l (split(/\./,$h)) {
-					if ( my $child = $parent->has_child($l) ) {
-						$parent = $child;
-					} else {
-						$parent = $self->_->new_object(
-							'GHolders::GHolder',$l,$parent
-						);
-					}
-				}
+#----------
 
-				$var = $self->_->new_object(
-					'GHolders::GHolder',$k,$parent
-				);
-			}
+sub is_gh_object {
+	my $val = shift;
+
+	if ( ref($val) =~ m!^eThreads::Object::GHolders::(.*)! ) {
+		my $type = $1;
+		if ( $self->_->gholders->valid_objects->{ $type } ) {
+			return 1;
 		} else {
-			$var = $self->_->new_object(
-				'GHolders::GHolder',$gh->[0],$self->{p}
-			);
+			$self->_->bail->("Invalid GHolder object type as data: $type");
 		}
-
-		# now assign a value
-		if ( !ref( $gh->[1] ) ) {
-			# flat value
-			$var->flat($gh->[1]);
-		} elsif (ref($gh->[1]) eq 'HASH') {
-			# hash ref...  needs to be cloned into our structure
-			$self->assimilate_hash($var,$gh->[1]);
-		} elsif (ref($gh->[1]) eq 'ARRAY') {
-			$var->array($gh->[1]);
-		} elsif (ref($gh->[1]) eq 'CODE') {
-			$var->sub($gh->[1]);
-		} else {
-			$self->bail(0,"Unsupported gholder value: $gh->[0]/$gh->[1]");
-		}
+	} else {
+		return undef;
 	}
 }
 
@@ -131,50 +103,6 @@ sub register {
 sub register_blank {
 	my $ctx = shift;
 	$self->register([$ctx,'']);
-}
-
-#----------
-
-sub assimilate_hash {
-	my ($obj,$href) = @_;
-
-	my $path = $obj->key_path;
-
-	my $a = [];
-	$self->_assimilate_and_return_keys($path,$a,$href);
-
-	$self->register(@$a);
-}
-
-sub _assimilate_and_return_keys {
-	my ($k,$a,$h) = @_;
-
-	while (my ($e,$v) = each %$h) {
-		my $abs = join('.',($k,$e));
-		if ( ref($v) eq 'HASH' ) {
-			$self->_assimilate_and_return_keys($abs,$a,$v);
-		} else {
-			push @$a, [$abs,$v];
-		}
-	}
-}
-
-#----------
-
-sub dump {
-	my $ref = shift;
-
-	if (0) {
-		use Data::Dumper;
-
-		open(
-			DUMP,
-			'>/tmp/gholder_dump2'
-		) or $self->_->instance->bail("couldn't dump: $!");
-
-		print DUMP Data::Dumper::Dumper($ref);
-		close DUMP;
-	}
 }
 
 #----------
@@ -202,9 +130,9 @@ sub exists {
 		# try current context, then try root
 		return 
 			$self->_exists($h,$self->{context})
-			|| $self->_exists($h,$self->{p});
+			|| $self->_exists($h,$self->root);
 	} elsif ($force) {
-		return $self->_exists($h,$self->{p}); 
+		return $self->_exists($h,$self->root); 
 	} elsif ($no) {
 		return $self->_exists($h,$self->{context});
 	} else {
@@ -226,6 +154,7 @@ sub _exists {
 
 	if ($h =~ m!\.!) {
 		foreach my $part (split(/\./,$h)) {
+			warn "checking for child $part\n";
 			if (my $new = $ctx->has_child($part)) {
 				$ctx = $new;
 			} else {
@@ -236,6 +165,7 @@ sub _exists {
 
 		return ($test) ? $ctx : undef;
 	} else {
+		warn "checking for child $h\n";
 		return $ctx->has_child($h);
 	}
 }
@@ -252,6 +182,14 @@ sub get_unused_child {
 	} until (!$self->exists($ctx));
 
 	return $ctx;
+}
+
+#----------
+
+sub new_link {
+	my $key = shift;
+	my $path = shift;
+	return $self->_->new_object('GHolders::Link',$key,$path);
 }
 
 #----------

@@ -2,65 +2,58 @@ package eThreads::Object::Standalone;
 
 use eThreads::Object::Core;
 
-use strict;
+use Spiffy -Base;
+
+field '_' => -ro;
 
 #----------
 
 sub new {
-	my $class = shift;
-
-	$class = bless ( {
+	$self = bless ( {
 		_		=> undef,
 		objects	=> undef,
-	} , $class ); 
+	} , $self ); 
 
 	# connect to core
 	my $core = new eThreads::Object::Core;
 
 	# create objects object
-	$class->{objects} = eThreads::Object::Objects->new($class);
+	$self->{objects} = eThreads::Object::Objects->new($self);
 
 	# create switchboard object
-	my $swb = $class->{switchboard} = new eThreads::Object::Switchboard;
-	$class->{_} = $class->{switchboard}->accessors;
+	my $swb = $core->_->switchboard->custom;
+	$swb->reroute_calls_for($self);
 
 	# register our own bail
 	$swb->register('bail',sub { 
-		sub { $class->bail(@_); } 
+		sub { $self->bail(@_); } 
 	});
 
-	$swb->register('core',$core);
-	$swb->register('settings',$core->settings);
-
 	# register objects with switchboard
-	$swb->register('objects',$class->{objects});
+	$swb->register('objects',$self->{objects});
 
 	# load up the utils object
 	$swb->register('utils',sub {
-		$class->{_}->new_object('Utils');
+		$self->_->new_object('Utils');
 	});
 
 	# create cache object
-	$class->{cache} 	= $class->{_}->new_object(
-		$class->{_}->settings->{cache_obj}
+	$self->{cache} 	= $self->_->new_object(
+		$self->_->settings->{cache_obj}
 	);
-	$swb->register('cache',$class->{cache});
+	$swb->register('cache',$self->{cache});
 
 	# create system object
 	$swb->register('system',sub {
-		$class->{_}->new_object('System');
+		$self->_->new_object('System');
 	});
 
-	# point to core's controller object
-	$swb->register('controller',$class->{_}->core->controller);
-
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub bail {
-	my $class = shift;
 	my $err = shift;
 
 	my @caller = caller;

@@ -482,6 +482,8 @@ sub register_day_nav {
 
 	my $lengths = $self->get_data_lengths_for($fobj,$posts);
 
+	my @users;
+
 	# -- divide posts into days -- #
 	my $cday = 0;
 	foreach my $p (@{ $posts->posts }) {
@@ -514,10 +516,24 @@ sub register_day_nav {
 					: $p->{ $f->{name} };
 		}
 
+		# add our user to the list to be registered
+		push @users, $p->{user};
+
+		# create a GHolder link to the user
+		my $l = $self->_->gholders->new_link('author');
+		$l->linkpath('/users.'.$p->{user});
+		$p->{author} = $l;
+
+		warn "author: $p->{author} -- " . ref($p->{author}) . "\n";
+
 		$fobj->gholders->register(
 			['post.'.$p->{id} , $p]
 		);
 	}
+
+	# -- grab user ids and get that user info registered -- #
+
+	$self->_->users->populate_users_by_id( \@users );
 
 	# -- go through each day -- #
 

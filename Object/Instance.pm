@@ -83,6 +83,11 @@ sub new {
 		$self->_->new_object('System');
 	});
 
+	# create users object
+	$swb->register('users',sub {
+		$self->_->new_object('Users');
+	});
+
 	# -- continue with initialization -- #
 
 	# set our root...  this will set $self->{root} to be a Container 
@@ -241,41 +246,6 @@ sub determine_domain {
 #------------------#
 # caching routines #
 #------------------#
-
-sub cache_user_headers {
-	my $db = $self->_->core->get_dbh;
-	my $get = $db->prepare("
-		select 
-			id,user,password 
-		from 
-			" . $self->_->core->tbl_name("user_headers") . " 
-	");
-
-	$get->execute();
-
-	my ($id,$u,$p);
-	$get->bind_columns( \($id,$u,$p) );
-
-	my $headers = { u => {} , id => {} };
-	while ($get->fetch) {
-		my $user = {
-			id			=> $id,
-			username	=> $u,
-			password	=> $p,
-		};
-
-		$headers->{u}{ $u } = $headers->{id}{ $id } = $user;
-	}
-
-	$self->_->cache->set(
-		tbl		=> "user_headers",
-		ref		=> $headers,
-	);
-
-	return $headers;
-}
-
-#----------
 
 sub cache_domains {
 	my $get = $self->_->core->get_dbh->prepare("

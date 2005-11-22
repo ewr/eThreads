@@ -8,6 +8,7 @@ use Scalar::Util;
 
 use strict;
 
+field '_'			=> -ro;
 field 'children'	=> -ro;
 field 'flat';
 field 'array';
@@ -40,6 +41,15 @@ sub new {
 
 #----------
 
+sub _parent {
+	my $parent = shift;
+
+	$self->{parent} = $parent;
+	Scalar::Util::weaken($self->{parent});
+
+	return 1;
+}
+
 sub add_child {
 	my $child = shift;
 
@@ -55,6 +65,93 @@ sub add_child {
 
 sub has_child () {
 	return $_[0]->{children}{ $_[1] } || undef;
+}
+
+#----------
+
+sub register {
+	my $key = shift;
+	my $val = shift;
+
+	if ( my ($base,$rest) = $key =~ m!^(.+?)\.(.+)$! ) {
+		# we're not the end register...  she if we have the child as a base; 
+		# if not, create it
+		my $child = 
+			$self->has_child( $base )
+			|| $self->_->new_object('GHolders::GHolder',$base,$self);
+
+		$child->register( $rest , $val );
+	} else {
+		# this is a register occuring directly under us.  first check and see 
+		# if the val is an object
+
+		if ( $self->_->gholders->is_gh_object( $val ) ) {
+			$self->register_object( $key , $val );
+		} else {
+			my $child = 
+				$self->has_child( $key )
+				|| $self->_->new_object('GHolders::GHolder',$key,$self);
+
+			$child->set_value( $val );
+		}
+	}
+}
+
+#----------
+
+sub register_object {
+	my $key = shift;
+	my $val = shift;
+
+	if ( my $child = $self->has_child( $key ) ) {
+		# have to replace existing child
+		die "need to replace existing child\n";
+	} else {
+		# adding object as child
+		$self->add_child( $val );
+		$val->_parent( $self );
+	}
+}
+
+#----------
+
+sub set_value {
+	my $val = shift;
+
+	# now figure out how to handle the value
+	if ( !ref( $val ) ) {
+		# flat value
+		$self->flat( $val );
+	} elsif (ref( $val ) eq 'HASH') {
+		# hash ref...  needs to be cloned into the child's structure
+		$self->assimilate_hash( $val );
+	} elsif (ref( $val ) eq 'ARRAY') {
+		$self->array( $val );
+	} elsif (ref( $val ) eq 'CODE') {
+		$self->sub( $val );
+	} else {
+		$self->_->bail->("Unsupported gholder value: $val");
+	}
+}
+
+#----------
+
+sub assimilate_hash {
+	my $hash = shift;
+
+	while ( my ( $key,$val ) = each %$hash ) {
+		if ( $self->_->gholders->is_gh_object( $val ) ) {
+			$self->register_object($key,$val);
+		} else {
+			my $child 
+				= $self->has_child($key) 
+					|| $self->_->new_object('GHolders::GHolder',$key,$self);
+				
+			$child->set_value($val);
+		}
+	}
+
+	return 1;
 }
 
 #----------
