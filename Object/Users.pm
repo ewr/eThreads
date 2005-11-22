@@ -79,7 +79,7 @@ sub populate_users_by_id {
 
 		my $user = $obj->cachable;
 
-		push @data, [ '/users.' . $u , $user ];
+		push @data, [ 'users.' . $u , $user ];
 		$pop->{ $u } = 1;
 	}
 

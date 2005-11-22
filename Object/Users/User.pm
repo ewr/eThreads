@@ -43,10 +43,11 @@ sub new {
 #----------
 
 sub cachable {
+	my %data = map { $_ => $self->_data->{ $_ } } keys %{ $self->_data };
 	return {
 		id			=> $self->id,
 		username	=> $self->user,
-		# ( map { $_ => $self->_data->{ $_ } } keys %{ $self->_data } )
+		%data
 	};
 }
 
@@ -66,10 +67,6 @@ sub load_data {
 		ids		=> [ $self->id ],
 		flat	=> 1,
 	);
-
-	$self->{data} = $user;
-
-	return $self;
 }
 
 #----------

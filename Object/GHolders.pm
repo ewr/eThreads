@@ -11,10 +11,6 @@ use eThreads::Object::GHolders::RegisterContext;
 
 #----------
 
-const 'valid_objects'	=> {
-	'Link'		=> 1,
-};
-
 field '_'		=> -ro;
 field 'root'	=> -ro;
 
@@ -83,23 +79,6 @@ sub register {
 
 #----------
 
-sub is_gh_object {
-	my $val = shift;
-
-	if ( ref($val) =~ m!^eThreads::Object::GHolders::(.*)! ) {
-		my $type = $1;
-		if ( $self->_->gholders->valid_objects->{ $type } ) {
-			return 1;
-		} else {
-			$self->_->bail->("Invalid GHolder object type as data: $type");
-		}
-	} else {
-		return undef;
-	}
-}
-
-#----------
-
 sub register_blank {
 	my $ctx = shift;
 	$self->register([$ctx,'']);
@@ -154,7 +133,6 @@ sub _exists {
 
 	if ($h =~ m!\.!) {
 		foreach my $part (split(/\./,$h)) {
-			warn "checking for child $part\n";
 			if (my $new = $ctx->has_child($part)) {
 				$ctx = $new;
 			} else {
@@ -165,7 +143,6 @@ sub _exists {
 
 		return ($test) ? $ctx : undef;
 	} else {
-		warn "checking for child $h\n";
 		return $ctx->has_child($h);
 	}
 }

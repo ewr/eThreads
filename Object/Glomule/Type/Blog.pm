@@ -520,11 +520,8 @@ sub register_day_nav {
 		push @users, $p->{user};
 
 		# create a GHolder link to the user
-		my $l = $self->_->gholders->new_link('author');
-		$l->linkpath('/users.'.$p->{user});
+		my $l = $self->_->gholders->new_link( 'author' , '/users.'.$p->{user} );
 		$p->{author} = $l;
-
-		warn "author: $p->{author} -- " . ref($p->{author}) . "\n";
 
 		$fobj->gholders->register(
 			['post.'.$p->{id} , $p]
@@ -589,8 +586,9 @@ sub load_and_format_post {
 	# -- load user information -- #
 
 	if ($post->{user}) {
-		my $user = $self->_->new_object("User",id=>$post->{user});
-		$post->{user} = $user->cachable;
+		my $user = $self->_->users->get_obj_for_user( $post->{user} );
+		my $data = $user->cachable;
+		$post->{author} = $data;
 	}
 
 	return $post;

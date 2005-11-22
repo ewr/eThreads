@@ -8,6 +8,11 @@ use Scalar::Util;
 
 use strict;
 
+const 'valid_objects'	=> {
+	'Link'		=> 1,
+	'GHolder'	=> 1,
+};
+
 field '_'			=> -ro;
 field 'children'	=> -ro;
 field 'flat';
@@ -16,7 +21,8 @@ field 'sub';
 field 'parent'		=> -ro;
 field 'key'			=> -ro;
 
-sub new {
+sub new () {
+	my $self = shift;
 	my $data = shift;
 	my $key = shift;
 	my $parent = shift;
@@ -69,6 +75,23 @@ sub has_child () {
 
 #----------
 
+sub is_gh_object {
+	my $val = shift;
+
+	if ( ref($val) =~ m!^eThreads::Object::GHolders::(.*)! ) {
+		my $type = $1;
+		if ( $self->valid_objects->{ $type } ) {
+			return 1;
+		} else {
+			$self->_->bail->("Invalid GHolder object type as data: $type");
+		}
+	} else {
+		return undef;
+	}
+}
+
+#----------
+
 sub register {
 	my $key = shift;
 	my $val = shift;
@@ -85,7 +108,7 @@ sub register {
 		# this is a register occuring directly under us.  first check and see 
 		# if the val is an object
 
-		if ( $self->_->gholders->is_gh_object( $val ) ) {
+		if ( $self->is_gh_object( $val ) ) {
 			$self->register_object( $key , $val );
 		} else {
 			my $child = 
@@ -140,7 +163,7 @@ sub assimilate_hash {
 	my $hash = shift;
 
 	while ( my ( $key,$val ) = each %$hash ) {
-		if ( $self->_->gholders->is_gh_object( $val ) ) {
+		if ( $self->is_gh_object( $val ) ) {
 			$self->register_object($key,$val);
 		} else {
 			my $child 
