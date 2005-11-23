@@ -80,7 +80,8 @@ sub f_view {
 sub f_post {
 	my $fobj = shift;
 
-	my $id = $fobj->bucket->get("id");
+	my $id = $fobj->bucket->get("id")
+		or $self->_->bail->('Unable to post comment without valid parent.');
 
 	my $post = {};
 	foreach my $f ('title','name','url','email','comment') {

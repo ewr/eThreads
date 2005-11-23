@@ -108,7 +108,7 @@ sub prewalk_plugin {
 	$swb->reroute_calls_for($obj);
 
 	# -- activate the plugin -- #
-	
+
 	$self->_->objects->activate($obj);
 
 	# -- register plugin in shadow item notes -- #

@@ -12,7 +12,7 @@ field 'msg';
 
 sub new {
 	my $swb = shift;
-	$self = bless { _ => $swb } , $self;
+	$self = bless { _ => $swb , hooks => [] } , $self;
 
 	return $self;
 }
@@ -44,6 +44,7 @@ sub run {
 	my $status = 1;
 	foreach my $h ( $self->hooks ) {
 		# run the hook
+
 		my ($s,$msg) = $h->( $self , $post , $gtype );
 
 		if ($s == $self->OK || $s == $self->PASS ) {

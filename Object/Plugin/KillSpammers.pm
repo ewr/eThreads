@@ -30,8 +30,6 @@ sub posthook {
 	my $post = shift;
 	my $gtype = shift;
 
-	warn "posthook called\n";
-
 	if (!$self->cfg) {
 		# nothing we can do without a cfg
 		return $hooks->PASS;
@@ -47,6 +45,7 @@ sub posthook {
 
 	my $find = URI::Find::Schemeless->new( sub {
 		my $uri = shift;
+		my $orig_uri = shift;
 		my $host = $uri->host;
 
 		my $a = $res->query($host);
@@ -64,11 +63,13 @@ sub posthook {
 				# DIE SPAMMER
 				$status = 0;
 			} else {
-				#warn "ok by url ip lookup\n";
+				warn "ok by url ip lookup: $host\n";
 			}
 		} else {
-			warn "resolve failed\n";
+			warn "resolve failed: $host\n";
 		}
+
+		return $orig_uri;
 	} );
 
 	foreach my $f ( @{ $gtype->edit_fields } ) {

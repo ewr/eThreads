@@ -46,10 +46,8 @@ sub print {
 
 	$msg =~ s!#TEXT#!$text!;
 
-	$class->{_}->ap_request->custom_response(
-		$class->{_}->core->code('OK'),
-		$msg
-	);
+	$class->{_}->ap_request->content_type('text/html');
+	$class->{_}->ap_request->print($msg);
 
 	exit;
 }
