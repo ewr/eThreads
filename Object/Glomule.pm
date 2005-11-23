@@ -42,16 +42,38 @@ sub new {
 
 sub load {
 	my %a = @_;
-	
-	# -- make sure type is valid -- #
 
-	my $controller = $self->{_}->controller->get( $a{type} )
-		or $self->{_}->bail->("Invalid glomule type: $a{type}");
+	my ($type,$controller);
+	if ( $a{type} ) {
+		# -- make sure type is valid -- #
+		$controller = $self->{_}->controller->get( $a{type} )
+			or $self->{_}->bail->("Invalid glomule type: $a{type}");
+
+		$type = $a{type};
+	} else {
+		# if we aren't given a type the name must exist...  we look it up 
+		# and get its natural type
+		
+		if ( $a{name} ) {
+			my ($id,$gh) = $self->_->container->glomule_n2id( $a{name} );
+
+			if ( $id ) {
+				$type = $gh->{natural};
+
+				$controller = $self->_->controller->get( $type )
+					or $self->_->bail->("Unable to load controller for: $type");
+			} else {
+				$self->_->bail->("Unable to determine type for: $a{name}");
+			}
+		} else {
+			$self->_->bail->("Unable to determine glomule type without name.");
+		}
+	}
 
 	my $g = $self->{_}->new_object(
 		"Glomule::Data",
 		name		=> $a{name},
-		type		=> $a{type},
+		type		=> $type,
 		controller	=> $controller,
 	)->activate;
 

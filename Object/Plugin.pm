@@ -24,13 +24,13 @@ sub new {
 sub load {
 	my $type = shift;
 
-	my $plugin = $self->{_}->settings->{plugins}{ $type };
+	my $plugin = $self->_->settings->{plugins}{ $type };
 
 	return undef if (!$plugin);
 
 	my $pkg = "eThreads::Object::Plugin::$plugin";
 	eval "require $pkg";
-	my $o = $self->{_}->switchboard->new_object('Plugin::'.$plugin,@_);
+	my $o = $self->_->switchboard->new_object('Plugin::'.$plugin,@_);
 
 	if (my $cfg = $self->_->settings->{plugin_cfg}{ $plugin }) {
 		$o->cfg($cfg);
@@ -57,7 +57,7 @@ be supersetted by plugin objects.
 To create a plugin, make an object like eThreads::Object::Plugin::Foo.  The 
 plugin should have an activate function, and this is where you'll create / 
 register / do / whatever your functionality.  Your object will be given a 
-custom switchboard that will have a register context at $self->{_}->rctx.
+custom switchboard that will have a register context at $self->_->rctx.
 
 =head1 AUTHOR
 

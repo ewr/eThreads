@@ -1,22 +1,18 @@
 package eThreads::Object::Plugin::CountBlogComments;
 
-@ISA = qw( eThreads::Object::Plugin );
-
-use strict;
+use eThreads::Object::Plugin -Base;
 
 #----------
 
 sub activate_walk {
-	my $class = shift;
-
-	my $blog = $class->{i}->args->{blog};
+	my $blog = $self->{i}->args->{blog};
 
 	if (!$blog) {
 		warn "CountBlogComments: no blog given\n";
 		return undef;
 	}
 
-	my $bctx = $class->{_}->gholders->exists($blog);
+	my $bctx = $self->_->gholders->exists($blog);
 
 	if (!$bctx) {
 		warn "CountBlogComments: invalid blog given: $blog\n";
@@ -26,7 +22,7 @@ sub activate_walk {
 	# ok, so now we have a valid blog and blog context. now we need to 
 	# see if we have a valid comments glomule
 
-	my $comments = $class->{i}->args->{comments};
+	my $comments = $self->{i}->args->{comments};
 
 	if (!$comments) {
 		warn "CountBlogComments: no comments glomule given\n";
@@ -36,7 +32,7 @@ sub activate_walk {
 	# for now we don't have a way to know if a glomule's valid.  we use it 
 	# and if it doesn't exist it'll get created
 
-	my $cobj = $class->{_}->glomule->load(
+	my $cobj = $self->_->glomule->load(
 		type	=> "comments",
 		name	=> $comments
 	);
@@ -66,10 +62,10 @@ sub activate_walk {
 	}
 
 	# lookup comments for these ids
-	$class->count_comments_for($ids,$htbl);
+	$self->count_comments_for($ids,$htbl);
 
 	foreach my $post (@$ids) {
-		my $gh = $class->{_}->new_object(
+		my $gh = $self->_->new_object(
 			"GHolders::GHolder",
 			"comment_count",
 			$post->[1]
@@ -84,11 +80,10 @@ sub activate_walk {
 #----------
 
 sub count_comments_for {
-	my $class = shift;
 	my $ids = shift;
 	my $htbl = shift;
 
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			parent,
 			count(id)
@@ -101,7 +96,7 @@ sub count_comments_for {
 	");
 
 	$get->execute( map { $_->[0] } @$ids )
-		or $class->{_}->bail->("CountBlogComments failure: ".$get->errstr);
+		or $self->_->bail->("CountBlogComments failure: ".$get->errstr);
 
 	my ($id,$c);
 	$get->bind_columns( \($id,$c) );
