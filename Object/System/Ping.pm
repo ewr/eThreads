@@ -1,39 +1,18 @@
 package eThreads::Object::System::Ping;
 
-@ISA = qw( eThreads::Object::System );
-
-use strict;
+use eThreads::Object::System -Base;
 
 #----------
 
-sub new {
-	my $class = shift;
-	my $board = shift;
-
-	$class = bless( { 
-		@_,
-		_		=> $board,
-	} , $class );
-
-	return $class;
-}
-
-#----------
+field 'pings' => 
+	-init=>q!
+		$self->load_pings
+			or $self->cache_pings
+	!, -ro;
 
 sub ping_all {
-	my $class = shift;
-
-	my $pings = $class->{_}->cache->get(
-		tbl		=> "pings",
-		first	=> $class->{_}->container->id,
-	);
-
-	if (!$pings) {
-		$pings = $class->cache_pings;
-	}
-
-	foreach my $p (@$pings) {
-		my $obj = $class->{_}->instance->new_object(
+	foreach my $p (@{ $self->pings }) {
+		my $obj = $self->_->instance->new_object(
 			"System::Ping::".$p->{method},
 			%$p
 		);
@@ -43,10 +22,17 @@ sub ping_all {
 
 #----------
 
-sub cache_pings {
-	my $class = shift;
+sub load_pings {
+	$self->_->cache->get(
+		tbl		=> "pings",
+		first	=> $self->_->container->id,
+	);
+}
 
-	my $get = $class->{_}->core->get_dbh->prepare("
+#----------
+
+sub cache_pings {
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			id,
 			method,
@@ -55,13 +41,13 @@ sub cache_pings {
 			title,
 			local
 		from 
-			" . $class->{_}->core->tbl_name("pings") . "
+			" . $self->_->core->tbl_name("pings") . "
 		where 
 			container = ?
 	");
 
-	$get->execute( $class->{_}->container->id ) 
-		or $class->{_}->bail->("cache pings failure: ".$get->errstr);
+	$get->execute( $self->_->container->id ) 
+		or $self->_->bail->("cache pings failure: ".$get->errstr);
 
 	my ($id,$m,$u,$f,$t,$l);
 	$get->bind_columns( \($id,$m,$u,$f,$t,$l) );
@@ -78,9 +64,9 @@ sub cache_pings {
 		};
 	}
 
-	$class->{_}->cache->set(
+	$self->_->cache->set(
 		tbl		=> "pings",
-		first	=> $class->{_}->container->id,
+		first	=> $self->_->container->id,
 		ref		=> $pings
 	);
 

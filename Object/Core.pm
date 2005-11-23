@@ -4,6 +4,9 @@ use Date::Format;
 use Time::ParseDate;
 use URI::Escape;
 
+use Spiffy -Base;
+no warnings;
+
 use eThreads::Object::Auth;
 #use eThreads::Object::Auth::Cookies;
 use eThreads::Object::Auth::Internal;
@@ -42,19 +45,43 @@ use eThreads::Object::System::Format::Markdown;
 use eThreads::Object::System::Ping;
 use eThreads::Object::System::Ping::BaseMethod;
 use eThreads::Object::System::Ping::XMLRPC;
+use eThreads::Object::System::XMLFunction;
 
 use eThreads::Object::Template;
+use eThreads::Object::Users;
 use eThreads::Object::User;
 use eThreads::Object::Utils;
 
-use strict;
+#----------
+
+field '_' => -ro;
+
+field 'settings' 	=> -ro;
+
+field 'controller' 		=> 
+	-init=>q!
+		$self->_->controller
+	!, -ro;
+
+field 'memcache' 		=> 
+	-init=>q!
+		$self->_->memcache
+	!, -ro;
+
+field 'cgi_r_handler'	=> 
+	-init=>q!
+		$self->_->new_object('FakeRequestHandler');
+	!, -ro;
+
+field 'standalone'		=> 
+	-init=>q!
+		$self->_->new_object('Standalone');
+	!, -ro;
 
 #----------
 
 sub new {
-	my $class = shift;
-
-	$class = bless ( { } , $class );
+	$self = bless ( { } , $self );
 
 	# -- read in our settings -- #
 
@@ -69,178 +96,108 @@ sub new {
 
 		my $settings = eval qq( package main; return { $s }; );
 
-		$class->{settings} = $settings;
+		$self->{settings} = $settings;
 	}
 
-	# -- connect our database modules -- #
+	# -- create our switchboard object -- #
 
-	$class->{db} = $class->new_object("DB::".$class->{settings}{db}{type});
+	my $objects = new eThreads::Object::Objects($self);
+	my $swb = $objects->create('Switchboard',$self);
+	$swb->register('objects',$objects);
+	$swb->reroute_calls_for($self);
 
-	# -- connect to the database -- #
+	$swb->register('core',$self);
 
-	$class->{db}->connect();
+	# -- register our settings -- #
+
+	$swb->register('settings',$self->{settings});
+
+	# -- connect our database -- #
+
+	my $db = $self->_->new_object('DB::'.$self->{settings}{db}{type});
+	$db->connect();
+	$swb->register('db',$db);
 
 	# -- set up our memory cache -- #
 
-	$class->{memcache} = $class->new_object("Cache::Memory");
+	$swb->register('memcache',
+		$self->_->new_object('Cache::Memory')
+	);
 
 	# -- sweep controller xml into mem -- #
 
-	$class->{controller} = $class->new_object('Controller')->activate;
+	$swb->register('controller',
+		$self->_->new_object('Controller')
+	);
 
 	# -- return our class object -- #
 
-	return $class;
+	return $self;
+}
+
+#----------
+
+sub new_instance {
+	my $r = shift;
+	$self->_->new_object('Instance',$r);
 }
 
 #----------
 
 sub get_dbh {
-	my $class = shift;
-	my $db = $class->{db}->get_dbh;
+	my $db = $self->_->db->get_dbh;
 
 	if ($db->ping) {
 		return $db;
 	} else {
-		$class->{db}->connect;
+		$self->_->db->connect;
 	}
-}
-
-#----------
-
-sub settings {
-	return shift->{settings};
-}
-
-#----------
-
-sub memcache {
-	return shift->{memcache};
-}
-
-#----------
-
-sub controller {
-	shift->{controller};
 }
 
 #----------
 
 sub new_object {
-	my $class = shift;
-	my $type = shift;
-
-	my $module = "eThreads::Object::$type";
-
-	my $obj = $module->new($class,@_);
-
-	return $obj;
+	my @caller = caller;
+	$self->_->bail("new-object called on core: @caller\n");
 }
 
 #----------
 
 sub cgi_enable {
-	my $class = shift;
-
 	return 1;
 }
 
 #----------
 
-sub cgi_r_handler {
-	my $class = shift;
-
-	if (my $r = $class->{_cgi_r_handler}) {
-		return $r;
-	} else {
-		my $r = $class->{_cgi_r_handler} = $class->new_object(
-			"FakeRequestHandler"
-		);
-
-		return $r;
-	}
-}
-
-#----------
-
-sub standalone {
-	my $class = shift;
-
-	my $stand = $class->new_object("Standalone");
-
-	return $stand;
-}
-
-#----------
-
-sub load_instance_objects {
-	my $class = shift;
-
-	my $inst = $class->new_object("Instance");
-
-	return $inst;
-}
-
-#----------
-
-sub load_instance_from_notes {
-	my $class = shift;
-	my $c = shift;
-
-	my $inst = $class->new_object("Instance");
-
-	my $v = {
-		c	=> {
-			id		=> $c->notes->get("container/id"),
-			name	=> $c->notes->get("container/name"),
-		},
-	};
-
-	$inst->{container}			= $inst->new_object("Container");
-	$inst->{container}{id}		= $v->{c}{id};
-	$inst->{container}{name}	= $v->{c}{name};
-
-	return $inst;
-}
-
-#----------
-
-
 sub get_default_domain {
-	my $class = shift;
-	return $class->{settings}{default_domain};
+	return $self->{settings}{default_domain};
 }
 
 #----------
 
 sub get_object_for_type {
-	my $class = shift;
 	my $type = shift;
 
-	return $class->{settings}{glomule_types}{$type} || undef;
+	return $self->{settings}{glomule_types}{$type} || undef;
 }
 
 #----------
 
 sub tbl_name {
-	my $class = shift;
 	my $tbl = shift;
-
-	return $class->{settings}{db}{tbls}{ $tbl };
+	return $self->{settings}{db}{tbls}{ $tbl };
 }
 
 #----------
 
 sub code {
-	my $class = shift;
 	my $code = shift;
-	return $class->settings->{response_codes}{ $code };
+	return $self->settings->{response_codes}{ $code };
 }
 
 #----------
 
 sub bail {
-	my $class = shift;
 	my $text = shift;
 
 	# ugh, bail called while we're still registered...  that means we're 
@@ -306,7 +263,7 @@ directly.  Instead, use the Cache::Memory::Instance interface.
 
 	$core->new_object("type",args);
 
-Creates an object with the core as its ->{_} data.  This should only be 
+Creates an object with the core as its ->_ data.  This should only be 
 used when you don't yet have an instance or switchboard.
 
 =item get_default_id 

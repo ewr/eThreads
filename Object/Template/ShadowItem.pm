@@ -5,29 +5,32 @@ use Scalar::Util;
 
 #----------
 
-field '_' => -ro;
-
 field 'children'	=> 
 	-ro,
 	-init=>q!
-		my $shadowc = [];
-		@$shadowc = 
-			map { 
-				$self->_->switchboard->new_object(
-					"Template::ShadowItem",item=>$_,parent=>$self
+		my $shadowc = new eThreads::Object::Template::List;
+		while ( my $c = $self->{item}->children->next ) {
+				$shadowc->push( 
+					eThreads::Object::Template::ShadowItem->new(
+						item => $c , parent => $self
+					)
 				);
-			} @{ $self->{item}->children };
+		}
 		$shadowc;
 	!;
+
+field 'prev' => -weak;
+field 'next';
 	
 field 'parent'		=> 
 	-ro,
 	-init=>q!
 		if ( my $p = $self->item->parent ) {
-			$self->_->switchboard->new_object(
-				"Template::ShadowItem",
+			my $p = eThreads::Object::Template::ShadowItem->new(
 				item => $p
 			);
+			Scalar::Util::weaken($p);
+			$p;
 		} else { 
 			undef;
 		}
@@ -36,13 +39,10 @@ field 'parent'		=>
 field 'item' => -ro;
 
 sub new {
-	my $data = shift;
-
 	$self = bless ( {
 		item	=> undef,
 		notes	=> {},
 		@_,
-		_		=> $data,
 	} , $self ); 
 
 	Scalar::Util::weaken( $self->{parent} );

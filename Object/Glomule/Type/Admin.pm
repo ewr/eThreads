@@ -56,7 +56,7 @@ sub f_looks {
 		if ( $write->write ) {
 			$fobj->gholders->register('message',"New look created");
 			warn "created look\n";
-			$looks = $self->_->ocontainer->get_looks;
+			$looks = $self->_->ocontainer->looks;
 		} else {
 			warn "no look created\n";
 		}
@@ -167,7 +167,7 @@ sub f_looks_options {
 	# -- get a list of looks -- #
 
 	{
-		my $looks = $self->_->ocontainer->get_looks;
+		my $looks = $self->_->ocontainer->looks;
 
 		my @looks;
 		my $lid = $look->id;

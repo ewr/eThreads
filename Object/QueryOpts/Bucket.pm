@@ -1,17 +1,14 @@
 package eThreads::Object::QueryOpts::Bucket;
 
-@ISA = qw( eThreads::Object::QueryOpts );
-
-use strict;
+use eThreads::Object::QueryOpts -Base;
+no warnings;
 
 #----------
 
 sub new {
-	my $proto 	= shift;
-	my $class 	= ref($proto) || $proto;
-	my $data 	= shift;
+	my $data = shift;
 
-	my $self = {
+	$self = bless {
 		_			=> $data,
 		glomule		=> undef,
 		function	=> undef,
@@ -19,41 +16,30 @@ sub new {
 		@_,
 
 		opts		=> $data->queryopts->new_bucket_data,
-	};	
-
-	bless $self, $class;
+	} , $self;	
 
 	return $self;
 }
 
 #----------
 
-sub DESTROY {
-	my $class = shift;
-}
-
-#----------
-
-#----------
-
 sub register {
-	my $class = shift;
 	my %args = @_;
 
-	my $obj = $class->{_}->instance->new_object(
+	my $obj = $self->_->new_object(
 		"QueryOpts::QueryOption",
-		glomule	=> $class->{glomule},
+		glomule	=> $self->{glomule},
 		@_
 	);
 
-	$class->{opts}{ $obj->opt } = $obj;
+	$self->{opts}{ $obj->opt } = $obj;
 
 	my $name = $obj->name;
 
 	my $input;
 	if ($name) {
-		$input = $class->{_}->queryopts->get_input($name);
-		$class->{_}->queryopts->bind_to_name($name,$obj);
+		$input = $self->_->queryopts->get_input($name);
+		$self->_->queryopts->bind_to_name($name,$obj);
 	} else {
 		# nothing to look for
 	}
@@ -74,9 +60,9 @@ sub register {
 #----------
 
 sub get {
-	my ($class,$opt) = @_;
+	my $opt = shift;
 
-	my $q = $class->get_ref($opt);
+	my $q = $self->get_ref($opt);
 
 	if ($q) {
 		return $q->get;
@@ -88,29 +74,29 @@ sub get {
 #----------
 
 sub alter {
-	my ($class,$opt,$key,$val) = @_;
-	return $class->get_ref($opt)->alter($key,$val);
+	my ($opt,$key,$val) = @_;
+	return $self->get_ref($opt)->alter($key,$val);
 }
 
 #----------
 
 sub set {
-	my ($class,$opt,$val) = @_;
-	return $class->get_ref($opt)->set($val);
+	my ($opt,$val) = @_;
+	return $self->get_ref($opt)->set($val);
 }
 
 #----------
 
 sub get_ref {
-	my ($class,$opt) = @_;
+	my $opt = shift;
 
 	$opt =~ s!.*/([^/]+)!$1!;
 
 	return undef if ( 
-		!exists( $class->{opts}{ $opt } )
+		!exists( $self->{opts}{ $opt } )
 	);
 
-	my $oref = $class->{opts}{$opt};
+	my $oref = $self->{opts}{$opt};
 
 	return $oref;
 }
@@ -118,8 +104,8 @@ sub get_ref {
 #----------
 
 sub toggle {
-	my ($class,$opt) = @_;
-	return $class->get_ref($opt)->toggle;
+	my $opt = shift;
+	return $self->get_ref($opt)->toggle;
 }
 
 #----------

@@ -1,45 +1,40 @@
 package eThreads::Object::ContentType::HTML;
 
-@ISA = qw( eThreads::Object::ContentType );
-
-use strict;
+use eThreads::Object::ContentType -Base;
 
 #----------
 
+const 'type' => 'text/html';
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless({
+	$self = bless({
 		_		=> $data,
-		type	=> "text/html",
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub activate {
-	my $class = shift;
-
-	$class->{_}->gholders->register(
+	$self->_->gholders->register(
 		"form",
-		sub { return $class->handle_form(@_); }
+		sub { return $self->handle_form(@_); }
 	);
 
-	#$class->{_}->gholders->register(
+	#$self->_->gholders->register(
 	#	"qopt",
-	#	sub { return $class->handle_form_qopt(@_); }
+	#	sub { return $self->handle_form_qopt(@_); }
 	#);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub handle_form {
-	my $class = shift;
 	my $i = shift;
 
 	my $tmplt = $i->args->{func};
@@ -53,11 +48,11 @@ sub handle_form {
 	delete $args->{func};
 	delete $args->{method};
 
-	foreach my $c (@{$i->children}) {
-		$class->handle_form_qopt($c,$args);
+	while ( my $c = $i->children->next ) {
+		$self->handle_form_qopt($c,$args);
 	}
 
-	my $link = $class->{_}->queryopts->link($i->args->{func},$args);
+	my $link = $self->_->queryopts->link($i->args->{func},$args);
 
 	my ($flink,$opts) = $link =~ m!([^\?]*)\??(.*)?!s;
 
@@ -84,7 +79,6 @@ sub handle_form {
 #----------
 
 sub handle_form_qopt {
-	my $class = shift;
 	my $i = shift;
 	my $opts = shift;
 
@@ -95,7 +89,7 @@ sub handle_form_qopt {
 	return 0 if (!$name);
 
 	my $v;
-	$class->{_}->gholders->handle_template_tree($i,$v);
+	$self->_->gholders->handle_template_tree($i,$v);
 
 	$opts->{$name} = $v;
 }

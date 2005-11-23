@@ -327,8 +327,7 @@ sub _walk_glomule {
 #----------
 
 sub shadow_tree {
-	$self->_->switchboard->new_object(
-		'Template::ShadowItem',
+	eThreads::Object::Template::ShadowItem->new(
 		item => $self->get_tree
 	);
 }
@@ -365,8 +364,17 @@ sub get_tree {
 
 sub _restore_tree {
 	my ($i,$p) = @_;
+	my $children = $i->{children};
+	undef $i->{children};
 	$i = CORE::bless $i , 'eThreads::Object::Template::Item';
-	@{$i->{children}} = map { $self->_restore_tree($_,$i) } @{$i->{children}};
+	
+	if ( $children ) {
+		foreach my $c ( @$children ) {
+			$i->children->push(
+				$self->_restore_tree( $c , $i )
+			);
+		}
+	}
 	$i->{parent} = $p;
 	Scalar::Util::weaken($i->{parent});
 	return $i;
@@ -475,7 +483,7 @@ sub parse_into_tree {
 		$r->parent( 	$t			);
 		$r->content( 	$content	);
 
-		$t->add_child($r);
+		$t->children->push($r);
 	}
 
 	# figure out how many items are in our matched list
@@ -518,7 +526,7 @@ sub parse_into_tree {
 			$lt->args(		$args		);
 			$lt->parent(	$cx			);
 
-			$cx->add_child($lt);
+			$cx->children->push($lt);
 
 			# if this is an opening tag (not a single), make it the 
 			# current context.  otherwise context is unchanged.
@@ -546,7 +554,7 @@ sub parse_into_tree {
 			$lt->parent(	$cx		);
 			$lt->content(	$m[5]	);	
 
-			$cx->add_child($lt);
+			$cx->children->push($lt);
 		}
 	}
 

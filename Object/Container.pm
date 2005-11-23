@@ -167,6 +167,8 @@ sub get_default_look {
 		%{ $self->looks->{DEFAULT} }
 	);
 
+	$l->container($self);
+
 	return $l;
 }
 
@@ -180,11 +182,21 @@ sub is_valid_look_name {
 			'Look',
 			%$l
 		);
+
+		$obj->container($self);
 	
 		return $obj;
 	} else {
 		return undef;
 	}
+}
+
+#----------
+
+sub new_look {
+	my $o = $self->_->new_object('Look::Writable');
+	$o->container( $self );
+	return $o;
 }
 
 #----------
@@ -197,6 +209,8 @@ sub is_valid_look {
 			'Look',
 			%$l
 		);
+
+		$obj->container($self);
 	
 		return $obj;
 	} else {
@@ -229,6 +243,7 @@ sub determine_look {
 	$self->_->RequestURI->claim($look);
 
 	if ($look && (my $obj = $self->is_valid_look_name($look))) {
+		$obj->container($self);
 		return $obj;
 	} else {
 		return $self->get_default_look;

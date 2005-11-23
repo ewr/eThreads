@@ -68,6 +68,7 @@ ping_methods	=> {
 	XMLRPC	=> "XML/RPC",
 },
 
+xml_prefix	=> 'x',
 cache_obj	=> "Cache::MultiServer",
 auth_obj	=> "Auth::Internal",
 #auth_obj	=> "Auth::Cookies",

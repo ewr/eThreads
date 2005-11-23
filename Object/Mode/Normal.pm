@@ -28,6 +28,21 @@ sub go {
 		$self->_->container->determine_look()
 	);
 
+	my $content = $self->handle_template;
+
+	my $r = $self->_->ap_request;
+
+	$r->set_last_modified( $self->_->last_modified->get );
+
+	$r->content_type( $self->_->content_type->type );
+	$r->print($content);
+
+	return $self->_->core->code('OK');
+}
+
+#----------
+
+sub handle_template {
 	$self->_->switchboard->register("template",
 		$self->_->look->determine_template()
 	);
@@ -55,7 +70,7 @@ sub go {
 	# -- walk the template to see what we're using -- #
 
 	{
-		my $walker = $self->_->instance->new_object("Template::Walker");
+		my $walker = $self->_->new_object("Template::Walker");
 
 		foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 			# -- register the walker -- #
@@ -75,7 +90,7 @@ sub go {
 	}
 
 	{
-		my $walker = $self->_->instance->new_object("Template::Walker");
+		my $walker = $self->_->new_object("Template::Walker");
 
 		foreach my $t (keys %{$self->_->settings->{glomule_types}}) {
 			# -- register the walker -- #
@@ -108,14 +123,7 @@ sub go {
 		$content
 	);
 
-	my $r = $self->_->ap_request;
-
-	$r->set_last_modified( $self->_->last_modified->get );
-
-	$r->content_type( $self->_->content_type->type );
-	$r->print($content);
-
-	return $self->_->core->code('OK');
+	return $content;
 }
 
 #----------

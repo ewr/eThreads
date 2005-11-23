@@ -55,12 +55,10 @@ sub print {
 #----------
 
 sub load_messages {
-	my $class = shift;
-
-	my $msgs = $class->{_}->cache->get(tbl=>"messages");
+	my $msgs = $self->_->cache->get(tbl=>"messages");
 
 	if (!$msgs) {
-		$msgs = $class->cache_messages;
+		$msgs = $self->cache_messages;
 	}
 
 	return $msgs;
@@ -69,13 +67,11 @@ sub load_messages {
 #----------
 
 sub cache_messages {
-	my $class = shift;
-
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			ident,value
 		from 
-			" . $class->{_}->core->tbl_name("messages") . "
+			" . $self->_->core->tbl_name("messages") . "
 	");
 
 	$get->execute() 
@@ -127,7 +123,7 @@ interface so that it can call back to Instance.
 
 	$obj->bail("error message");
 
-	$class->{_}->bail->("error message");
+	$self->_->bail->("error message");
 
 This is a special case that uses the ERROR Message.  It will usually be 
 registered as "bail" with the switchboard.  Note that for the switchboard 

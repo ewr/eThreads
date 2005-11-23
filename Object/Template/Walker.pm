@@ -67,9 +67,9 @@ sub walk {
 sub walk_template_tree {
 	my ($class,$tree) = @_;
 
-	foreach my $i ( @{ $tree->children } ) {
+	while ( my $i = $tree->children->next ) {
 		my $s = $class->walk($i);
-		$class->walk_template_tree($i) if ( $s && @{ $i->children } );
+		$class->walk_template_tree($i) if ( $s && $i->children->count );
 	}
 }
 

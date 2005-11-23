@@ -1,14 +1,28 @@
 package eThreads::Object::Glomule::Function;
 
-use strict;
+use Spiffy -Base;
+no warnings;
+
+field '_' => -ro;
+
+field 'bucket' => 
+	-init=>q!
+		$self->_->queryopts->new_bucket(
+			glomule		=> scalar $self->{g}->id,
+			function	=> $self->{name},
+		);
+	!, -ro;
+
+field 'glomule'		=> -key=>'g', -ro;
+field 'gholders'	=> -ro;
+field 'qopts'		=> -ro;
 
 sub new {
-	my $class 	= shift;
 	my $data 	= shift;
 	my $glomule = shift;
 	my $func 	= shift;
 
-	$class = bless ({
+	$self = bless {
 		_			=> $data,
 		gholders	=> $glomule->gholders,
 		name		=> $func->{name},
@@ -19,71 +33,47 @@ sub new {
 		modes		=> $func->{modes},
 		g			=> $glomule,
 		bucket		=> undef,
-	},$class);
+	} , $self;
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub DESTROY {
-	my $class = shift;
-	undef $class->{g};
-	undef $class->{bucket};
+	my $self = shift;
+	undef $self->{g};
+	undef $self->{bucket};
 }
 
 #----------
 
 sub activate {
-	my $class = shift;
-
-	# -- create a new qopt bucket -- #
-
-	my $bucket = $class->{_}->queryopts->new_bucket(
-		glomule		=> $class->{g}->id,
-		function	=> $class->{name},
-	);
-
 	# -- register qopts -- #
 
-	foreach my $q (@{$class->{qopts}}) {
+	foreach my $q (@{$self->{qopts}}) {
 		my $d;
 		if ($q->{is_pref}) {
-			$d = $class->glomule->pref( $q->{default} )->get;
+			$d = $self->glomule->pref( $q->{default} )->get;
 		} else {
 			$d = $q->{default};
 		}
 
-		$bucket->register(%$q,default=>$d);
+		$self->bucket->register(%$q,default=>$d);
 	}
 
 	# we don't need these any more
-	undef $class->{qopts};
+	undef $self->{qopts};
 
-	$class->{bucket} = $bucket;
-
-	return $class;
+	return $self;
 }
-
-#----------
-
-sub bucket {
-	my $class = shift;
-	return $class->{bucket};
-}
-
-#----------
-
-sub glomule { shift->{g} }
-sub gholders { shift->{gholders} }
 
 #----------
 
 sub mode {
-	my $class = shift;
 	my $mode = shift;
 
-	if ($class->{modes}{$mode}) {
+	if ($self->{modes}{$mode}) {
 		return 1;
 	} else {
 		return 0;
@@ -93,31 +83,23 @@ sub mode {
 #----------
 
 sub execute {
-	my $class = shift;
+	if ($self->{object}) {
+		my $obj = $self->_->glomule->typeobj($self->{object})
+			or $self->_->bail->("couldn't get typeobj for $self->{object}");
 
-	if ($class->{object}) {
-		my $obj = $class->{_}->glomule->typeobj($class->{object})
-			or $class->{_}->bail->("couldn't get typeobj for $class->{object}");
+		my $sub = $self->{sub};
 
-		my $sub = $class->{sub};
+		return $obj->$sub($self,@_);
 
-		return $obj->$sub($class,@_);
-
-	} elsif ($class->{system}) {
-		my $obj = $class->glomule->system( $class->{system} );
+	} elsif ($self->{system}) {
+		my $obj = $self->glomule->system( $self->{system} );
 	
-		my $sub = $class->{sub};
+		my $sub = $self->{sub};
 
-		return $obj->$sub($class,@_);
+		return $obj->$sub($self,@_);
 	} else {
-		$class->{_}->bail->("Can't call function without object or system.");
+		$self->_->bail->("Can't call function without object or system.");
 	}
-}
-
-#----------
-
-sub qopts {
-	return shift->{qopts};
 }
 
 #----------

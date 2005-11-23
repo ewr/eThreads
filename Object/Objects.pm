@@ -1,7 +1,5 @@
 package eThreads::Object::Objects;
 
-use strict;
-
 use Spiffy -Base;
 
 use Scalar::Util;

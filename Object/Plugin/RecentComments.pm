@@ -1,26 +1,22 @@
 package eThreads::Object::Plugin::RecentComments;
 
-@ISA = qw( eThreads::Object::Plugin );
-
-use strict;
+use eThreads::Object::Plugin -Base;
 
 #----------
 
 sub activate {
-	my $class = shift;
-
-	my $comments = $class->{i}->args->{comments};
-	my $count = $class->{i}->args->{count} || 5;
+	my $comments = $self->{i}->args->{comments};
+	my $count = $self->{i}->args->{count} || 5;
 
 	if (!$comments) {
-		warn "CountBlogComments: no comments glomule given\n";
+		warn "RecentComments: no comments glomule given\n";
 		return undef;
 	}
 
 	# for now we don't have a way to know if a glomule's valid.  we use it 
 	# and if it doesn't exist it'll get created
 
-	my $cobj = $class->{_}->glomule->load(
+	my $cobj = $self->_->glomule->load(
 		name	=> $comments,
 		type	=> "comments",
 	);
@@ -29,12 +25,29 @@ sub activate {
 	my $dtbl = $cobj->data("data");
 
 	if (!$htbl) {
-		warn "CountBlogComments: no comments headers table\n";
+		warn "RecentComments: no comments headers table\n";
 		return undef;
 	}
 
-	# we want the 
-	my $get = $class->{_}->core->get_dbh->prepare("
+	my $tget;
+	if ( my $titles = $self->{i}->args->{titles} ) {
+		my $tobj = $self->_->glomule->load(
+			name	=> $titles
+		);
+
+		my $theaders = $tobj->data('headers');
+
+		$tget = $self->_->core->get_dbh->prepare("
+			select 
+				title
+			from 
+				$theaders
+			where 
+				id = ?
+		");
+	}
+
+	my $get = $self->_->core->get_dbh->prepare("
 		select 
 			h.id,
 			h.timestamp,
@@ -53,22 +66,35 @@ sub activate {
 	");
 
 	$get->execute() 
-		or $class->{_}->bail->("get recent comments failed: ".$get->errstr);
+		or $self->_->bail->("get recent comments failed: ".$get->errstr);
 	
 	my ($id,$t,$p,$n);
 	$get->bind_columns( \($id,$t,$p,$n) );
 
 	my $recent = [];
 	while ($get->fetch) {
+		my ($title,$stitle);
+		if ($tget) {
+			$tget->execute( $p );
+			$title = $tget->fetchrow_array;
+
+			$stitle = 
+				length( $title ) > 16
+					? substr( $title , 0 , 16 ) . '...'
+					: $title;
+		}
+	
 		push @$recent, [ 'comments.' . $id , {
 			id		=> $id,
 			timestamp	=> $t,
 			parent	=> $p,
 			name	=> $n,
+			title	=> $title,
+			shorttitle	=> $stitle,
 		} ];
 	}
 
-	$class->{_}->rctx->register(
+	$self->_->rctx->register(
 		[ 'comments' , [ map { $_->[1]{id} } @$recent ] ],
 		@$recent,
 	);

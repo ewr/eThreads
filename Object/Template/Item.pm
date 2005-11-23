@@ -4,13 +4,18 @@ use strict;
 
 use Spiffy -Base;
 
+use eThreads::Object::Template::List;
+
 #----------
 
-field 'children' => -ro;
 field 'type';
 field 'parent' => -weak;
 field 'content';
 field 'args';
+
+field 'children' => -ro, -init=>q! new eThreads::Object::Template::List !;
+field 'next';
+field 'prev' => -weak;
 
 sub new {
 	$self = bless ({
@@ -18,7 +23,6 @@ sub new {
 		type		=> undef,
 		content		=> undef,
 		args		=> {},
-		children	=> [],
 	},$self);
 
 	return $self;
@@ -28,13 +32,6 @@ sub new {
 
 sub DESTROY {
 	# nothing for now
-}
-
-#----------
-
-sub add_child {
-	my $child = shift;
-	return push @{ $self->{children} } , $child;
 }
 
 #----------
@@ -72,7 +69,11 @@ sub object_path {
 sub dump_deep {
 	my $children = [];
 
-	@$children = map { $_->dump_deep } @{ $self->{children} };
+	if ( $self->{children} ) {
+		while ( my $c = $self->children->next ) {
+			push @$children, $c->dump_deep;
+		}
+	}
 
 	{
 		type		=> $self->{type},

@@ -3,6 +3,7 @@
 <glomule type="blog" object="Blog">
   <system name="categories" object="Categories"/>
   <system name="format" object="Format::Markdown"/>
+  <system name="xmlfunc" object="XMLFunction"/>
   <function name="">
     <object>blog</object>
     <sub>f_main</sub>
@@ -43,6 +44,15 @@
       <mode name="Auth" value="1"/>
       <mode name="Normal" value="1"/>
     </modes>
+  </function>
+  <function name="xmlrpc">
+	<system>xmlfunc</system>
+	<sub>f_handle_xmlfunction</sub>
+	<qopts/>
+	<modes>
+		<mode name="Auth" value="1"/>
+		<mode name="Normal" value="1"/>
+	</modes>
   </function>
   <function name="view">
     <object>blog</object>
@@ -150,6 +160,17 @@
     <modes>
       <mode name="Auth" value="1"/>
     </modes>
+  </function>
+  <function name="add_post_to_category">
+    <object>blog</object>
+    <sub>f_add_post_to_category</sub>
+	<qopts>
+        <opt key="id" allowed="\d+"/>
+		<opt key="cat" allowed="\d+"/>
+	</qopts>
+	<modes>
+		<mode name="Auth" value="1"/>
+	</modes>
   </function>
 	<prefs>
 		<pref name="datetime_format" default="%D %I:%M%p" allowed=".*"/>

@@ -2,6 +2,8 @@ package eThreads::Object::Look;
 
 use Spiffy -Base;
 
+use eThreads::Object::Look::Writable;
+
 no warnings;
 
 field '_'		=> -ro;
@@ -27,6 +29,15 @@ field 'subtemplates'	=>
 field 'is_admin'	=> 
 	-ro,
 	-init=>q! ( $self->{type} eq "ADMIN" ) ? 1 : undef !;
+
+field 'container'	=> -weak;
+
+field 'writable'	=> 
+	-ro,
+	-init=>q! bless { %$self } , 'eThreads::Object::Look::Writable'; !;
+
+stub 'write';
+stub 'delete';
 
 #----------
 

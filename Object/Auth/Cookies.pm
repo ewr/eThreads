@@ -1,35 +1,33 @@
 package eThreads::Object::Auth::Cookies;
 
-@ISA = qw( eThreads::Object::Auth );
+use eThreads::Object::Auth -Base;
 
 use CGI::Cookie;
 use Digest::MD5;
-use strict;
 
 #----------
 
+field 'user' => -ro;
+
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless ({
+	$self = bless ({
 		_		=> $data,
 		user	=> undef,
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub authenticate {
-	my $class = shift;
-
 	my ($u,$p);
 	my $f = CGI::Cookie->fetch;
-	if ($class->{_}->raw_queryopts->get("cookie_user")) {
-		$u = $class->{_}->raw_queryopts->get("cookie_user");
-		$p = $class->{_}->raw_queryopts->get("cookie_pass");
+	if ($self->_->raw_queryopts->get("cookie_user")) {
+		$u = $self->_->raw_queryopts->get("cookie_user");
+		$p = $self->_->raw_queryopts->get("cookie_pass");
 	} elsif ($f && $f->{user}) {
 		($u) = CGI::Cookie->fetch->{user} =~ /user=([^;]+);/;
 		($p) = CGI::Cookie->fetch->{pass} =~ /pass=([^;]+);/;
@@ -37,8 +35,8 @@ sub authenticate {
 		# we have nothing
 	}
 
-	if (my $obj = $class->is_valid_login($u,$p)) {
-		if ($class->{_}->raw_queryopts->get("cookie_user")) {
+	if (my $obj = $self->is_valid_login($u,$p)) {
+		if ($self->_->raw_queryopts->get("cookie_user")) {
 			# set our auth cookies
 			my $c_u = new CGI::Cookie(
 				-name	=> "user",
@@ -50,8 +48,8 @@ sub authenticate {
 				-value	=> $p
 			);
 
-			$class->{_}->ap_request->headers_out->set('Set-Cookie' => $c_u);
-			$class->{_}->ap_request->headers_out->set('Set-Cookie' => $c_p);
+			$self->_->ap_request->headers_out->set('Set-Cookie' => $c_u);
+			$self->_->ap_request->headers_out->set('Set-Cookie' => $c_p);
 		}
 
 		return $obj;
@@ -65,17 +63,9 @@ sub authenticate {
 #----------
 
 sub unauthorized {
-	my $class = shift;
-
-	$class->{_}->messages->print("CookieLogin","");
+	$self->_->messages->print("CookieLogin","");
 
 	exit;
-}
-
-#----------
-
-sub user {
-	return shift->{user};
 }
 
 #----------

@@ -23,13 +23,9 @@ sub handler {
 	my $r = shift;
 
 	$core = new eThreads::Object::Core if (!$core);
-
-	my $inst = $core->new_object("Instance",$r);
-
+	my $inst = $core->new_instance( $r );
 	my $status = $inst->go();
-
 	$inst->DESTROY;
-
 	return $status;
 }
 

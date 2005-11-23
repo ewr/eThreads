@@ -2,6 +2,8 @@ package eThreads::Object::Glomule::Data;
 
 use Spiffy -Base;
 
+use Scalar::Util;
+
 use eThreads::Object::Glomule::PostHooks;
 
 #----------
@@ -16,6 +18,8 @@ field 'posthooks'	=>
 	-ro, 
 	-init=>q!$self->_->new_object('Glomule::PostHooks')!;
 
+field 'buckets'		=> [];
+
 sub new {
 	my $data = shift;
 
@@ -29,9 +33,7 @@ sub new {
 		_			=> $data,
 	} , $self ); 
 
-#	if (!$self->{name}) {
-#		$self->{_}->bail->("Invalid glomule data init: no name");
-#	}
+#	Scalar::Util::weaken( $self->{controller} );
 
 	if (!$self->{type}) {
 		$self->{_}->bail->("Invalid glomule data init: no type");
@@ -42,6 +44,12 @@ sub new {
 	}
 
 	return $self;
+}
+
+sub new_bucket {
+	my $b = $self->_->new_object('Glomule::Data::Bucket');
+	push @{ $self->buckets } , $b;
+	$b;
 }
 
 #----------
@@ -64,7 +72,7 @@ sub activate {
 	foreach my $s ( $self->controller->systems ) {
 		my $obj 
 			= $self->{system}{ $s->name } 
-				= $self->{_}->system->load($s->object);
+				= $self->{_}->system->load($s->object,$self);
 
 		$self->{_}->objects->activate($obj);
 	}
