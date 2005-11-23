@@ -12,7 +12,7 @@ field 'pings' =>
 
 sub ping_all {
 	foreach my $p (@{ $self->pings }) {
-		my $obj = $self->_->instance->new_object(
+		my $obj = $self->_->new_object(
 			"System::Ping::".$p->{method},
 			%$p
 		);

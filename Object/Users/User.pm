@@ -2,6 +2,8 @@ package eThreads::Object::Users::User;
 
 use Spiffy -Base;
 
+use eThreads::Object::Users::User::Rights;
+
 field '_' => -ro;
 
 field '_data' => 

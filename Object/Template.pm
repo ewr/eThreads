@@ -345,6 +345,7 @@ sub get_tree {
 		tbl			=> $self->TABLE,
 		first		=> $self->look->id,
 		second		=> $self->id,
+		nomemcache	=> 1,
 	);
 
 	my $tree;
@@ -367,7 +368,7 @@ sub _restore_tree {
 	my $children = $i->{children};
 	undef $i->{children};
 	$i = CORE::bless $i , 'eThreads::Object::Template::Item';
-	
+
 	if ( $children ) {
 		foreach my $c ( @$children ) {
 			$i->children->push(
@@ -420,6 +421,7 @@ sub cache_tree {
 		first		=> $self->look->id,
 		second		=> $self->id,
 		ref			=> $deep,
+		nomemcache	=> 1,
 	);
 
 	return $tree;

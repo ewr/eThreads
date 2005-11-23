@@ -15,13 +15,7 @@ sub is_valid_login {
 	my $pass = shift;
 	my $crypted = shift;
 
-	my $headers = $self->_->cache->get(
-		tbl		=> "user_headers"
-	);
-
-	if (!$headers) {
-		$headers = $self->_->instance->cache_user_headers;
-	}
+	my $headers = $self->_->users->headers;
 
 	my $ref = $headers->{u}{ $user };
 
@@ -34,8 +28,8 @@ sub is_valid_login {
 
 	if ($cpass eq $ref->{password}) {
 		# -- successful authentication -- #
-		my $obj = $self->{user} 
-			= $self->_->new_object("User",id=>$ref->{id});
+		my $obj = $self->{user}
+			= $self->_->users->get_obj_for_user( $ref->{id} );
 		return $obj;
 	} else {
 		# -- invalid password -- #

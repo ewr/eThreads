@@ -1,53 +1,52 @@
 package eThreads::Object::Messages;
 
-use strict;
+use Spiffy -Base;
+
+field '_' => -ro;
 
 #----------
 
 sub new {
-	my $class = shift;
 	my $data = shift;
 
-	$class = bless({
+	$self = bless({
 		_			=> $data,
 		messages	=> undef,
-	},$class);
+	},$self);
 
-	return $class;
+	return $self;
 }
 
 #----------
 
 sub bail {
-	my $class = shift;
 	my $err = shift;
 
 	warn time . ": $err\n";
-	$class->print("ERROR",$err);
+	$self->print("ERROR",$err);
 }
 
 #----------
 
 sub print {
-	my $class = shift;
 	my $name = shift;
 	my $text = shift;
 
 	# prevent recursion
-	if ($class->{STATUS}) {
+	if ($self->{STATUS}) {
 		die "recursion in message print.";
 	} else {
-		$class->{STATUS} = 1;
+		$self->{STATUS} = 1;
 	}
 
-	my $msgs = $class->load_messages;
+	my $msgs = $self->load_messages;
 
 	my $msg = $msgs->{ $name } || $msgs->{ERROR};
 
 	$msg =~ s!#TEXT#!$text!;
 
-	$class->{_}->ap_request->content_type('text/html');
-	$class->{_}->ap_request->print($msg);
+	$self->_->ap_request->content_type('text/html');
+	$self->_->ap_request->print($msg);
 
 	exit;
 }
