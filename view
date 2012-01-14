@@ -1,0 +1,307 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: view,v 1.13 1998/11/14 00:06:16 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script provides un-authenticated viewing.  It calls shared-code 
+#  for generic subroutines.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+# Call our shared subroutines
+BEGIN {
+	require "shared-code";
+}
+
+use strict;
+no strict "refs";
+use vars qw(%forumTWEAKS %user %language %database %input %internal %settings %tweak %images %forum %rain $dbh $dbm);
+
+# Get input variables
+&get_vars_from_input;
+
+# Print a content type so we get good output
+print "Content-type: text/html\n\n";
+
+# Connect $dbm to the main database
+$dbm = &connect_to_database;
+
+# Use $input{'forum'} to get info from presets
+&get_forum_info;
+
+# We have to identify ourself to shared_code
+$internal{'script'} = "view";
+
+# We're un-authenticated, so what can viewers do...
+$internal{'post_options'} = qq(
+	<a href="$forum{path}/$tweak{email_admin_script}/$input{forum}/subscribe?id=$input{id}">
+	$language{sub_to_email}</a> - 
+	<a href="$forum{path}/$tweak{email_admin_script}/$input{forum}/unsubscribe?id=$input{id}">
+	$language{unsub_from_email}</a>
+);
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+if ($input{forum}) {
+	&print_top_threads       unless ($input{'function'});
+	&view_post               if ($input{'function'} eq "view_post");
+	&write_post              if ($input{'function'} eq "post");
+
+	&search_form('advanced') if ($input{'function'} eq"search_form");
+	&search                  if ($input{'function'} eq"search");
+
+	&signup	                 if ($input{'function'} eq"signup");
+
+	&user_guide              if ($input{'function'} eq"guide");
+
+	&posts_by_user           if ($input{'function'} eq"posts_by_user");
+	&user_profile            if ($input{'function'} eq"user_profile");
+} else {
+	&list_forums;
+}
+
+#-----------------------------#
+# Script-specific Subroutines #
+#-----------------------------#
+
+sub signup {
+# This subroutine prints out a signup form for users to create a 
+# forum account
+	my $username = $input{username};
+	my $password = $input{password};
+	my $error;
+
+	my $firstname = $input{firstname};
+	my $lastname = $input{lastname};
+	my $email = $input{email};
+	my $signature = $input{signature};
+	my $description = $input{description};
+	
+	print "$forum{header}";
+
+	if ($username) {
+		my $dbu = &db_dbu_connect;
+	
+		my $check_for_username = $dbu->prepare("
+			select username from $forum{user_tbl} where username='$username'
+		");
+
+		&bail($dbu->errstr) unless ($check_for_username->execute);
+	
+		$error = 1 if ($check_for_username->rows);
+		$error = 2 unless ($password);
+	
+		$check_for_username->finish;
+	
+		if ($error == 1) {
+			# They failed the username check
+			print "<b>$language{phrase}{1}</b><p>";
+			$username = "";
+		} elsif ($error == 2) {
+			# They didn't enter a password
+			print "<b>$language{phrases}{2}</b><br>";
+		} elsif (!$error) {
+			# Heh, we actually get to sign them up.
+	
+			$firstname =~ s/\'/\\'/g;
+			$lastname =~ s/\'/\\'/g;
+			$signature =~ s/\'/\\'/g;
+			$description =~ s/\'/\\'/g;
+
+			$password = crypt($password,'k9');
+	
+			&bail($dbu->errstr) unless ($dbu->do("
+				insert into $forum{user_tbl}
+				(username,password,firstname,lastname,email,signature,description) 
+				values
+				('$username','$password','$firstname','$lastname','$email','$signature','$description')
+			"));
+
+			print <<EOP;
+			$language{phrase}{3}
+EOP
+
+		}
+	
+		$dbu->disconnect;
+	}
+
+	if (!$error && $username) {
+
+	} else {
+		# Either they had an error, or they just got sent here
+		print <<EOP;
+		<form action="$forum{path}/$internal{script}/$input{forum}/signup" method=post>
+		$language{phrase}{4}
+
+		<table border=0>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td colspan=2>
+				<b>$language{required_info}:</b>
+			</td>	
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td width=100>
+				$language{username}:
+			</td>
+			<td width=220>
+				<input type=text name="username" size=30 value="$username">
+			</td>	
+	</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{password}:
+			</td>
+			<td>
+				<input type=password name="password" size=30 value="$password">
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td colspan=2>
+				<b>$language{optional_info}:</b>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{first_name}:
+			</td>
+			<td>
+				<input name="firstname" size=30 value="$firstname">
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td>
+				$language{last_name}:
+			</td>
+			<td>
+				<input name="lastname" size=30 value="$lastname">
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{email_address}:
+			</td>
+			<td>
+				<input name="email" size=30 value="$email">
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td>
+				$language{signature}:
+			</td>
+			<td>
+				<textarea name="signature" rows=4 cols=30 wrap=virtual>$signature</textarea>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{description}:
+			</td>
+			<td>
+				<textarea name="description" rows=4 cols=30 wrap=virtual>$description</textarea>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td>
+				$language{submit}:
+			</td>
+			<td>
+				<input type=submit value="Signup">
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td colspan=2>&nbsp;</td>
+		</tr>	
+	</table>
+
+		</form>
+EOP
+	}
+
+	print <<EOP;
+	
+EOP
+
+	print "$forum{footer}";
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: view,v $
+# Revision 1.13  1998/11/14 00:06:16  eric
+# * made script language module friendly. :)
+#
+# Revision 1.12  1998/11/01 16:31:03  eric
+# * added a pointer to list_forums
+#
+# Revision 1.11  1998/10/18 17:45:25  eric
+# * changed all old $tweak stuff to use $forumTWEAKS
+#
+# Revision 1.10  1998/10/17 18:33:24  eric
+# * got strict
+# * fixed linkage
+#
+# Revision 1.9  1998/09/28 23:08:07  eric
+# * added pointer for posts_by_user
+# * added pointer for user_profile
+# * added code for signup function
+#
+# Revision 1.8  1998/09/22 00:29:12  eric
+# * grabbed results of &connect_to_database
+#
+# Revision 1.7  1998/09/19 16:45:42  eric
+# * changed forum identification to be script/forum/function?whatever
+#
+# Revision 1.6  1998/07/19 01:56:07  eric
+# Added post_options and pointer to user's manual.
+#
+# Revision 1.5  1998/07/18 22:01:53  eric
+# Added routers for search stuff.  Also added signup pointers, currently just
+# to an informative message saying it's broken.
+#
+# Revision 1.4  1998/07/15 01:29:17  eric
+# Added pointer to write_message
+#
+# Revision 1.3  1998/07/14 17:30:19  eric
+# Added pointer for view_post
+#
+# Revision 1.2  1998/07/14 01:27:02  eric
+# Moved the call for shared_code into a BEGIN block.  Also added
+# $internal{'script'} to let shared_code know who's calling. (caller id is
+# so cool...)
+#
+# Revision 1.1.1.1  1998/07/13 23:00:41  eric
+# Skeleton of new eThreads.
+#
+
+#---------------#
+# End of Script #
+#---------------#

@@ -1,0 +1,147 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: mysql.db.module,v 1.4 1998/11/07 17:59:24 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This is the database module for MySQL.  It contains MySQL code for
+#  specific database functions.
+#
+#---------------------------------------------------------------------
+
+#----------------------#
+# Database Information #
+#----------------------#
+
+%database = (
+	supports_searching			=> "1",
+	supports_body_searching		=> "1",
+	supports_title_searching	=> "1",
+	supports_name_searching		=> "1",
+	supports_email_searching	=> "1",
+);
+
+#-------------------------------#
+# Database Specific Subroutines #
+#-------------------------------#
+
+sub db_dbh_connect {
+	my $dbh = DBI->connect(
+		"DBI:$settings{'db_type'}:$forum{'main_db'}:$settings{'db_host'}", 
+		$forum{'user'},$forum{'passwd'}
+	);
+
+	return $dbh;
+}
+
+#----------
+
+sub db_dbm_connect {
+	my $dbm = DBI->connect(
+		"DBI:$settings{'db_type'}:$settings{'db_main'}:$settings{'db_host'}", 
+		$settings{'db_user'},$settings{'db_passwd'}
+	);
+
+	return $dbm;
+}
+
+#----------
+
+sub db_dbu_connect {
+	my $dbu = DBI->connect(
+		"DBI:$settings{'db_type'}:$forum{user_db}::$settings{'db_host'}", 
+		$forum{user},$forum{passwd}
+	);
+
+	return $dbu;
+}
+
+#----------
+
+sub db_get_next_id {
+	my $next_id = 0;
+	return $next_id;
+}
+
+#----------
+
+sub db_get_message_id {
+	my $sth = shift;
+	my $next_id = $sth->{'insertid'};
+	return $next_id;
+}
+
+#----------
+
+sub db_create_forum_table {
+	my $table_name = shift;
+	my $database = shift;
+	my $user = shift;
+	my $passwd = shift;
+
+	# Fake some forum settings
+	$forum{main_db} = $database;
+	$forum{user} = $user;
+	$forum{passwd} = $passwd;
+
+	my $dbh = &db_dbh_connect;
+
+	&bail($dbh->errstr) unless ($dbh->do("
+		CREATE TABLE $table_name (
+			id int(11) DEFAULT '0' NOT NULL auto_increment,
+			title varchar(100) DEFAULT '' NOT NULL,
+			poster text,
+			poster_email text,
+			timestamp int(11),
+			child_of int(11),
+			body text,
+			status tinyint(3) unsigned,
+			username varchar(20),
+			children int(11),
+			PRIMARY KEY (id)
+		)
+	"));
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: mysql.db.module,v $
+# Revision 1.4  1998/11/07 17:59:24  eric
+# * added children to forum table creation code
+#
+# Revision 1.3  1998/10/24 21:41:52  eric
+# * added db_create_forum_table
+#
+# Revision 1.2  1998/09/28 23:16:23  eric
+# * added db_dbu_connect for connecting to users database
+#
+# Revision 1.1  1998/09/19 16:48:46  eric
+# * Support for MySQL now up to speed.
+#
+
+#---------------#
+# End of Module #
+#---------------#
+
+1;

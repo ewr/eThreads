@@ -1,0 +1,1209 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: maintenance,v 1.8 1998/11/03 23:26:53 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script is for forum maintenance.  It allows forum 
+#  administrators to change the look of their forum, and allows 
+#  system administrators to add / remove / modify forums.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+BEGIN {
+	require "shared-code";
+}
+
+&get_vars_from_input;
+print "Content-type: text/html\n\n";
+$dbm = &connect_to_database;
+&get_forum_info if ($input{forum});
+
+$internal{script} = "maintenance";
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+if ($input{forum}) {
+	&print_forum_options unless ($input{function});
+
+	&forum_change_header   if ($input{function} eq"change_header");
+	&forum_change_footer   if ($input{function} eq"change_footer");
+	&forum_change_intro    if ($input{function} eq"change_intro");
+	&forum_change_imageset if ($input{function} eq"change_imageset");
+	&forum_view_imageset   if ($input{function} eq"view_imageset");
+	&forum_change_tweaks   if ($input{function} eq"mod_tweaks");
+	&forum_edit_wordlist   if ($input{function} eq"edit_wordlist");
+
+} else {
+	&print_admin_options unless ($input{function});
+
+	&create_forum if ($input{function} eq"create_forum");
+	&change_forum_settings if ($input{function} eq"change_settings");
+}
+
+#-------------------------#
+# Maintenance Subroutines #
+#-------------------------#
+
+sub print_forum_options {
+	print "$forum{header}";
+
+	print <<EOP;
+	<b>Maintenance Options:</b>
+	<br>
+	 - <a href="$forum{path}/$internal{script}/$input{forum}/change_header">
+	Change Forum Header</a>
+	<br>
+	 - <a href="$forum{path}/$internal{script}/$input{forum}/change_footer">
+	Change Forum Footer</a>
+	<br>
+	 - <a href="$forum{path}/$internal{script}/$input{forum}/change_intro">
+	Change Forum Introduction</a>
+	<br>
+	 - <a href="$forum{path}/$internal{script}/$input{forum}/change_imageset">
+	Change Image Set</a>
+	<br>
+	 - <a href="$forum{path}/$internal{script}/$input{forum}/mod_tweaks">
+	Modify Forum Tweaks</a>
+	<br>
+	 - <a href="$forum{path}/$internal{script}/$input{forum}/edit_wordlist">
+	Edit Wordlist</a>
+	<p>
+	<b>Other Options:</b>
+	<br>
+	 - <a href="$forum{path}/$tweak{view_script}/$input{forum}/">
+	View Forum</a>
+	<br>
+	 - <a href="$forum{path}/$tweak{admin_script}/$input{forum}/">
+	Administer Forum</a>
+EOP
+	print <<EOP if ($forum{is_moderated});
+	<br>
+	 - <a href="$forum{path}/$tweak{moderator_script}/$input{forum}/">
+	Moderate Forum</a>
+EOP
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub forum_edit_wordlist {
+	print "$forum{header}";
+	unless ($input{submit}) {
+		print <<EOP;
+		<table border=0>
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td colspan=3>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>restricted words for $input{forum}</b>
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td width=$forumTWEAKS{htmlCOL3_LEFT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>word:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_MIDDLE}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>level:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_RIGHT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>Options:</b>
+				</font>
+			</td>
+		</tr>
+		<form action="$forum{path}/$internal{script}/$input{forum}/edit_wordlist" method=get>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td width=$forumTWEAKS{htmlCOL3_LEFT}>
+				<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					<input type=text name="word" size=20>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_MIDDLE}>
+				<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					<select name="level">
+						<option value=1 selected>Warn
+						<option value=2>Replace
+						<option value=3>Queue
+					</select>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_RIGHT}>
+				<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					<input type=submit name="submit" value="Add New Word">
+				</font>
+			</td>
+		</tr>
+		</form>
+EOP
+		my $get_restricted_words = $dbm->prepare("
+			select word,level from $settings{filter_table} where forum='$input{forum}' order by word
+		");
+
+		&bail($dbm->errstr) unless ($get_restricted_words->execute);
+
+		my ($word,$level);
+		while (($word,$level) = $get_restricted_words->fetchrow_array) {
+			print <<EOP;
+			<form action="$forum{path}/$internal{script}/$input{forum}/edit_wordlist" method=get>
+			<input type=hidden name="old_word" value="$word">
+			<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+				<td width=$forumTWEAKS{htmlCOL3_LEFT}>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+						<input type=text name="word" size=20 value="$word">
+					</font>
+				</td>
+				<td width=$forumTWEAKS{htmlCOL3_MIDDLE}>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+						<select name="level">
+EOP
+			if ($level == 1) {
+				print <<EOP;
+							<option value=1 selected>Warn
+							<option value=2>Replace
+							<option value=3>Queue
+EOP
+			} elsif ($level == 2) {
+				print <<EOP;
+							<option value=1>Warn
+							<option value=2 selected>Replace
+							<option value=3>Queue
+EOP
+			} else {
+				print <<EOP;
+							<option value=1>Warn
+							<option value=2>Replace
+							<option value=3 selected>Queue
+EOP
+			}
+			print <<EOP;
+						</select>
+					</font>
+				</td>
+				<td width=$forumTWEAKS{htmlCOL3_RIGHT}>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+						<input type=submit name="submit" value="Modify"> - - 
+						<a href="$forum{path}/$internal{script}/$input{forum}/edit_wordlist?submit=Delete&word=$word">
+						Delete</a>
+					</font>
+				</td>
+			</tr>
+			</form>
+EOP
+		}
+		print "</table>";
+	} else {
+		if ($input{submit} eq"Add New Word") {
+			&bail($dbm->errstr) unless ($dbm->do("
+				insert into $settings{filter_table}(word,level,forum) 
+				values('$input{word}',$input{level},'$input{forum}')
+			"));
+		} elsif ($input{submit} eq"Modify") {
+			&bail($dbm->errstr) unless ($dbm->do("
+				update $settings{filter_table} set word='$input{word}', level=$input{level} where 
+				word='$input{old_word}' and forum='$input{forum}'
+			"));
+		} elsif ($input{submit} eq"Delete") {
+			&bail($dbm->errstr) unless ($dbm->do("
+				delete from $settings{filter_table} where word='$input{word}' and forum='$input{forum}' 
+			"));
+		} else {
+			print "<b>Submit type Unsupported.</b>";
+		}
+		
+		print <<EOP;
+		Operation successful.
+		<p>
+		<a href="$forum{path}/$internal{script}/$input{forum}/edit_wordlist">
+		Return to Wordlist</a>
+		<br>
+		<a href="$forum{path}/$internal{script}/$input{forum}/">
+		Return to Forum Options</a>
+EOP
+
+	}
+	print "$forum{footer}";
+}
+
+#----------
+
+sub forum_change_imageset {
+	my $new_imageset = $input{new_imageset};
+
+	print "$forum{header}";
+
+	unless ($new_imageset) {
+		print <<EOP;
+		Here are the image sets currently installed on your eThreads server.  If you find an image 
+		set elsewhere that you would like installed, contact your system administrator (maybe 
+		$settings{admin_email}?).
+		<p>
+		You are currently using: <b>$forum{images}</b>.
+		<p>
+		<table border=0>
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td width=$forumTWEAKS{htmlCOL3_LEFT}>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>Image Set:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_MIDDLE}>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>Description:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_RIGHT}>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>Options:</b>
+				</font>
+			</td>
+		</tr>
+EOP
+		my $get_imagesets = $dbm->prepare("
+			select name,descript from $settings{'imageset_table'} order by name
+		");
+
+		&bail($dbm->errstr) unless ($get_imagesets->execute);
+
+		my ($name,$descript);
+
+		while (($name,$descript) = $get_imagesets->fetchrow_array) {
+			print <<EOP;
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$name
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$descript
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<a href="view_imageset?imageset=$name">View Image Set</a> - - 
+					<a href="change_imageset?new_imageset=$name">Change Image Set</a>
+					</font>
+				</td>
+			</tr>
+EOP
+		}
+		print "</table>";
+
+	} else {
+		my $time = time;
+		&bail($dbm->errstr) unless ($dbm->do("
+			update $settings{preset_table} set images='$new_imageset',updated='$time' 
+			where forum='$input{forum}'
+		"));
+
+		print <<EOP;
+		Your new image set is now in place.
+		<p>
+		<a href="$forum{path}/$internal{script}/$input{forum}">Return to Menu</a>
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub forum_view_imageset {
+	my $imageset = $input{imageset};
+
+	print "$forum{header}";
+
+	my $get_imageset_info = $dbm->prepare("
+		select * from $settings{'imageset_table'} where name='$imageset'
+	");
+
+	&bail($dbm->errstr) unless ($get_imageset_info->execute);
+	
+	my $images;
+
+	($images{name},
+	$images{descript},
+	$images{'author'},
+	$images{'website'},
+	$images{'dir'},
+	$images{'right'},
+	$images{'right_h'},
+	$images{'right_w'},
+	$images{'down'},
+	$images{'down_h'},
+	$images{'down_w'},
+	$images{'bar'},
+	$images{'bar_h'},
+	$images{'bar_w'},
+	$images{'login'},
+	$images{'login_h'},
+	$images{'login_w'},
+	$images{'sign'},
+	$images{'sign_h'},
+	$images{'sign_w'},
+	$images{'post'},
+	$images{'post_h'},
+	$images{'post_w'},
+	$images{'options'},
+	$images{'option_h'},
+	$images{'option_w'},
+	$images{'up'},
+	$images{'up_h'},
+	$images{'up_w'},
+	$images{'reply'},
+	$images{'reply_h'},
+	$images{'reply_w'}) = $get_imageset_info->fetchrow_array;
+
+	print <<EOP;
+	<table border=0>
+	<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+		<td width=175>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+				Image Set: $images{name}
+			</font>
+		</td>
+		<td width=175>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+				By: $images{author} 
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td colspan=2>
+		$images{descript} 
+		(<a href="$images{website}">$images{website}</a>)
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			Right Arrow:	
+		</td>
+		<td>
+			<img src="$images{dir}/$images{right}" height=$images{right_h} 
+			width=$images{right_w} alt="--\>"> ($images{right_w}x$images{right_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			Down Arrow:
+		</td>
+		<td>
+			<img src="$images{dir}/$images{down}" height=$images{down_h} 
+			width=$images{down_w} alt="--\>"> ($images{down_w}x$images{down_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			Horizontal Bar:	
+		</td>
+		<td>
+			<img src="$images{dir}/$images{bar}" height=$images{bar_h} 
+			width=$images{bar_w} alt="--\>"> ($images{bar_w}x$images{bar_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			Login Button:
+		</td>
+		<td>
+			<img src="$images{dir}/$images{login}" height=$images{login_h} 
+			width=$images{login_w} alt="--\>"> ($images{login_w}x$images{login_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			Signup Button:	
+		</td>
+		<td>
+			<img src="$images{dir}/$images{sign}" height=$images{sign_h} 
+			width=$images{sign_w} alt="--\>"> ($images{sign_w}x$images{sign_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			Post Button:
+		</td>
+		<td>
+			<img src="$images{dir}/$images{post}" height=$images{post_h} 
+			width=$images{post_w} alt="--\>"> ($images{post_w}x$images{post_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			Options Button:	
+		</td>
+		<td>
+			<img src="$images{dir}/$images{options}" height=$images{option_h} 
+			width=$images{option_w} alt="--\>"> ($images{option_w}x$images{option_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			Up-a-Level Button:
+		</td>
+		<td>
+			<img src="$images{dir}/$images{up}" height=$images{up_h} 
+			width=$images{up_w} alt="--\>"> ($images{up_w}x$images{up_h})
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			Reply Button:	
+		</td>
+		<td>
+			<img src="$images{dir}/$images{reply}" height=$images{reply_h} 
+			width=$images{reply_w} alt="--\>"> ($images{reply_w}x$images{reply_h})
+		</td>
+	</tr>
+	</table>
+EOP
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub forum_change_tweaks {
+	my $update = $input{update};
+
+	print "$forum{header}";
+
+	unless ($update) {
+		print <<EOP;
+		<form action="$forum{path}/$internal{script}/$input{forum}/mod_tweaks" method=get>
+		<table border=0>
+
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td colspan=3>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>change forum tweaks for $input{forum}:</b>
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td width=$forumTWEAKS{htmlCOL3_LEFT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>Field:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_MIDDLE}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>Current Value:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_RIGHT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>New Value:</b>
+				</font>
+			</td>
+		</tr>
+EOP
+		my $field;
+		foreach $field (sort keys %forumTWEAKS) {
+
+			print <<EOP unless ($field eq"forum" || $field eq"updated");
+			<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+						$field
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+						$forumTWEAKS{$field}
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+						<input name="$field" size=20 value="$forumTWEAKS{$field}">
+					</font>
+				</td>
+			</tr>
+EOP
+		}
+
+		print <<EOP;
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td width=$forumTWEAKS{htmlCOL3_LEFT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<b>Submit:</b>
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_MIDDLE}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					&nbsp;
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL3_RIGHT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<input type=submit name="update" value="Change Tweaks">
+				</font>
+			</td>
+		</tr>
+		</table>
+		</form>
+EOP
+	} else {
+		my $query = "update $settings{tweak_table} set ";
+
+		foreach $field (keys %forumTWEAKS) {
+			$input{$field} =~ s/\'/\\'/g;
+			$query .= "$field = '$input{$field}',";
+		}
+
+		my $time = time;
+
+		$query .= " updated='$time' where forum='$input{forum}'";
+
+		&bail($dbm->errstr) unless ($dbm->do("$query"));
+
+		print <<EOP;
+		<b>Tweaks Changed</b>
+		<p>
+		Your tweak settings were changed.<p>
+		<a href="$forum{path}/$internal{script}/$input{forum}/">Return to Forum Options</a>
+EOP
+	
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub forum_change_header {
+	my $new_header = $input{new_header};
+
+	unless ($new_header) {
+		print "$forum{header}";
+
+		print <<EOP;
+		Use the following text area to update the HTML for your forum header:
+		<p>
+		<form action="$forum{path}/$internal{script}/$input{forum}/change_header" method=get>
+		<textarea name="new_header" rows=20 cols=60>$forum{header}</textarea>
+		<br><input type=submit value="Change HTML Header">
+		</form>
+EOP
+
+	} else {
+		$new_header =~ s/\'/\\'/g;
+		my $time = time;
+		&bail($dbm->errstr) unless ($dbm->do("
+			update $settings{preset_table} set header='$new_header',updated='$time' 
+			where forum='$input{forum}'
+		"));
+
+		print "$new_header";
+		print <<EOP;
+		Your new header is in effect.  If you need to make changes to it, feel free to 
+		go back and do so.
+		<p><a href="$forum{path}/$internal{script}/$input{forum}/">Return to Menu</a>
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub forum_change_footer {
+	my $new_footer = $input{new_footer};
+	
+	print "$forum{header}";
+
+	if ($forum{header} =~ /<table/ || $forum{header} =~ /<TABLE/) {
+		print "</table>" unless ($forum{footer} =~ /<\/table/);
+	}
+
+	unless ($new_footer) {
+		print <<EOP;
+		Use the following text area to update the HTML for your forum footer:
+		<p>
+		<form action="$forum{path}/$internal{script}/$input{forum}/change_footer" method=get>
+		<textarea name="new_footer" rows=20 cols=60>$forum{footer}</textarea>
+		<br><input type=submit value="Change HTML Footer">
+		</form>
+EOP
+
+		print "$forum{footer}";
+	} else {
+		$new_footer =~ s/\'/\\'/g;
+		my $time = time;
+		&bail($dbm->errstr) unless ($dbm->do("
+			update $settings{preset_table} set footer='$new_footer',updated='$time' 
+			where forum='$input{forum}'
+		"));
+
+		print <<EOP;
+		Your new footer is in place.  If you need to make changes to it, feel free to 
+		do so.
+		<p><a href="$forum{path}/$internal{script}/$input{forum}/">Return to Menu</a>
+EOP
+
+		print "$new_footer";
+	}
+
+}
+
+#----------
+
+sub forum_change_intro {
+	my $new_intro = $input{new_intro};
+
+	print "$forum{header}";
+
+	unless ($new_intro) {
+
+		my $get_forum_intro = $dbm->prepare("
+			select intro from $settings{'preset_table'} where forum='$input{'forum'}'
+		");
+
+		&bail($dbm->errstr) unless ($get_forum_intro->execute);
+
+		$forum{intro} = $get_forum_intro->fetchrow_array;
+
+		print "$forum{intro}";
+
+		print <<EOP;
+		<p>Your forum introduction is printed when the user is on the main page of the forum. 
+		It might provide information about the forum, or anything else you want the user to 
+		see on the first page of your forum.  HTML is allowed (and recommended), but use 
+		it wisely.
+		<p>
+		<form action="$forum{path}/$internal{script}/$input{forum}/change_intro" method=get>
+		<textarea name="new_intro" rows=20 cols=60>$forum{intro}</textarea>
+		<br><input type=submit value="Change Forum Intro">
+		</form>
+EOP
+	} else {
+		print "$new_intro<p>";
+		my $time = time;
+		$new_intro =~ s/\'/\\'/g;
+		 &bail($dbm->errstr) unless ($dbm->do("
+			update $settings{preset_table} set intro='$new_intro',updated='$time' 
+			where forum='$input{forum}'
+		"));
+
+		print <<EOP;
+		Your new intro is in place.  If you need to make changes to it, feel free to 
+		do so.
+		<p><a href="$forum{path}/$internal{script}/$input{forum}/">Return to Menu</a>
+EOP
+	}
+
+	print "$forum{footer}";
+
+}
+
+#----------
+
+sub print_admin_options {
+	&print_generic_header("Administration Options");
+
+	print <<EOP;
+	<b>New Forum:</b>
+	<br>
+	 - <a href="$settings{default_path}/$internal{script}//create_forum">
+	Create a New Forum</a>
+	<p>
+	<b>Existing Forums:</b>
+	<br>
+	<table>
+	<tr bgcolor=#000000>
+	  <td width=100>
+		<font color=#FFFFFF>
+		<b>Forum Name:</b>
+		</font>
+	  </td>
+	  <td width=200>
+		<font color=#FFFFFF>
+		<b>Options:</b>
+		</font>
+	  </td>
+	</tr>
+EOP
+
+	my $list_of_forums = $dbm->prepare("
+		select forum,path from $settings{preset_table} order by forum
+	");
+
+	&bail($dbm->errstr) unless ($list_of_forums->execute);
+
+	my ($forum,$path);
+
+	while (($forum,$path) = $list_of_forums->fetchrow_array) {
+		print <<EOP;
+		<tr bgcolor=#DDDDDD>
+		  <td>
+			$forum
+		  </td>
+		  <td>
+			<a href="$settings{default_path}/$internal{script}//change_settings?for=$forum">
+			Change Forum Preset</a> - <a href="$path/$internal{script}/$forum/">
+			View Forum Options</a>
+		  </td>
+		</tr>
+EOP
+	}
+
+	print "</table>";
+
+	&print_generic_footer();
+}
+
+#----------
+
+sub create_forum {
+	my $new_forum = $input{new_forum};
+
+	&print_generic_header("Create Forum");
+
+	unless ($new_forum) {
+		print <<EOP;
+		<form action="$settings{default_path}/$internal{script}//create_forum" method=post>
+		<table border=0 width=450>
+		<tr bgcolor=#000000>
+			<td width=100>
+				<font color=#FFFFFF>
+				<b>Field:</b>
+				</font>
+			</td>
+			<td width=150>
+				<font color=#FFFFFF>
+				<b>Description:</b>
+				</font>
+			</td>
+			<td width=150>
+				<font color=#FFFFFF>
+				<b>Value:</b>
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Forum Name:
+			</td>
+			<td>
+				The name which will identify your forum.
+			</td>
+			<td>
+				<input name="new_forum" size=20 value="$for">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				Main Database:
+			</td>
+			<td>
+				The database which will hold the table that will contain forum data.
+			</td>
+			<td>
+				<input name="main_db" size=20 value="$forum{main_db}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Main Table:
+			</td>
+			<td>
+				The name of the table which will hold forum data.
+			</td>
+			<td>
+				<input name="main_tbl" size=20 value="$forum{main_tbl}">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				User Database:
+			</td>
+			<td>
+				The database which will contain the table that holds user information.
+			</td>
+			<td>
+				<input name="user_db" size=20 value="$forum{user_db}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				User Table:
+			</td>
+			<td>
+				The table that will contain user information.
+			</td>
+			<td>
+				<input name="user_tbl" size=20 value="$forum{user_tbl}">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				Forum Path:
+			</td>
+			<td>
+				The path users will type to reach your forum (ie. /ethreadsII)
+			</td>
+			<td>
+				<input name="path" size=20 value="$forum{path}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Database Username:
+			</td>
+			<td>
+				Username for connecting to the database (not needed for all database types)
+			</td>
+			<td>
+				<input name="user" size=20 value="$forum{user}">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				Database Password:
+			</td>
+			<td>
+				Password for connecting to the database (not needed by all database types)
+			</td>
+			<td>
+				<input name="passwd" size=20 value="$forum{passwd}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Moderated?
+			</td>
+			<td>
+				&nbsp;
+			</td>
+			<td>
+				<input type=radio name="moderated" value=0 checked> No 
+				&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<input type=radio name="moderated" value=1> Yes
+			</td>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Submit:
+			</td>
+			<td>
+				&nbsp;
+			</td>
+			<td>
+				<input type=submit value="Create Forum">
+			</td>
+		</tr>
+		</table>
+		</form>
+
+EOP
+	} else {
+		my $time = time;
+		&bail($dbm->errstr) unless ($dbm->do("
+			insert into $settings{preset_table}(
+				forum,main_db,main_tbl,user_db,user_tbl,path,user,passwd,is_moderated,updated
+			) values(
+				'$new_forum','$input{main_db}','$input{main_tbl}','$input{user_db}','$input{user_tbl}',
+				'$input{path}','$input{user}','$input{passwd}',$input{moderated},$time
+			)
+		"));
+
+		&db_create_forum_table($input{main_tbl},$input{main_db},$input{user},$input{passwd});
+
+		# Insert default forumTWEAKS
+		my %default_tweaks = &get_default_tweaks;
+
+		my $query_fields;
+		my $query_values;
+
+		foreach $field (keys %default_tweaks) {
+			$default_tweaks{$field} =~ s/\'/\\'/g;
+			$query_fields .= ",$field";
+			$query_values .= ",'$default_tweaks{$field}'";
+		}
+
+		warn "query_fields: $query_fields\nquery_values: $query_values\n";
+
+		&bail($dbm->errstr) unless ($dbm->do("
+			insert into $settings{tweak_table}(forum,updated$query_fields) 
+			values('$new_forum','$time'$query_values)
+		"));
+
+		print <<EOP;
+		Your new forum was created.
+		<p><a href="$settings{default_path}/$internal{script}/$new_forum/">Edit Forum</a>
+		<br><a href="$settings{default_path}/$internal{script}//">Return to Menu</a>
+EOP
+	}
+
+	&print_generic_footer();
+}
+
+#----------
+
+sub change_forum_settings {
+	my $forum_orig = $input{forum_orig};
+	my $for = $input{for};
+	
+	&print_generic_header("Change Settings for $for");
+
+	unless ($forum_orig) {
+
+		&get_forum_info($for);
+
+		print <<EOP;
+		<form action="$settings{default_path}/$internal{script}//change_settings" method=post>
+		<input type=hidden name="forum_orig" value="$for">
+		<table border=0>
+		<tr bgcolor=#000000>
+			<td width=100>
+				<font color=#FFFFFF>
+				<b>Field:</b>
+				</font>
+			</td>
+			<td width=150>
+				<font color=#FFFFFF>
+				<b>Current Value:</b>
+				</font>
+			</td>
+			<td width=150>
+				<font color=#FFFFFF>
+				<b>New Value:</b>
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Forum Name:
+			</td>
+			<td>
+				$for
+			</td>
+			<td>
+				<input name="for" size=20 value="$for">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				Main Database:
+			</td>
+			<td>
+				$forum{main_db}
+			</td>
+			<td>
+				<input name="main_db" size=20 value="$forum{main_db}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Main Table:
+			</td>
+			<td>
+				$forum{main_tbl}
+			</td>
+			<td>
+				<input name="main_tbl" size=20 value="$forum{main_tbl}">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				User Database:
+			</td>
+			<td>
+				$forum{user_db}
+			</td>
+			<td>
+				<input name="user_db" size=20 value="$forum{user_db}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				User Table:
+			</td>
+			<td>
+				$forum{user_tbl}
+			</td>
+			<td>
+				<input name="user_tbl" size=20 value="$forum{user_tbl}">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				Forum Path:
+			</td>
+			<td>
+				$forum{path}
+			</td>
+			<td>
+				<input name="path" size=20 value="$forum{path}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Database Username:
+			</td>
+			<td>
+				$forum{user}
+			</td>
+			<td>
+				<input name="user" size=20 value="$forum{user}">
+			</td>
+		</tr>
+		<tr bgcolor=#DADADA>
+			<td>
+				Database Password:
+			</td>
+			<td>
+				$forum{passwd}
+			</td>
+			<td>
+				<input name="passwd" size=20 value="$forum{passwd}">
+			</td>
+		</tr>
+		<tr bgcolor=#EAEAEA>
+			<td>
+				Submit:
+			</td>
+			<td>
+				&nbsp;
+			</td>
+			<td>
+				<input type=submit value="Change Settings">
+			</td>
+		</tr>
+		</table>
+		</form>
+EOP
+	} else {
+		my $time = time;
+		&bail($dbm->errstr) unless ($dbm->do("
+			update $settings{preset_table} set 
+				forum='$input{for}', 
+				main_db='$input{main_db}', 
+				main_tbl='$input{main_tbl}', 
+				user_db='$input{user_db}', 
+				user_tbl='$input{user_tbl}', 
+				path='$input{path}', 
+				user='$input{user}',
+				passwd='$input{passwd}',
+				is_moderated='$input{is_moderated}',
+				updated='$time'  
+			where forum='$input{forum_orig}'
+		"));
+
+		print <<EOP;
+		Forum settings changed.
+		<p><a href="$settings{default_path}/$internal{script}//">Return to Menu</a>
+EOP
+	}
+
+	&print_generic_footer();
+}
+
+#----------
+
+sub print_generic_header {
+	my $page_title = shift;
+	print <<EOP;
+	<html>
+	<head>
+	  <title>$page_title - eThreads Forum Administration</title>
+	</head>
+	<body bgcolor=#FFFFFF>
+	<font face="Arial,Helvetica">
+
+	<font size=5><b>
+	eThreadsII Forum Maintenance
+	</font><br><font size=2>
+	$page_title
+	</font></b>
+
+	<font size=3>
+	<blockquote>
+EOP
+}
+
+#----------
+
+sub print_generic_footer {
+	print <<EOP;
+	<p><hr><p>
+	</font><b><font size=2>
+	eThreadsII - Copyright (C) 1998 Eric Richardson
+	<br>http://www.ethreads.com
+	</b></font></font>
+
+	</blockquote>
+	</body></html>
+EOP
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: maintenance,v $
+# Revision 1.8  1998/11/03 23:26:53  eric
+# * added wordlist admin stuff
+#
+# Revision 1.7  1998/10/24 23:14:01  eric
+# * added code to grab default tweaks from main.cfg and insert them when a
+#   new forum is created
+#
+# Revision 1.6  1998/10/24 21:41:35  eric
+# * added code to create table for new forums.
+# * hacked at a bug where if you create a header with a <table>, you
+#   can't edit the footer because of the table.
+#
+# Revision 1.5  1998/10/24 18:50:19  eric
+# * added code to change forumTWEAKS
+#
+# Revision 1.4  1998/10/18 21:04:11  eric
+# * changed over to $forumTWEAKS
+# * added code to add a forum
+#
+# Revision 1.3  1998/10/17 18:29:17  eric
+# * added update time to make compatible with forum settings cache
+#
+# Revision 1.2  1998/09/27 16:51:36  eric
+# * Added some more functionality.
+#
+# Revision 1.1  1998/09/22 00:32:37  eric
+# * all forum options work.
+# * change forum settings shows a table, but doesn't change anything.
+# * change_image_set needs to be a forum option
+#
+
+#---------------#
+# End of Script #
+#---------------#

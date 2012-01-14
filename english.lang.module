@@ -1,0 +1,373 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: english.lang.module,v 1.10 1998/11/14 20:53:26 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This is the eThreadsII English module.  It contains all text used 
+#  inside eThreads.  
+#
+#  The name of the variable is an English description used inside the 
+#  code.  If you are using this as a base for translations, do not 
+#  change the name of the variable.
+#
+#---------------------------------------------------------------------
+
+%language = (
+	information => {
+		language 	=> "English",
+		translator	=> "Eric Richardson",
+		contact		=> "ethreads\@ethreads.com",
+		date_format	=> "1",
+	},
+
+	thread				=> "Thread",
+	status				=> "Status",
+	posted_by		 	=> "Posted By",
+	date				=> "Date",
+	no_posts_at_lvl		=> "No Posts at this Level.",
+	approved			=> "Approved",
+	unapproved			=> "Un-Approved",
+	time 				=> "Time",
+	options 			=> "Options",
+	options_for_post	=> "Options for Post",
+	option				=> "Option",
+	replies_to_post		=> "Replies to this Post",
+	replies_below_post	=> "Replies Below this Post",
+	all_fields			=> "All Fields",
+	message_body		=> "Message Body",
+	message_title		=> "Message Title",
+	poster_name			=> "Name of Poster",
+	search				=> "Search",
+	order_by			=> "Order By",
+	s_user_profile		=> "U s e r &nbsp;&nbsp;P r o f i l e &nbsp;&nbsp;
+			 			    f o r &nbsp;&nbsp;",
+	name				=> "Name",
+	email_address		=> "Email Address",
+	member_since		=> "Member Since",
+	signature			=> "Signature",
+	sort_newest			=> "Newest First",
+	sort_oldest			=> "Oldest First",
+	sort_title			=> "Title",
+	sort_name			=> "Name",
+	sub_to_email		=> "Subscribe to email",
+	unsub_from_email	=> "Unsubscribe from email",
+	required_info		=> "Required Information",
+	username			=> "Username",
+	password			=> "Password",
+	optional_info		=> "Optional Information",
+	first_name			=> "First Name",
+	last_name			=> "Last Name",
+	description			=> "Description",
+	submit				=> "Submit",
+	subscribe_to		=> "Subscribe to",
+	unsubscribe_from	=> "Unsubscribe from",
+	unsubscribe			=> "Unsubscribe",
+	subscribe			=> "Subscribe",
+	sub_conf_for		=> "Subscription Confirmation for",
+	conf_string			=> "Confirmation String",
+	confirm				=> "Confirm",
+	confirm_sub			=> "Confirm Subscription",
+	return_to_forum		=> "Return to Forum",
+	manage_subs			=> "Manage Subscriptions",
+	edit_user_profile	=> "Edit User Profile",
+	modify				=> "Modify",
+	modify_post			=> "Modify Post",
+	currently			=> "Currently",
+	title				=> "Title",
+	change_profile		=> "Change Profile",
+	new_profile_for		=> "New Profile for",
+	id					=> "ID",
+	which_levels		=> "Which Levels",
+	email_contents		=> "Email Contents",
+	yes					=> "Yes",
+	no					=> "No",
+	post				=> "Post",
+	send_me				=> "Send me",
+	email_me			=> "Email me",
+	link_to_post		=> "A Link to the Post",
+	body_of_post		=> "The Body of the Post",
+	modify_subscription	=> "Modify Subscription",
+	rtn_to_email_admin	=> "Return to email Administration",
+	new_post			=> "New Post",
+	new_post_url		=> "NEW POST URL",
+	subscribed_url		=> "SUBSCRIBED URL",
+	list_subforums		=> "List Sub-Forums",
+	edit_post			=> "Edit Post",
+	none_for_this_post	=> "None for this Post",
+	search_ethreadsII	=> "Search eThreadsII",
+	find_the_phrase		=> "Find the Phrase",
+	find_the_words		=> "Find the Words",
+	search_for			=> "Search for",
+	matched				=> "Matched",
+	score				=> "Score",
+	post_a_message		=> "Post a Message",
+	post_message		=> "Post Message",
+	sign_up				=> "Sign Up",
+	login				=> "Login",
+	reply				=> "Reply",
+	up_a_level			=> "Up One Level",
+
+	phrases	=> {
+		1	=> qq(
+			That username is already taken.  Please pick again.
+		),
+		2	=> qq(
+			You must enter a password.
+		),
+		3	=> qq(
+			Your user was successfully created.  You may now use 
+			<a href="$forum{path}/$tweak{auth_view_script}/$input{forum}/">
+			Authenticated Viewing</a>.
+		),
+		4	=> qq(
+			The information you enter here will be used to make your 
+			browsing experience easier.  The username and password 
+			will allow you to login and have more options than anonymous 
+			viewers.  The signature will be auto-appended to each message 
+			you post.  The description will be on your user profile for 
+			others to see.
+		),
+		5	=> qq(
+			If you enter your email address here, you will recieve email 
+			every time this post is replied to.  You may 
+			choose whether to recieve updates for one level of replies 
+			(replies directly to this post), or to recieve email every 
+			time a reply is posted anywhere below this message on the 
+			tree.  For example, if a reply was posted to a message which 
+			was a  reply to this message, with the first option you would 
+			not be emailed.  With the second option you would.<p>Take 
+			caution in which messages you subscribe to.  If you subscribe 
+			to a message which has a lot of traffic below it, you will 
+			get a good deal of email.
+		),
+		6	=> qq(
+			Sorry, you cannot subscribe to new articles while you have 
+			other subscription requests waiting to be confirmed.  Please 
+			follow the directions in previous requests before continuing 
+			here.
+		),
+		7	=> qq(
+			#NAME, or someone posing as them, has requested to recieve 
+			email when replies are posted in reply to #TITLE at #FORUM. 
+			If you wish to recieve these updates, please go to...
+
+			http://#SITE
+
+			(Please make sure the previous URL is all one line when 
+			entering it in you browser.)
+
+			Enter the following confirmation string into the form, 
+			and you will start recieving the updates...
+
+			Confirmation String:
+			#STRING
+
+			If you do not wish to recieve these updates, do nothing, 
+			and none will be sent.
+
+			If you feel these message was an attempt by someone to spam 
+			you, please write to #ADMIN.  The administrator can put you 
+			on a list of addresses that cannot be subscribed if you 
+			request that they do so.
+		),
+		8 	=> qq(
+			This message was sent using the eThreadsII system.  Information 
+			on eThreadsII is available at http://www.ethreads.com
+		),
+		9	=> qq(
+			A confirmation email was sent to the address you entered. 
+			When you recieve this email, follow the directions it contains. 
+		),
+		10	=> qq(
+			Please enter your email address and confirmation string below 
+			to confirm your subscription...
+		),
+		11	=> qq(
+			Your subscription for #TITLE is now active.  You will begin 
+			recieving email whenever the post is replied to.
+		),
+		12	=> qq(
+			Your confirmation was not successful.  Make sure you entered 
+			the same email address as you used to start the request.  
+			Also, make sure you have the confirmation string exactly as 
+			sent to you, with no extra spaces.  Remember, capitalization 
+			IS crucial.  Please leave the capitalization exactly how it is 
+			in the email.  Please hit "Back" to try again.
+		),
+		13	=> qq(
+			Actually, this subscription is already active.  So why would 
+			you want to confirm it?!?  Unsubscribing is done via the 
+			Unsubscribe interface.
+		),
+		14	=> qq(
+			If you feel you have no other options, you may contact <i>
+			#ADMIN at <a href="#EMAIL">#EMAIL</a>.
+		),
+		15	=> qq(
+			Please enter the email address you would like to unsubscribe
+		),
+		16 	=> qq(
+			Your subscription to #TITLE has been removed.
+		),
+		17	=> qq(
+			You are not subscribed to #TITLE as #EMAIL. Perhaps 
+			you typed your email address wrong, or are trying to 
+			unsubscribe from the wrong post.
+		),
+		18	=> qq(
+			Use this option to change your name, email, signature, etc.
+		),
+		19	=> qq(
+			You may only edit posts that you wrote while logged in using 
+			this username.
+		),
+		20	=> qq(
+			Your post was modified.
+		),
+		21	=> qq(
+			View it here.
+		),
+		22	=> qq(
+			C u r r e n t &nbsp;&nbsp;P r o f i l e &nbsp;&nbsp;f o r 
+			&nbsp;&nbsp;
+		),
+		23	=> qq(
+			NOTE - Leave blank unless you wish to change password
+		),
+		24	=> qq(
+			eThreadsII email Subscription Manager
+		),
+		25 	=> qq(
+			You are subscribed to the following posts
+		),
+		26	=> qq(
+			You were successfully subscribed to this post.  You will 
+			recieve email when replies are posted.
+		),
+		27	=> qq(
+			Are you sure you want to unsubscribe from the post "#TITLE"?
+		),
+		28	=> qq(
+			You were successfully unsubscribed from "#TITLE".
+		),
+		29	=> qq(
+			You are not subscribed to "#TITLE" (post #ID) 
+			with username #USERNAME.  If you are sure you are subscribed 
+			to this post, you may not have subscribed while logged in.  
+			If this is the case, use the <a href="#URL">Unauthenticated 
+			Email Administration</a> interface to unsubscribe.
+		),
+		30	=> qq(
+			Your subscription has been updated.
+		),
+		31	=> qq(
+			in reply to a message you are subscribed to
+		),
+		32	=> qq(
+			in a thread you are subscribed to
+		),
+		33	=> qq(
+			If you do not wish to continue recieving replies to post
+			number #ID, please go to (all one line)...
+			http://#URL
+		),
+		34	=> qq(
+			When in phrase mode, the eThreadsII search engine takes 
+			your entire query string and searches the database for 
+			it.  If you use word mode, eThreadsII divides up your 
+			query into words and searches for each of the words, 
+			giving higher scores to matches which contain more of 
+			the terms.
+		),
+		35	=> qq(
+			Your post "#TITLE" contains language deemed offensive 
+			by the administrator of this forum.  Your post is being 
+			held in a queue where it will be manually reviewed by the 
+			forum administrator.  After review, it may be approved, 
+			deleted, or modified.
+			<p>
+			If you have a problem with this policy, please contact 
+			<i>#EMAIL</i>.
+		),
+		36	=> qq(
+			Your message "#TITLE" was added to the forum. 
+			<a href="#URL">Click Here</a> to see it.
+		),
+		37	=> qq(
+			Your post contained language inappropriate for this forum.  
+			Objectionable material has been replaced with supplemental 
+			characters.  Please refrain from using language of this 
+			sort in this forum, or your access to the forum will be denied.
+		),
+		38	=> qq(
+			Since this is a moderated forum, there will be a delay before 
+			your post appears.  Please do not try to re-post because the 
+			message has not shown up.  The moderator will get to your 
+			message as soon as possible.
+		),
+	},
+);
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: english.lang.module,v $
+# Revision 1.10  1998/11/14 20:53:26  eric
+# * words and phrases for shared-code
+#
+# Revision 1.9  1998/11/14 04:00:49  eric
+# * added words and phrases for outbound-email
+#
+# Revision 1.8  1998/11/14 03:35:25  eric
+# * added words and phrases for member-email
+#
+# Revision 1.7  1998/11/14 01:30:32  eric
+# * added words and phrases for member
+#
+# Revision 1.6  1998/11/14 01:14:55  eric
+# * added words and phrases for view
+# * added words and phrases for email-admin
+#
+# Revision 1.5  1998/11/07 17:59:43  eric
+# * fixed tabbing
+#
+# Revision 1.4  1998/10/24 18:55:49  eric
+# * added various new words to vocab
+#
+# Revision 1.3  1998/09/28 23:13:37  eric
+# * removed : from replies to post
+# * added order_by
+#
+# Revision 1.2  1998/09/27 16:49:01  eric
+# * Added some new fields
+#
+# Revision 1.1  1998/09/25 02:38:53  eric
+# * first piece of the default english language module.
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;

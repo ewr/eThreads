@@ -1,0 +1,440 @@
+#!/usr/bin/perl
+
+#---------------------------------------------------------------------
+#  $Id: member-email,v 1.3 1998/11/14 03:34:49 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@ethreads.com, or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script is used to subscribe people for updates, and to
+#  unsubscribe people from updates.
+#
+#  The script takes the user information, then sends out a test email.
+#  Until it gets a response, the name is put it a pending category.
+#  The user returns to a web form to approve the subscription.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+BEGIN {require "shared-code";}
+
+use strict;
+no strict "refs";
+use vars qw(
+	%forumTWEAKS %user %language %database %input %internal 
+	%settings %tweak %images %forum %rain $dbh $dbm
+);
+
+$internal{script} = "member-email";
+
+# Get variables from input
+&get_vars_from_input;
+
+# Print a content type
+print "Content-type: text/html\n\n";
+
+# Connect $dbm to the main database
+$dbm = &connect_to_database;
+
+# Connect $dbh to the forum database
+&get_forum_info;
+
+# Get the user's information
+%user = &auth_get_userinfo;
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+&subscription_manager	unless ($input{function});
+&subscribe				if ($input{function} eq"subscribe");
+&unsubscribe			if ($input{function} eq"unsubscribe");
+&modify 				if ($input{function} eq"modify");
+
+#--------------------------#
+# member-email subroutines #
+#--------------------------#
+
+sub subscription_manager {
+	print "$forum{header}";
+
+	print <<EOP;
+	<b>$language{phrases}{24}</b>
+	<p>
+	$language{phrases}{25}:
+	<table border=0>
+	<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+		<td width=20>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+			<b>$language{id}:</b>
+			</font>
+		</td>
+		<td width=200>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+			<b>$language{title}:</b>
+		</td>
+		<td width=50>
+			<font size=1 color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>>
+			<b>$language{which_levels}:</b>
+			</font>
+		</td>
+		<td width=50>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR} size=1>
+			<b>$language{email_contents}:</b>
+			</font>
+		</td>
+		<td width=200>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+			<b>$language{options}:</b>
+			</font>
+		</td>
+	</tr>
+EOP
+
+	my $get_subscriptions = $dbm->prepare("
+		select id,level,content from $settings{subscription_table} 
+		where username = '$user{username}' and forum='$input{forum}' order by id
+	");
+
+	&bail($dbm->errstr) unless ($get_subscriptions->execute);
+
+	my ($id,$level,$content);
+
+	while (($id,$level,$content) = $get_subscriptions->fetchrow_array) {
+		my $get_message_title = $dbh->prepare("
+			select title from $forum{main_tbl} where id=$id
+		");
+
+		&bail($dbh->errstr) unless ($get_message_title->execute);
+		my $title = $get_message_title->fetchrow_array;
+
+		# Let's convert digits into something understandable
+		if ($level) {
+			$level = "$language{thread}";
+		} else {
+			$level = "$language{post}";
+		}
+	
+		if ($content) {
+			$content = "$language{yes}";
+		} else {
+			$content = "$language{no}";
+		}
+
+		print <<EOP;
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				$id&nbsp;
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				<a href="$forum{path}/$tweak{auth_view_script}/$input{forum}/view_post?id=$id">
+				$title</a>&nbsp;
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				$level&nbsp;
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				$content&nbsp;
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				<a href="$forum{path}/$internal{script}/$input{forum}/modify?id=$id">$language{modify}</a>
+				 - - 
+				<a href="$forum{path}/$internal{script}/$input{forum}/unsubscribe?id=$id">
+				$language{unsubscribe}</a>
+				</font>
+			</td>
+		</tr>
+EOP
+	}
+
+	print "</table>";
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub subscribe {
+	my $id = $input{id};
+	my $submit = $input{submit};
+
+	print "$forum{header}";
+
+	unless ($submit) {
+		print <<EOP;
+		$language{phrases}{5}
+		<form action="$forum{path}/$internal{script}/$input{forum}/subscribe" method=get>
+		<input type=hidden name="id" value="$id">
+
+		<table>
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$language{send_me}... 
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<input type=radio name="email_level" value="0">replies to this post
+					<br><input type=radio name="email_level" value="1">replies in this thread
+					</font>
+				</td>
+			</tr> 
+			<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					$language{email_me}... 
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					<input type=radio name="content" value="0">the entire message
+					<br><input type=radio name="content" value="1">the subject and a link
+					</font>
+				</td>
+			</tr> 
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$language{subscribe}:
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<input name=submit type=submit value="$language{subscribe}">
+					</form>
+					</font>
+				</td>
+			</tr>
+		</table>
+EOP
+	} else {
+
+		&bail($dbm->errstr) unless ($dbm->do("
+			insert into $settings{subscription_table}(forum,email,id,name,level,content,status,username) 
+			values('$input{forum}','$user{email}',$id,'$user{firstname} $user{lastname}',
+			$input{email_level},$input{content},1,'$user{username}')
+		"));
+
+		print <<EOP;
+		$language{phrases}{26}
+		<p><a href="$forum{path}/$tweak{auth_view_script}/$input{forum}/view_post?id=$id">
+		$language{return_to_forum}</a>
+EOP
+	}
+	print "$forum{footer}";
+}
+
+#----------
+
+sub unsubscribe {
+	my $id = $input{id};
+	my $confirm = $input{confirm};
+	print "$forum{header}";
+
+	my $get_message_title = $dbh->prepare("
+		select title from $forum{main_tbl} where id=$id
+	");
+
+	&bail($dbh->errstr) unless ($get_message_title->execute);
+	my $message_title = $get_message_title->fetchrow_array;
+
+	my $check_for_subscription = $dbm->prepare("
+		select username from $settings{subscription_table} where 
+		id=$id AND forum='$input{forum}' AND username='$user{username}'
+	");
+
+	&bail($dbm->errstr) unless ($check_for_subscription->execute);
+	my $subscription = $check_for_subscription->rows;
+
+	if ($subscription) {
+		unless ($confirm) {
+			$language{phrases}{27} =~ s/#TITLE/$message_title/g;
+			print <<EOP;
+			$language{phrases}{27}
+			<p><a href="$forum{path}/$internal{script}/$input{forum}/unsubscribe?id=$id&confirm=1">
+			$language{proceed}</a>
+EOP
+		} else {
+			&bail($dbm->errstr) unless ($dbm->do("
+				delete from $settings{subscription_table} where 
+				id=$id AND forum='$input{forum}' AND username='$user{username}'
+			"));
+
+			$language{phrases}{28} =~ s/#TITLE/$message_title/g;
+			print <<EOP;
+			$language{phrases}{28}
+			<p><a href="$forum{path}/$tweak{auth_view_script}/$input{forum}/view_post?id=$id">
+			$language{return_to_forum}</a>
+EOP
+		}
+	} else {
+		$language{phrases}{29} =~ s/#TITLE/$message_title/g;
+		$language{phrases}{29} =~ s/#ID/$id/g;
+		$language{phrases}{29} =~ s/#USERNAME/$user{username}/g;
+		$language{phrases}{29} =~ s!#URL!$forum{path}/$tweak{email_admin_script}/$input{forum}/unsubscribe?id=$id&email=$user{email}!g;
+		print <<EOP;
+		$language{phrases}{29}
+		<p>
+		<a href="$forum{path}/$tweak{auth_view_script}/$input{forum}/view_post?id=$id">
+		$language{return_to_forum}</a>
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub modify {
+	my $id = $input{id};
+	my $submit = $input{submit};
+
+	print "$forum{header}";
+
+	unless ($submit) {
+		my $get_subscription_info = $dbm->prepare("
+			select level,content from $settings{subscription_table} 
+			where id=$id and username='$user{username}'
+		");
+
+		&bail($dbm->errstr) unless ($get_subscription_info->execute);
+
+		my ($level,$content) = $get_subscription_info->fetchrow_array;
+
+		my ($to_checked,$below_checked,$link_checked,$body_checked);
+		if ($level) {
+			$below_checked = "selected";
+		} else {
+			$to_checked = "selected";
+		}
+	
+		if ($content) {
+			$body_checked = "selected";
+		} else {
+			$link_checked = "selected";
+		}
+
+
+		print <<EOP;
+		<form action="$forum{path}/$internal{script}/$input{forum}/modify" method=get>
+		<table border=0>
+			<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+				<td colspan=2>
+					<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>$language{options_for_post}: $id</b>
+					</font>
+				</td>
+			</tr>
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td width=$forumTWEAKS{htmlCOL2_LEFT}>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+						$language{send_me}:
+					</font>
+				</td>
+				<td width=150>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+						<select name="level">
+							<option value=0 $to_checked>$language{replies_to_post}
+							<option value=1 $below_checked>$language{replies_below_post}
+						</select>
+					</font>
+				</td>
+			</tr>
+			<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					$language{email_me}:
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+					<select name="content">
+						<option value="0" $link_checked>$language{link_to_post}
+						<option value="1" $body_checked>$language{body_of_post}
+					</select>
+					</font>
+				</td>	
+			</tr>
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$language{submit}:
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<input type=hidden name="id" value="$input{id}">
+					<input type=submit name="submit" value="$language{modify_subscription}">
+					</font>
+				</td>
+			</tr>
+		</table>
+		</form>
+EOP
+	} else {
+		&bail($dbm->errstr) unless ($dbm->do("
+			update $settings{subscription_table} set level=$input{level}, content=$input{content} 
+			where id=$input{id} and username='$user{username}' and forum='$input{forum}'
+		"));
+
+
+		print <<EOP;
+		$language{phrases}{30}<p>
+		<a href="$forum{path}/$internal{script}/$input{forum}/">$language{rtn_to_email_admin}</a>
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: member-email,v $
+# Revision 1.3  1998/11/14 03:34:49  eric
+# * update to use language module
+# * fixed some old lingering tweak stuff
+#
+# Revision 1.2  1998/10/18 21:05:35  eric
+# * added unsubscribe stuff
+# * changed over to $forumTWEAKS
+#
+# Revision 1.1  1998/10/17 18:22:19  eric
+# * First revision of authenticated email administration interface.
+#
+
+#---------------#
+# End of Script #
+#---------------#

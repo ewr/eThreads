@@ -1,0 +1,156 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: hyperconvert,v 1.1 1998/11/01 16:30:24 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script attempts to import HyperNews forums into eThreads 
+#  forums.  The eThreads forum must already be created.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+use strict;
+use Time::ParseDate;
+no strict "refs";
+use DBI;
+use vars qw(%forum %forumTWEAKS $forum $dbh $dbm %settings %tweak %count);
+require "shared-code";
+
+#-----------#
+# Some Code #
+#-----------#
+
+$forum = shift;
+
+&connect_to_database;
+
+if ($forum) {
+	&get_forum_info($forum);
+
+	my $root_dir = shift;
+	&import_posts_in_dir($root_dir,"0");
+} else {
+	die "usage: hyperconvert (forum) (root_dir)\n";
+}
+
+#-------------#
+# Subroutines #
+#-------------#
+
+sub import_posts_in_dir {
+	my $dir = shift;
+	my $parent = shift;
+	my $post_num = 1;
+	my $miss_count;
+
+	while ($miss_count < 20) {
+		if (-e "$dir/$post_num.html,urc") {
+			warn "$dir: $post_num\n";
+			my $id = &import($dir,$post_num,$parent);
+			warn "imported $post_num.  It was given ID #$id.\n";
+			&import_posts_in_dir("$dir/$post_num","$id") if (-e "$dir/$post_num/");
+		} else {
+			$miss_count++;
+			#warn "$post_num doesn't exist. Miss #$miss_count\n";
+		}
+
+		$post_num++;
+	}
+}
+
+#----------
+
+sub import {
+	my $dir = shift;
+	my $number = shift;
+	my $parent = shift;
+	$parent = 0 unless ($parent);
+
+	open (POST_INFO, "$dir/$number.html,urc");
+	
+	my $line; # not yours
+
+	my ($body,$poster,$title,$poster_email,$date);
+
+	while ($line = <POST_INFO>) {
+		$poster = $line if ($line =~ /Name:/);
+		$title = $line if ($line =~ /Title:/);
+		$poster_email = $line if ($line =~ /From:/ && $line =~ /\@/);
+		$date = $line if ($line =~ /Date:/);
+	}
+
+	$poster =~ s/Name: //g;
+	$poster =~ s/\'/\\'/g;
+	$title =~ s/Title: //g;
+	$title =~ s/\n//g;
+	$title =~ s/\'/\\'/g;
+	$poster_email =~ s/From: //g;
+	$poster_email =~ s/\'/\\'/g;
+	$date =~ s/Date: //g;
+	my $timestamp = parsedate($date);
+
+	close POST_INFO;
+
+	my $temp = $number;
+	$temp .= "-body.html";
+
+	if (-e "$dir/$temp") {
+		open (POST_BODY, "$dir/$temp");
+		my $temp_body;
+		while ($temp_body = <POST_BODY>) {
+			$body .= $temp_body;
+		}
+		close POST_BODY;
+	} else {
+		warn "NOBODY HOME!\n";
+		$body = "";
+	}
+
+	warn "body: $body\n";
+	warn "NULLBODY HERE!\n" unless ($body);
+
+	$body =~ s/\'/\\'/g;
+
+	my $return = $dbh->prepare("
+		insert into $forum{main_tbl}(id,title,poster,poster_email,body,child_of,status,timestamp) 
+		values(0,'$title','$poster','$poster_email','$body',$parent,1,$timestamp)
+	");
+
+	&bail($dbh->errstr) unless ($return->execute);
+
+	my $id = $return->{'insertid'};
+	warn "return gave us $id\n";
+	return $id;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+#---------------#
+# End of Script #
+#---------------#
+

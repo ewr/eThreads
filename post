@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: post,v 1.2 1998/10/17 18:32:05 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This scriptis the unauthenticated post script.  It mostly contains 
+#  pointers to subroutines located in shared-code.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+# Call our shared subroutines
+BEGIN {
+	require "shared-code";
+}
+
+# Get input variables
+&get_vars_from_input;
+
+# Connect $dbm to the mother database
+&connect_to_database;
+
+# Use $input{'forum'} to get forum info
+&get_forum_info;
+
+# We have to identify ourself to the shared code
+$internal{'script'} = "post";
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+&post_message unless ($input{'function'});
+
+#-----------------------------#
+# Script-specific Subroutines #
+#-----------------------------#
+
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: post,v $
+# Revision 1.2  1998/10/17 18:32:05  eric
+# * moved to forum settings caching system
+#
+# Revision 1.1  1998/07/15 01:30:56  eric
+# First revision of un-authenticated post script.  Posting works.
+#
+
+#---------------#
+# End of Script #
+#---------------#
+

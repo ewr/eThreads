@@ -1,0 +1,127 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: users_manual.english,v 1.4 1998/11/14 04:03:49 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This is the English user level user's manual for eThreads.  Very dumb, easy 
+#  stuff, but some user's are a little less equal than others...
+#
+#---------------------------------------------------------------------
+
+
+sub manual_print_manual {
+
+print <<EOP;
+<font size=4><b>
+A Guide to Using eThreads
+</b></font>
+<br><a href="#about">About eThreads</a>
+<br><a href="#threads">The Threads List</a>
+<br><a href="#view">Viewing Posts</a>
+<br><a href="#post">Posting Options</a>
+
+<p><hr><p>
+
+<b>About eThreads?</b><br>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+eThreads is is a collection of scripts that provide threaded, multi-user forums for 
+web sites.  The scripts were originally written by <a href="http://www.ericrichardson.com">
+Eric Richardson</a>, but have been improved and expanded by many 
+<a href="http://www.ethreads.com/authors.html">other contributors</a>.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+This forum uses an image set created by $images{author}.  This image set is 
+available at <a href="$images{website}">$images{website}</a>.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+This forum uses a language module by $language{information}{translator}.  
+If you feel there is a problem with the translation, please contact 
+<i>$language{information}{contact}</i>.
+
+<p><hr><p>
+
+<b>The Threads List</b><br>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+The threads list is the main navigational interface of eThreads.  It shows up on almost every 
+page. It shows you the title of each post, who posted it (and their email address), and when 
+it was posted.  If there is a bar next to the title, it means there have been no replies to 
+that post.  If there is a right arrow on the left of the title, it means there have been replies, 
+and clicking on the arrow will display the messages one level deeper.  These messages are 
+identified by the half width bar to the left of their bar or arrow.  If there is a down arrow to 
+the left of the title, it means that that message's replies are being shown.  You can drop down 
+multiple levels of replies.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+At any level you may view a post by clicking on its title.  Clicking on the poster's name brings 
+up an email window with the poster's email address, if one was provided.
+
+<p><hr><p>
+
+<b>Viewing Posts</b><br>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+After you select a post to view, you are taken to a page that displays the body of the message, 
+along with replies to the post and other options.  You can use the thread list on this page the 
+same way as the one on the main page.  
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Above the body of the message, there is an "Options:" bar.  On this bar there are several links.  
+Depending on where you are and what you are doing, the options may vary.  Two of the possible 
+options are "Subscribe for email" and "Unsubscribe from email."  Clicking on the subscribe link takes  
+you to a form where you may enter your email address.  If you do this, you will be emailed whenever 
+a reply is posted to this message, or a message under it on the tree.  The unsubscribe link is used 
+to remove your email address from the notification list.  This will stop eThreads from sending you 
+any more email.  You will never recieve any mail from eThreads other than that which you specify to 
+recieve.
+
+<p><hr><p>
+
+<b>Posting Options</b><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+When you feel you have something to contribute, you will want to post a message.  If you are starting 
+a new topic, click on the "Post" button on the main menu.  If you wish to reply to a message, go to that 
+message and click "Reply".
+
+EOP
+
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: users_manual.english,v $
+# Revision 1.4  1998/11/14 04:03:49  eric
+# * moved users_manual to users_manual.english
+#
+# Revision 1.3  1998/09/27 16:56:00  eric
+# * added language module information
+#
+# Revision 1.2  1998/09/19 16:47:53  eric
+# * Made the thing Perl so I could do variable stuff
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;

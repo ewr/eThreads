@@ -1,0 +1,321 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: moderator,v 1.2 1998/10/17 18:31:37 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This is the main administrative interface.  It authenticates the 
+#  administrator, then gives them options based on their authority 
+#  level.
+#
+#  (This script is best viewed with a 4 character tab width.)
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+# Call our shared subroutines
+BEGIN {
+	require "shared-code";
+}
+
+# Get input variables
+&get_vars_from_input;
+
+# Print a content type so we get good output
+print "Content-type: text/html\n\n";
+
+# Connect $dbm to the main database
+&connect_to_database;
+
+# Use $input{'forum'} to get info from presets
+&get_forum_info;
+
+# We have to identify ourself to shared_code
+$internal{'script'} = "moderator";
+
+$internal{post_options} = "
+<a href=\"$forum{path}/$internal{script}/$input{forum}/delete?id=$input{id}\">Delete Post</a> - 
+<a href=\"$forum{path}/$internal{script}/$input{forum}/modify?id=$input{id}\">Modify Post</a> - 
+";
+
+if ($input{id}) {
+	my $get_status = $dbh->prepare("
+		select status from $forum{main_tbl} where id = $input{id}
+	");
+	&bail($dbh->errstr) unless ($get_status->execute);
+	my $status = $get_status->fetchrow_array;
+
+	if ($status) {
+		$internal{post_options} .= "Approved";
+	} else {
+		# Temporary hack?
+		unless ($input{function} eq"approve") {
+			$internal{post_options} .= "
+<a href=\"$forum{path}/$internal{script}/$input{forum}/approve?id=$input{id}\">Approve Post</a>
+			";
+		} else {
+			$internal{post_options} .= "Approved";
+		}
+	}
+}
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+# Some general options...
+&print_top_threads 			unless ($input{'function'});
+&view_post					if ($input{'function'} eq "view_post");
+&write_post					if ($input{'function'} eq "post");
+
+&search_form('advanced')	if ($input{'function'} eq"search_form");
+&search						if ($input{'function'} eq"search");
+
+&signup_form				if ($input{'function'} eq"signup_form");
+&signup						if ($input{'function'} eq"signup");
+
+&user_guide 				if ($input{'function'} eq"guide");
+
+# Admin specific stuff...
+
+&admin_delete_post		if ($input{function} eq"delete");
+&admin_modify_post		if ($input{function} eq"modify"); 
+&moderator_approve_post	if ($input{function} eq"approve");
+
+#-----------------------------#
+# Script-specific Subroutines #
+#-----------------------------#
+
+sub moderator_approve_post {
+	my $id = $input{id};
+
+	&bail($dbh->errstr) unless ($dbh->do("
+		update $forum{main_tbl} set status = 1 where id = $id
+	"));
+
+	&view_post;
+}
+
+#----------
+
+sub admin_delete_post {
+	my $id = $input{id};
+	my $verify = $input{verify};
+	my $delete_type = $input{delete_type};
+
+	print "$forum{header}";
+
+	unless ($verify) {
+		print <<EOP;
+		Are you sure you want to delete post number $id?  There is no undo feature.
+		<p><a href="$forum{path}/$internal{script}/$input{forum}/delete?id=$input{id}&verify=1">
+		Yes -- Delete $id</a>
+		<p><a href="$forum{path}/$internal{script}/$input{forum}/view_post?id=$input{id}">
+		No -- Take me back</a>	
+EOP
+	} else {
+		my $check_for_replies = $dbh->prepare("
+			select id from $forum{main_tbl} where child_of=$id
+		");
+
+		&log_error($dbh->errstr) unless ($check_for_replies->execute);
+		my $replies = $check_for_replies->rows;
+
+		if ($replies) {
+			# NOOOOOO!
+			unless ($delete_type) {
+				print <<EOP;
+				Ummm.  There are replies to this post.  What do you plan to do with 
+				them?  
+				<p><a href="$forum{path}/$internal{script}/$input{forum}/delete?id=$input{id}&verify=1&delete_type=1">Remove Thread -- Blow all replies away</a>
+				<p><a href="$forum{path}/$internal{script}/$input{forum}/delete?id=$input{id}&verify=1&delete_type=2">Save the Children -- Give children to grandparents</a>
+				<p><a href="$forum{path}/$internal{script}/$input{forum}/modify?id=$input{id}">
+				Modify Post -- Change Message Contents</a>
+EOP
+			} else {
+				if ($delete_type == 1) {
+					&delete_me_and_my_children($id);
+
+					print <<EOP;
+					Post number $id and its offspring were deleted.
+					<p><a href="$forum{path}/$internal{script}/$input{forum}/">
+					Return to Forum</a>
+EOP
+				} elsif ($delete_type == 2) {
+					my $get_parent_id = $dbh->prepare("
+						select child_of from $forum{main_tbl} where id=$id
+					");
+
+					&log_error($dbh->errstr) unless ($get_parent_id->execute);
+					my $parent_id = $get_parent_id->fetchrow_array;
+
+					&log_error($dbh->errstr) unless ($dbh->do("
+						delete from $forum{main_tbl} where id=$id
+					"));
+
+					&log_error($dbh->errstr) unless ($dbh->do("
+						update $forum{main_tbl} set child_of=$parent_id where child_of=$id
+					"));
+
+					print <<EOP;
+					The post with number $id was deleted.  Also, all children of this post 
+					were re-parented to their grandparents.
+					<p><a href="$forum{path}/$internal{script}/$input{forum}/">
+					Return to Forum</a>
+EOP
+
+				} else {
+					print <<EOP;
+					Unsupported delete_type.  Please only access this interface from within 
+					eThreads.  Danger leaps to those who tweak command lines...
+					<p><b>
+					No deletion performed.
+					</b>
+EOP
+				}
+			}
+		} else {
+			# It's a clean delete
+			&log_error($dbh->errstr) unless ($dbh->do("
+				delete from $forum{main_tbl} where id=$id
+			"));
+
+			print <<EOP;
+			The post with id number $id has been deleted.
+			<p>
+			<a href="$forum{path}/$internal{script}/$input{forum}/">Return to Forum</a>
+EOP
+		}
+		
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub delete_me_and_my_children {
+	my $id = shift;
+
+	my $check_for_children = $dbh->prepare("
+		select id from $forum{main_tbl} where child_of=$id
+	");
+
+	&log_error($dbh->errstr) unless ($check_for_children->execute);
+
+	while (my $child_id = $check_for_children->fetchrow_array) {
+		&delete_me_and_my_children($child_id);
+	}
+
+	&log_error($dbh->errstr) unless ($dbh->do("
+		delete from $forum{main_tbl} where id=$id
+	"));
+}
+
+#----------
+
+sub admin_modify_post {
+	my $id = $input{id};
+	my $complete = $input{complete};
+	my $title = $input{title};
+	my $poster = $input{poster};
+	my $poster_email = $input{poster_email};
+	my $body = $input{body};
+
+	print "$forum{header}";
+
+	unless ($complete) {
+		my $get_existing_info = $dbh->prepare("
+			select title,poster,poster_email,body from $forum{main_tbl} where id=$id
+		");
+
+		&log_error($dbh->errstr) unless ($get_existing_info->execute);
+
+		my ($title,$poster,$poster_email,$body) = $get_existing_info->fetchrow_array;
+
+		print <<EOP;
+		<form action="$forum{'path'}/$internal{script}/$input{forum}/modify" method=post>
+		<input type=hidden name="id" value="$id">
+		<input type=hidden name="complete" value="1">
+		<table border=0 width=$tweak{'post_display'}{'table_width'}>
+		<tr bgcolor=#$tweak{'post_display'}{'top_row_bg_color'}>
+		<td><b>Post a Message:</b></td></tr>
+		<tr bgcolor=#$tweak{'post_display'}{'second_row_bg_color'}>
+		<td>Title:
+		<input type=text name="title" size=$tweak{'post_display'}{'form_title_size'} value="$title">
+		</td></tr>
+		<tr bgcolor=#$tweak{'post_display'}{'third_row_bg_color'}>
+		<td>Name: <input type=text name="poster" size=$tweak{'post_display'}{'form_name_size'} 
+		value="$poster">
+		Email: <input type=text name="poster_email" size=$tweak{'post_display'}{'form_email_size'} 
+		value="$poster_email">
+		</td></tr>
+		<tr bgcolor=#$tweak{'post_display'}{'body_bg_color'}>
+		<td><textarea wrap="virtual" name="body" cols=$tweak{'post_display'}{'form_body_cols'}
+		rows=$tweak{'post_display'}{'form_body_rows'}>$body</textarea>
+		</td></tr>
+		<tr bgcolor=#$tweak{'post_display'}{'option_bar_bg_color'}>
+		<td><input type=submit value="$tweak{'post_display'}{'form_submit_value'}">
+		</td></tr></table>
+EOP
+	} else {
+
+		$body =~ s/\n/\n<br>/g;
+		$body =~ s/\'/\\'/g;
+		$title =~ s/\'/\\'/g;
+		$poster =~ s/\'/\\'/g;
+
+		warn "update $forum{main_tbl} set title='$title', poster='$poster', poster_email='$poster_email', body='$body' where id=$id\n";
+
+		&log_error($dbh->errstr) unless ($dbh->prepare("
+			update $forum{main_tbl} set title='$title', poster='$poster', 
+			poster_email='$poster_email', body='$body' where id=$id
+		"));
+
+		print <<EOP;
+		Message was updated.  
+		<a href="$forum{path}/$internal{script}/$input{forum}/view_post?id=$id">
+		Click Here</a> to view it.
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: moderator,v $
+# Revision 1.2  1998/10/17 18:31:37  eric
+# * moved to forum settings caching system
+#
+# Revision 1.1  1998/09/19 16:46:55  eric
+# First try at a script for moderating forums.
+#
+
+#---------------#
+# End of Script #
+#---------------#

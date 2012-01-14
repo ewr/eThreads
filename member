@@ -1,0 +1,452 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: member,v 1.10 1998/11/14 04:09:07 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script provides authenticated viewing.  It calls shared-code 
+#  for generic subroutines.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+# Call our shared subroutines
+BEGIN {
+	require "shared-code";
+}
+
+use strict;
+no strict "refs";
+use vars qw(%forumTWEAKS %user %language %database %input %internal %settings %tweak %images %forum %rain $dbh $dbm);
+
+# Get input variables
+&get_vars_from_input;
+
+# Print a content type so we get good output
+print "Content-type: text/html\n\n";
+
+# Connect $dbm to the main database
+$dbm = &connect_to_database;
+
+# Use $input{'forum'} to get info from presets
+&get_forum_info;
+
+# We have to identify ourself to shared_code
+$internal{'script'} = "member";
+
+%user = &auth_get_userinfo;
+
+# We're authenticated, so what can viewers do...
+$internal{'post_options'} = qq(
+	<i>$language{email}:</i>
+	<a href=\"$forum{path}/$tweak{member_email_script}/$input{forum}/subscribe?id=$input{id}\">
+	$language{subscribe}</a> - 
+	<a href=\"$forum{path}/$tweak{member_email_script}/$input{forum}/unsubscribe?id=$input{id}\">
+	$language{unsubscribe}</a> - 
+	<a href=\"$forum{path}/$tweak{member_email_script}/$input{forum}/\">$language{manage_subs}</a>
+);
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+&print_top_threads       unless ($input{'function'});
+&view_post               if ($input{'function'} eq "view_post");
+&write_post              if ($input{'function'} eq "post");
+
+&search_form('advanced') if ($input{'function'} eq"search_form");
+&search                  if ($input{'function'} eq"search");
+
+&user_guide              if ($input{'function'} eq"guide");
+
+&posts_by_user           if ($input{'function'} eq"posts_by_user");
+&user_profile			 if ($input{'function'} eq"user_profile");
+
+&user_options			 if ($input{function} eq"options");
+&edit_profile 			 if ($input{function} eq"edit_profile");
+&edit_post				 if ($input{function} eq"edit_post");
+
+#-----------------------------#
+# Script-specific Subroutines #
+#-----------------------------#
+
+sub user_options {
+	print "$forum{header}";
+
+	print <<EOP;
+	<b>Options for user $user{username}:</b>
+	<p>
+	<table border=0>
+	<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+		<td width=$forumTWEAKS{htmlCOL2_LEFT}>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+				<b>$language{option}:</b>
+			</font>
+		</td>
+		<td width=$forumTWEAKS{htmlCOL2_RIGHT}>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+				<b>$language{description}:</b>
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				<a href="$forum{path}/$internal{script}/$input{forum}/edit_profile">
+					$language{edit_user_profile}
+				</a>
+			</font>
+		</td>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				$language{phrases}{18}
+			</font>
+		</td>
+	</tr>
+	</table>
+EOP
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub edit_post {
+	print "$forum{header}";
+	
+	unless ($input{modified}) {
+		my $get_post = $dbh->prepare("
+			select username,title,body from $forum{main_tbl} where id=$input{id} 
+			and username='$user{username}'
+		");
+
+		&bail($dbh->errstr) unless ($get_post->execute);
+		my ($username,$title,$body) = $get_post->fetchrow_array;
+
+		if ($username eq"$user{username}") {
+			$body =~ s/<br>\n/\n/g;
+			$body =~ s/$user{signature}//g;
+		
+			print <<EOP;
+			<form action="$forum{path}/$internal{script}/$input{forum}/edit_post" method=get>
+			<input type=hidden name=id value="$input{id}">
+			<table border=0>
+			<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+				<td colspan=2>
+					<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+						<b>$language{modify} #$input{id} ($language{currently}: $title)</b>
+					</font>
+				</td>
+			</tr>
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td width=$forumTWEAKS{htmlCOL2_LEFT}>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+						<b>$language{title}:</b>
+					</font>
+				</td>
+				<td width=$forumTWEAKS{htmlCOL2_RIGHT}>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+						<input name="title" size=30 value="$title">
+					</font>
+				</td>
+			</tr>
+			<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+				<td colspan=2>
+					<textarea name="body" rows=10 cols=50 wrap="virtual">$body</textarea>
+				</td>
+			</tr>
+			<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+						<b>$language{submit}:</b>
+					</font>
+				</td>
+				<td>
+					<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+						<input type=submit name="modified" value="$language{modify_post}">
+					</font>
+				</td>
+			</tr>
+	
+			</table>
+			</form>
+EOP
+		} else {
+			print <<EOP;
+			$language{phrases}{19}
+EOP
+		}
+	} else {
+		my $title = $input{title};
+		my $body = $input{body};
+
+		$title =~ s/\'/\\'/g;
+		$body  =~ s/\'/\\'/g;
+		$body  =~ s/\n/<br>\n/g;
+		$body  .= $user{signature};
+
+		&bail($dbh->errstr) unless ($dbh->do("
+			update $forum{main_tbl} set title='$title', body='$body' where (
+				id=$input{id} and username='$user{username}'
+			)
+		"));
+
+		print <<EOP;
+		$language{phrases}{20}. 
+		<a href="$forum{path}/$internal{script}/$input{forum}/view_post?id=$input{id}">
+		$language{phrases}{21}</a>.
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub edit_profile {
+	print "$forum{header}";
+	my $dbu = &db_dbu_connect;
+
+	unless ($input{modify}) {
+		my $table_width = ($forumTWEAKS{htmlCOL2_LEFT} + $forumTWEAKS{htmlCOL2_RIGHT} +100);
+		my $get_description = $dbu->prepare("
+			select description from $forum{user_tbl} where username='$user{username}'
+		");
+		&bail($dbu->errstr) unless ($get_description->execute);
+		$user{description} = $get_description->fetchrow_array;
+		$get_description->finish;
+
+		print <<EOP;
+		<form action="$forum{path}/$internal{script}/$input{forum}/edit_profile" method=post>
+		<table border=0 width=$table_width>
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td colspan=2>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>$language{phrases}{22}$user{username}:</b>
+				</font>           
+			</td>       
+		</tr> 
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$language{password}:
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<input type=password name=password size=15>
+					<font size=1><br><b>
+					$language{phrases}{23}
+					</font></b>
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td width=100>
+				Name:             
+			</td>       
+			<td width=300>
+				<input name=firstname size=15 value="$user{firstname}">
+				<input name=lastname size=20 value="$user{lastname}">
+			</td>       
+		</tr> 
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>        
+				$language{email_address}:    
+			</td>       
+			<td>        
+				<input name=email value="$user{email}" size=38>
+			</td>       
+		</tr> 
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td>
+				&nbsp;
+			</td>
+			<td>
+				&nbsp;
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{signature}:
+			</td>
+			<td>
+				<textarea name=signature rows=3 cols=40 wrap=virtual>$user{signature}</textarea>&nbsp;
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td colspan=2>
+				<textarea name=description rows=10 cols=56 wrap=virtual>$user{description}</textarea>&nbsp;
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					$language{submit}:
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+					<input type=submit name="modify" value="$language{change_profile}">
+				</font>
+			</td>
+		</tr>
+		</table>
+EOP
+	} else {
+		# Get the vars we need
+		my $firstname = $input{firstname};
+		my $lastname = $input{lastname};
+		my $email = $input{email};
+		my $signature = $input{signature};
+		my $description = $input{description};
+
+		$firstname =~ s/\'/\\'/g;
+		$lastname =~ s/\'/\\'/g;
+		$email =~ s/\'/\\'/g;
+		$signature =~ s/\'/\\'/g;
+		$description =~ s/\'/\\'/g;
+
+		# Should we change the password?
+		my $password;
+		if ($input{password}) {
+			$password = crypt($input{password},'$user{username}');
+			$password = ", password='$password'";
+		}
+
+		&bail($dbu->errstr) unless ($dbu->do("
+			update $forum{user_tbl} set firstname='$firstname', lastname='$lastname', 
+			email='$email', signature='$signature', 
+			description='$description' $password where username='$user{username}'
+		"));
+
+		print <<EOP;
+		<table border=0 width=400>
+
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td colspan=2>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+					<b>$language{new_profile_for} $user{username}:</b>
+				</font>
+			<td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td width=100>
+				$language{name}:
+			</td>
+			<td width=300>
+				$user{firstname} $user{lastname}
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{email_address}:
+			</td>
+			<td>
+				<a href="mailto:$user{email}">$user{email}</a>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td>
+				&nbsp;
+			</td>
+			<td>
+				&nbsp;
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td>
+				$language{signature}:
+			</td>
+			<td>
+				$user{signature}&nbsp;
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td colspan=2>
+				$input{description}&nbsp;
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td colspan=2>
+				&nbsp;
+			</td>
+		</tr>
+
+</table>
+
+	<p><hr><p>
+	<a href="$forum{path}/$internal{script}/$input{forum}/">Return to Forum</a>
+
+EOP
+	}
+
+	$dbu->disconnect;
+
+	print "$forum{footer}";
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: member,v $
+# Revision 1.10  1998/11/14 04:09:07  eric
+# * fixed typo
+#
+# Revision 1.9  1998/11/14 01:30:16  eric
+# * moved all language to the language module
+#
+# Revision 1.8  1998/11/01 16:32:09  eric
+# * post editing code
+#
+# Revision 1.7  1998/10/24 22:35:29  eric
+# * added link back to forum from profile update
+#
+# Revision 1.6  1998/10/24 18:56:11  eric
+# * finished code to modify member profile
+#
+# Revision 1.5  1998/10/18 21:05:01  eric
+# * changed over to $forumTWEAKS
+# * changed email stuff to use member-email
+#
+# Revision 1.4  1998/10/17 18:30:34  eric
+# * changed forum setting stuff over to caching system.
+# * fixed some linkage
+#
+# Revision 1.3  1998/09/28 23:14:50  eric
+# * added pointers from posts_by_user and user_profile
+# * changed post options
+#
+# Revision 1.2  1998/09/27 16:52:23  eric
+# * code now gets username from auth.module
+#
+# Revision 1.1  1998/09/20 19:21:53  eric
+# * Copied view script to member to begin work on authentication
+#
+
+#---------------#
+# End of Script #
+#---------------#

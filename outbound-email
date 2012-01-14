@@ -1,0 +1,261 @@
+#!/usr/bin/perl
+
+#---------------------------------------------------------------------
+#  $Id: outbound-email,v 1.3 1998/11/14 04:01:07 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script is called by a post script to send out email saying 
+#  that a reply has been posted to a message they are subscribed to.  
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+BEGIN {
+	require "shared-code";
+}
+
+use strict;
+no strict "refs";
+use vars qw(
+	%hit_list $runtime %user %language %database %input %internal 
+	%settings %tweak %images %forum %rain $dbh $dbm
+);
+
+# Identify ourself
+$internal{script} = "outbound-email";
+
+# Connect to the main database
+$dbm = &connect_to_database;
+
+# Find out what time we last ran
+my $get_last_runtime = $dbm->prepare("
+	select status from $settings{subscription_table} where forum='.eThreadsINTERNAL' and id=-5555
+");
+
+&bail($dbm->errstr,"email") unless ($get_last_runtime->execute);
+
+$runtime = $get_last_runtime->fetchrow_array;
+
+#-------------#
+# Actual Code #
+#-------------#
+
+if ($settings{run_email_from_cron}) {
+	my $get_list_of_forums = $dbm->prepare("
+		select forum,main_db,main_tbl,user,passwd from $settings{preset_table} 
+		where forum != '.LISTINGS_PREFS'
+	");
+
+	&bail($dbm->errstr,"email") unless ($get_list_of_forums->execute);
+
+	my ($forum,$main_db,$main_tbl,$user,$passwd);
+	&check_for_updates($forum,$main_db,$main_tbl,$user,$passwd) while ((
+		$forum,$main_db,$main_tbl,$user,$passwd) = $get_list_of_forums->fetchrow_array
+	);
+
+} else {
+
+}
+
+&update_timestamp;
+
+#-------------#
+# Subroutines #
+#-------------#
+
+sub update_timestamp {
+	my $time = time;
+
+	&bail($dbm->errstr,"email") unless ($dbm->do("
+		update $settings{subscription_table} set status=$time 
+		where forum='.eThreadsINTERNAL' and id=-5555
+	"));
+}
+
+#----------
+
+sub check_for_updates {
+	my $forum = shift;
+	$forum{main_db} = shift;
+	$forum{main_tbl} = shift;
+	$forum{user} = shift;
+	$forum{passwd} = shift;
+
+	&bail("Could not connect dbh for $forum: $!") unless ($dbh = &db_dbh_connect);
+
+	my $get_updated_posts = $dbh->prepare("
+		select id,title,poster,poster_email,body from $forum{main_tbl} where timestamp > $runtime
+	");
+
+	&bail($dbm->errstr,"email") unless ($get_updated_posts->execute);
+
+	my ($id,$title,$poster,$poster_email,$body);
+
+	&alert_subscribers($id,$id,$title,$poster,$poster_email,$body,$forum) while (
+		($id,$title,$poster,$poster_email,$body) = $get_updated_posts->fetchrow_array
+	);
+
+	$get_updated_posts->finish;
+
+	$dbh->disconnect;
+}
+
+#----------
+
+sub alert_subscribers {
+	my $current_id = shift;
+	my $updated_id = shift;
+	my $title = shift;
+	my $poster = shift;
+	my $poster_email = shift;
+	my $body = shift;
+	my $forum = shift;
+
+	my $more_options = 'and level=1' unless ($current_id == $updated_id);
+
+	my $get_subscribers = $dbm->prepare("
+		select email,name,level,content from $settings{subscription_table} 
+		where id=$current_id and forum='$forum' and status=1 $more_options
+	");
+
+	&bail($dbm->errstr,"email") unless ($get_subscribers->execute);
+
+	my ($email,$name,$level,$content);
+
+	while (($email,$name,$level,$content) = $get_subscribers->fetchrow_array) {
+		&send_email(
+			$current_id,$updated_id,$email,$name,$level,$content,$title,$poster,$poster_email,$body,$forum
+		) unless ($hit_list{$updated_id}{$email});
+	}
+
+	# Now we move up the tree
+	my $get_parent = $dbh->prepare("
+		select child_of from $forum{main_tbl} where id=$current_id
+	");
+
+	&bail($dbh->errstr,"email") unless ($get_parent->execute);
+
+	my $parent = $get_parent->fetchrow_array;
+
+	&alert_subscribers($parent,$updated_id,$title,$poster,$poster_email,$body,$forum) if ($parent);
+}
+
+#----------
+
+sub send_email {
+	my $subscribed_id = shift;
+	my $updated_id = shift;
+	my $email = shift;
+	my $name = shift;
+	my $level = shift;
+	my $content = shift;
+	my $title = shift;
+	my $poster = shift;
+	my $poster_email = shift;
+	my $body = shift;
+	$body =~ s/<br>//g;
+	my $forum = shift;
+	my ($level_wording);
+
+	# Figure out some wording
+	if ($level) {
+		$level_wording = $language{phrases}{31};
+	} else {
+		$level_wording = $language{phrases}{32};
+	}
+
+	my @MONTHS = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec');
+	my @DAYS = ('Sun','Mon','Tue','Wed','Thu','Fri','Sat');
+	my ($msec,$mmin,$mhr,$mmday,$mmon,$myear,$mwday,$mrest) = localtime;
+	$myear = ($myear + 1900);
+	my $mzero = $mmin < 10 ? "0" : "";
+	my $day = $DAYS[$mwday];
+
+	open (MAIL, "| $settings{mail_program} $email") or &bail("Could Not Send Mail: $!","email");
+
+	print MAIL "Date: $DAYS[$mwday], $mmday $MONTHS[$mmon] $myear $mhr:$mzero$mmin\n";
+	print MAIL "From: eThreads at $settings{site_name} <$settings{admin_email}>\n";
+	print MAIL "To: $name <$email>\n";
+	print MAIL "Subject: $language{new_post}: $title\n\n"; 
+
+	print MAIL <<EOP;
+---------------------------------------------------------
+$language{title}     - $title
+$language{posted_by} - $poster ($poster_email)
+---------------------------------------------------------
+
+EOP
+print MAIL <<EOP if ($level);
+$body
+
+---------------------------------------------------------
+EOP
+
+	$language{phrases}{8} =~ s/\t//g;
+	$language{phrases}{33} =~ s/\t//g;
+	$language{phrases}{33} =~ s/#ID/$subscribed_id/g;
+	$language{phrases}{33} =~ s!#URL!$settings{site_name}/$settings{default_path}/email-admin/$forum/unsubscribe?id=$subscribed_id&email=$email!g;
+	print MAIL <<EOP;
+$language{new_post_url}
+http://$settings{site_name}/$settings{default_path}/view/$forum/view_post?id=$updated_id
+---------------------------------------------------------
+$language{subscribed_url}
+http://$settings{site_name}/$settings{default_path}/view/$forum/view_post?id=$subscribed_id
+---------------------------------------------------------
+$language{phrases}{33}
+
+---------------------------------------------------------
+$language{phrases}{8}
+---------------------------------------------------------
+EOP
+	close MAIL;
+
+	# Target down
+	$hit_list{$updated_id}{$email} = 1;
+}
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: outbound-email,v $
+# Revision 1.3  1998/11/14 04:01:07  eric
+# * moved words to language module
+#
+# Revision 1.2  1998/10/17 20:16:51  eric
+# * took out warnings.  Script now runs silent.
+#
+# Revision 1.1  1998/10/17 18:21:45  eric
+# * First working version of outbound-email.  This script updates subscribers
+#   when replies are posted.
+# * NOTE - Currently only $settings{run_email_from_cron} = 1 is supported.
+#

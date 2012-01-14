@@ -1,0 +1,529 @@
+#!/usr/bin/perl
+
+#---------------------------------------------------------------------
+#  $Id: email-admin,v 1.7 1998/11/14 01:12:34 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script is used to subscribe people for updates, and to 
+#  unsubscribe people from updates.
+#
+#  The script takes the user information, then sends out a test email.
+#  Until it gets a response, the name is put it a pending category.
+#  If no response is received in a week, the user is deleted.  If a 
+#  response is sent with a subject REMOVE, the user is put in a 
+#  no-email category.  People in this category will never be subscribed.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Initialization #
+#----------------#
+
+BEGIN {
+	require "shared-code";
+}
+
+use strict;
+no strict "refs";
+use vars qw(
+	%forumTWEAKS %user %language %database %input %internal 
+	%settings %tweak %images %forum %rain $dbh $dbm
+);
+
+# Get variables from input
+&get_vars_from_input;
+
+# Print a content type
+print "Content-type: text/html\n\n";
+
+# Connect $dbm to the main database
+$dbm = &connect_to_database;
+
+# Connect $dbh to the forum database
+&get_forum_info;
+
+$internal{script} = "email-admin";
+
+#----------------#
+# Routing Tables #
+#----------------#
+
+# The first two subs sign people up...
+&subscribe_menu 	if ($input{function} eq"subscribe");
+&send_confirmation 	if ($input{function} eq"confirm");
+
+# They have to approve before they're really added.
+&approve_menu 		if ($input{function} eq"approve");
+&approve 			if ($input{function} eq"approved");
+
+# And, if they don't want updates anymore...
+&unsubscribe_menu 	if ($input{function} eq"unsubscribe");
+&unsubscribe 		if ($input{function} eq"remove");
+
+#-------------#
+# Subroutines #
+#-------------#
+
+sub subscribe_menu {
+# This subroutine prints a form where the user enters their email address
+
+	my %post = &get_post_information($input{id});
+
+	print "$forum{header}";
+	$language{phrases}{5} =~ s/#TITLE/$post{title}/g;
+	print <<EOP;
+	$language{phrases}{5}
+	<p><b>Enter User Information:</b>
+	<form action="$forum{path}/$tweak{email_admin_script}/$input{forum}/confirm" method=get>
+EOP
+	print qq(<input type=hidden name="member" value="1">) if ($input{member});
+	print <<EOP;
+	<table border=0>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td width=$forumTWEAKS{htmlCOL2_LEFT}>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+			$language{subscribe_to}:
+			</font>
+		</td>
+		<td width=$forumTWEAKS{htmlCOL2_RIGHT}>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+			$post{title}
+			</font>
+		</td>
+	</tr> 
+	<input type=hidden name="id" value="$input{id}">
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+			Email Address:
+			</font>
+		</td>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+			<input type=text name="email" size=30 value="$input{email}">
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+			Name: 
+			</font>
+		</td>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+			<input type=text name="name" size=30 value="$input{name}">
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+			Send me... 
+			</font>
+		</td>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+			<input type=radio name="email_level" value="0">replies to this post
+			<br><input type=radio name="email_level" value="1">replies in this thread
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>	
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+			Email me... 
+			</font>
+		</td>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+			<input type=radio name="content" value="0">the entire message
+			<br><input type=radio name="content" value="1">the subject and a link
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+			Subscribe:
+			</font>
+		</td>
+		<td>
+			<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR}>
+			<input type=submit value="$language{subscribe}">
+			</form>
+			</font>
+		</td>
+	</tr>
+	</table>
+EOP
+	print "$forum{footer}";
+
+}
+
+#----------
+
+sub send_confirmation {
+# This subroutine takes the input from subscribe_menu, sends out a 
+# confirmation email, and sticks the user in a pending category.
+
+	my %post = &get_post_information($input{id});
+	print "$forum{header}";
+
+	# Make sure they aren't pending anywhere else
+	my $check_for_pending = $dbm->prepare("
+		select * from subscriptions where email='$input{email_addr}' and status=0
+	");
+
+	&bail("Could not check for pending subscriptions.") unless ($check_for_pending->execute);
+
+	my $they_are_pending = $check_for_pending->rows;
+
+	if ($they_are_pending) {
+		print <<EOP;
+		$language{phrases}{6}
+EOP
+	} else {
+
+		# Get a random string...
+		my $int = rand(99999);
+		$int = sprintf("%.0f",$int);
+		my @chars=('0'..'9', 'a'..'z', 'A'..'Z', '-','_');
+		my $index = ((($int & 3)<<4) | ($$ & 15));
+		my $ts = $chars[$index];
+		my $time >>= 2;
+		my $c;
+		for ($c=1; $c<=5; $c++) {
+			$index = $int & 63;
+			substr($ts,0,0) = $chars[$index];
+			$int >>= 6;
+		}
+		my $random_string = $ts;
+	
+		# Send out the confirmation email...
+		my @DAYS = ('Sun','Mon','Tue','Wed','Thu','Fri','Sat');
+		my @MONTHS = (
+			'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',
+			'Sep','Oct','Nov','Dec'
+		);
+		
+		my ($msec,$mmin,$mhr,$mmday,$mmon,$myear,$mwday,$mrest) = localtime;
+		$myear = ($myear + 1900);
+		my $mzero = $mmin < 10 ? "0" : "";
+		my $day = $DAYS[$mwday];
+
+		open (MAIL, "| /usr/lib/sendmail $input{email}") or &bail("Can't send mail: $!");
+		print MAIL "Date: $DAYS[$mwday], $day $MONTHS[$mmon] $myear $mhr:$mzero$mmin\n";
+		print MAIL "From: eThreads Administrator <$settings{admin_email}>\n";
+		print MAIL "To: $input{email}\n";
+		print MAIL "Subject: $language{sub_conf_for} $input{name}\n\n";
+
+		$language{phrases}{7} =~ s/#NAME/$input{name}/g;
+		$language{phrases}{7} =~ s/#TITLE/$post{title}/g;
+		$language{phrases}{7} =~ s/#FORUM/$settings{site_name}\/$forum{path}\//g;
+		$language{phrases}{7} =~ s/#STRING/$random_string/g;
+		$language{phrases}{7} =~ s/#ADMIN/$settings{admin_email}/g;
+		$language{phrases}{7} =~ s!#SITE!$settings{site_name}$forum{path}/$tweak{email_admin_script}/$input{forum}/approve!g;
+		$language{phrases}{7} =~ s/\t//g;
+		$language{phrases}{8} =~ s/\t//g;
+	
+		print MAIL <<EOP;
+$language{phrases}{7}
+
+$settings{admin_title} ($settings{admin_email})
+$settings{site_name}
+
+-------------------------------
+
+$language{phrases}{8}
+
+EOP
+
+		close MAIL;
+	
+		# Now we put them on the pending list...
+	
+		# We have to escape some inputs...
+		my $name = $input{name};
+		$name =~ s/\'/\\'/g;
+	
+		# A status=0 means pending.
+	
+		&bail("Could not add user to pending list") unless ($dbm->do("
+			insert into subscriptions(forum,email,id,name,level,content,status,conf_string) 
+			values('$input{forum}','$input{email}',$input{id},
+			'$name',$input{email_level},$input{content},0,'$random_string')
+		"));
+	
+		# Now we print to the screen
+	
+		print <<EOP;
+		$language{phrases}{9}
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub approve_menu {
+# This subroutine prints out a form where the user enters their email 
+# address and confirmation string to confirm subscription information.
+
+	print "$forum{header}";
+	print <<EOP;
+	$language{phrases}{10}
+	<p>
+	<table>
+	<tr bgcolor=#$tweak{thread_display}{even_row_color}>
+	<td width=150>$language{email_address}:</td><td width=100>
+	<form action="$forum{path}/$tweak{email_admin_script}/$input{forum}/approved" method=get>
+EOP
+	print <<EOP;
+	<input name="email" size=20>
+	</td></tr><tr bgcolor=#$tweak{thread_display}{odd_row_color}>
+	<td>$language{conf_string}:</td><td><input name="conf_string" size=20></td></tr>
+	<tr bgcolor=#$tweak{thread_display}{even_row_color}>
+	<td>$language{confirm}:</td><td><input type=submit value="$language{confirm_sub}"></td></tr>
+	</table>
+	</form>
+EOP
+	print "$forum{footer}";
+}
+
+#----------
+
+sub approve {
+# This subroutine checks the input confirmation string against the one in the 
+# database, and sets status=1 if they match.
+
+	print "$forum{header}";
+
+	# Get info from db
+	my $get_info_from_db = $dbm->prepare("
+		select email,forum,status,id from $settings{subscription_table} 
+		where conf_string='$input{conf_string}' and email='$input{email}'
+	");
+
+	&bail("Could not get subscription info from db.") unless ($get_info_from_db->execute);
+
+	my ($email,$forum,$status,$id) = $get_info_from_db->fetchrow_array;
+
+	if (
+		$email eq "$input{email}" && $forum eq"$input{forum}" 
+		&& ($input{conf_string}) && ($status == 0)
+	) {
+		# Update the status
+		&bail("Could not update subscription status.") unless ($dbm->do("
+			update $settings{subscription_table} set status=1 where 
+			conf_string='$input{conf_string}'
+		"));
+
+		my %post = &get_post_information($id);
+
+		my $view_script;
+
+		if ($input{member}) {
+			$view_script = $tweak{auth_view_script};
+		} else {
+			$view_script = $tweak{view_script};
+		}
+
+		$language{phrases}{11} =~ s/#TITLE/$post{title}/g;
+
+		# Print out the news...
+		print <<EOP;
+		$language{phrases}{11}
+		<p>
+		<a href="$forum{path}/$view_script/$forum/view_post?id=$id">
+		Return to Forum</a> 
+EOP
+	} else {
+		# Print out a failure message
+		print <<EOP;
+			$language{phrases}{12}
+		<p>
+EOP
+		print <<EOP if ($status == 1);
+		$language{phrases}{13}
+EOP
+		$language{phrases}{14} =~ s/#ADMIN/$settings{admin_email}/g;
+		print <<EOP;
+		$language{phrases}{14}
+EOP
+	} 
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub unsubscribe_menu {
+	my $id = $input{id};
+	my %post = &get_post_information($id);
+	
+	print "$forum{header}";
+
+	print <<EOP;
+	$language{phrases}{15}:
+	<p>
+	<form action="$forum{path}/$internal{script}/$input{forum}/remove" method=get>
+	<input type=hidden name="id" value="$id">
+	<table border=0>
+		<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+			<td colspan=2>
+				<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+				$language{unsubscribe_from} $post{title}
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+			<td width=$forumTWEAKS{htmlCOL2_LEFT}>
+				<font color=#$forumTWEAKS{htmlROW1_FONT_COLOR}>
+				$language{email_address}:
+				</font>
+			</td>
+			<td width=$forumTWEAKS{htmlCOL2_RIGHT}>
+				<input name="email" size=30 value="$input{email}">
+				</font>
+			</td>
+		</tr>
+		<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR>
+				$language{submit}:
+				</font>
+			</td>
+			<td>
+				<font color=#$forumTWEAKS{htmlROW2_FONT_COLOR>
+				<input type=submit name="$language{unsubscribe}">
+				</font>
+			</td>
+		</tr>
+	</table>
+EOP
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub unsubscribe {
+	my $id = $input{id};
+	my %post = &get_post_information($id);
+	my $email = $input{email};
+
+	print "$forum{header}";
+
+	my $check_for_subscription = $dbm->prepare("
+		select id,email from $settings{subscription_table} 
+		where email='$email' and id='$id' and forum='$input{forum}'
+	");
+
+	&bail($dbm->errstr) unless ($check_for_subscription->execute);
+
+	my $subscription = $check_for_subscription->rows;
+
+	if ($subscription) {
+		&bail($dbm->errstr) unless ($dbm->do("
+			delete from $settings{subscription_table} 
+			where email='$email' and id=$id and forum='$input{forum}' 
+		"));
+
+		$language{phrases}{16} =~ s/#TITLE/$post{title}/g;
+		print <<EOP;
+		$language{phrases}{16}
+		<p><a href="$forum{path}/$tweak{view_script}/$input{forum}/view_post?id=$id">Return to Forum</a>
+EOP
+	} else {
+		$language{phrases}{17} =~ s/#TITLE/$post{title}/g;
+		$language{phrases}{17} =~ s/#EMAIL/$input{email}/g;
+		print <<EOP;
+		$language{phrases}{17}
+EOP
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub get_post_information {
+# This subroutine takes a post id ($_[0]), and gets the information for it.
+
+	my $id = $_[0];
+
+	# Get post information
+	my $get_post_info = $dbh->prepare("
+		select title,poster,poster_email,timestamp,body,child_of
+		from $forum{'main_tbl'} where id=$id
+	");
+
+	&bail("Could not get info ") unless ($get_post_info->execute);
+
+	my %post;
+
+	($post{'title'},$post{'poster'},$post{'poster_email'},
+	$post{'timestamp'},$post{'body'},$post{'child_of'}) = 
+	$get_post_info->fetchrow_array;
+
+	return %post;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: email-admin,v $
+# Revision 1.7  1998/11/14 01:12:34  eric
+# * another language friendly script. :)
+#
+# Revision 1.6  1998/10/17 18:27:34  eric
+# * added subscription removal code.
+# # make strict
+#
+# Revision 1.5  1998/09/28 23:12:59  eric
+# * now takes input from $input{name} and $input{email} as defaults
+#
+# Revision 1.4  1998/09/19 16:50:38  eric
+# * updated forum selection to comply with other scripts (script/forum/function)
+#
+# Revision 1.3  1998/07/22 01:52:23  eric
+# Added the code to confirm a email address.  People can now really subscribe.
+# Nothing sends email to them, but they get the satisfaction and... never mind.
+#
+# Revision 1.2  1998/07/22 00:41:36  eric
+# Script now puts users in a pending database, and won't let pending
+# addresses subscribe to other id's.  This is to prevent spamming via
+# eThreads.
+#
+# Revision 1.1  1998/07/20 12:47:38  eric
+# First edition of script to subscribe / unsubscribe people from email
+# updates.  This one sends confirmation email, but doesn't do anything
+# with the data.
+#
+
+#---------------#
+# End of Script #
+#---------------#

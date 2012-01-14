@@ -1,0 +1,1767 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: shared-code,v 1.34 1998/11/14 20:53:08 eric Exp $
+#
+#  eThreads - Threaded forum software for use on the WWW
+#  Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the eThreads web site at
+#       http://www.ethreads.com
+#
+#  This script contains shared code used by multiple scripts.  It 
+#  calls main.cfg for configuration information, $db_type.db.module 
+#  for database specific functions, $language.lang.module for text, 
+#  and $auth_method.auth.module for authentication.
+#
+#---------------------------------------------------------------------
+
+#----------------#
+# Included Files #
+#----------------#
+
+BEGIN {
+	use strict;
+	no strict "refs";
+	use vars qw(%mailbox %user %language %database %input %internal %settings %tweak %images %forum %rain $dbh $dbm);
+}
+
+# We use DBI for database stuff
+use DBI;
+
+# main.cfg provides all configuration information
+require "main.cfg";
+
+# If $settings{'language'}.lang.module exists, we'll use it
+if (-e "$settings{language}.lang.module") {
+	require "$settings{language}.lang.module";
+# Otherwise we have bail
+} else {
+	&bail("$settings{language} not supported.");
+}
+
+# If $settings{'auth_method'}.auth.module exists, we'll use it
+if (-e "$settings{auth_method}.auth.module") {
+	require "$settings{auth_method}.auth.module";
+# Otherwise we have bail
+} else {
+	&bail("$settings{auth_method} not supported.");
+}
+
+# If $settings{'db_type'}.db.module exists, we'll include it
+if (-e "$settings{'db_type'}.db.module") {
+	require "$settings{'db_type'}.db.module";
+# If $settings{'db_type'}.db.module doesn't exist, we must not support it.
+} else {
+	&bail("$settings{'db_type'} not supported.");
+}
+
+#-------------#
+# Subroutines #
+#-------------#
+
+sub get_posts {
+	my $option = shift;
+	my $query_options;
+	my $other;
+
+	if ($option == 0 || $option == 4) {
+		# The rest of the input is a list of id numbers to get info for
+		my $id = shift;
+		$id = "0" unless ($id);
+		$query_options = "where id=$id";
+		while ($id = shift) {
+			$query_options .= " or id=$id";
+		}
+	} elsif ($option == 1) {
+		# Get the children of these id numbers
+		my $id = shift;
+		$query_options = "where child_of=$id";
+		while ($id = shift) {
+			$query_options .= " or child_of=$id";
+		}
+
+	} elsif ($option == 2) {
+		# Get all posts... and run for cover
+		$query_options = "";
+
+	} elsif ($option == 3) {
+		# Get all posts by user(s);
+		my $user = shift;
+		$query_options = "where username='$user'";
+		while ($user = shift) {
+			$query_options .= " or username='$user'";
+		}
+	}
+
+	my $get_posts = $dbh->prepare("
+		select id,title,poster,poster_email,timestamp,children,child_of$other from $forum{main_tbl} $query_options
+	");
+
+	&bail($dbh->errstr) unless ($get_posts->execute);
+
+	my ($id,$title,$poster,$poster_email,$timestamp);
+	while (($id,$title,$poster,$poster_email,$timestamp,$children,$child_of) = $get_posts->fetchrow_array) {
+		$child_of = 0 if ($option == 3 || $option == 4);
+		$mailbox{$child_of}{$id}{title}        = $title;
+		$mailbox{$child_of}{$id}{poster}       = $poster;
+		$mailbox{$child_of}{$id}{poster_email} = $poster_email;
+		$mailbox{$child_of}{$id}{timestamp}    = $timestamp;
+		$mailbox{$child_of}{$id}{children}     = $children;
+	}
+}
+
+#----------
+
+sub list_forums {
+	my $parent = $input{parent};
+
+	&get_forum_info(".LISTINGS_PREFS");
+
+	print "$forum{header}";
+
+	print <<EOP;
+	The following forums are available on this system:
+EOP
+	print <<EOP if ($parent);
+	<br><b>Children of $parent:</b>
+EOP
+	my $get_forums = $dbm->prepare("
+		select forum,path from $settings{preset_table} where child_of='$parent'
+	");
+
+	&bail($dbm->errstr) unless ($get_forums->execute);
+	my ($forum,$path);
+	while (($forum,$path) = $get_forums->fetchrow_array) {
+		my $check_for_children = $dbm->prepare("
+			select forum from $settings{preset_table} where child_of='$forum'
+		");
+		&bail($dbm->errstr) unless ($check_for_children->execute);
+		my $children = $check_for_children->rows;
+
+		print <<EOP;
+		<br> - <a href="$path/$internal{script}/$forum/">$forum</a>
+EOP
+		print qq(
+			 - <a href="$forum{path}/$internal{script}/?parent=$forum">$language{list_subforums}</a>
+		) if ($children);
+	}
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub print_top_threads {
+# This subroutine prints the top-level threads along with a header, 
+# footer, and introduction.
+
+	print "$forum{'header'}";
+
+	# Get the forum introduction
+	my $get_forum_intro = $dbm->prepare("
+		select intro from $settings{'preset_table'} where forum='$input{'forum'}'
+	");
+	$get_forum_intro->execute;
+	my $intro = $get_forum_intro->fetchrow_array;
+
+	print "<p>$intro<p>" if ($intro);
+	
+	&search_form('simple');
+
+	&print_threads("0","");
+	
+	&print_button_bar("top");
+
+	print "$forum{'footer'}";
+}
+
+#----------
+
+sub print_threads {
+# This subroutine prints out a table with threads in it.
+
+	# $_[0] tells up where to root our display
+	my $root_id = shift;
+
+	# Set up the table for showing threads in...
+	my $left_width;
+	if ($internal{script} eq"$tweak{moderator_script}") {
+		$left_width = ($forumTWEAKS{threadsLEFT_COL_WIDTH}-80);
+	} else {
+		$left_width = $forumTWEAKS{threadsLEFT_COL_WIDTH};
+	}
+
+	my $width = ($forumTWEAKS{threadsLEFT_COL_WIDTH} + $forumTWEAKS{threadsMIDDLE_COL_WIDTH} + $forumTWEAKS{threadsRIGHT_COL_WIDTH});
+
+	print <<EOP;
+	<b>$language{order_by}</b> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=newest&id=$input{id}">
+	$language{sort_newest}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=oldest&id=$input{id}"> 
+	$language{sort_oldest}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=title&id=$input{id}">
+	$language{sort_title}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=name&id=$input{id}">
+	$language{sort_name}</a>
+
+	<table border=0 width=$width>
+	<tr>
+		<td width=$left_width>
+			<b>$language{thread}:</b>
+EOP
+	print <<EOP if ($internal{script} eq"$tweak{moderator_script}");
+		</td>
+		<td width=80>
+			<b>$language{status}:</b>
+EOP
+	print <<EOP;
+		</td>
+		<td width=$forumTWEAKS{threadsMIDDLE_COL_WIDTH}>
+			<b>$language{posted_by}:</b>
+		</td>
+		<td width=$forumTWEAKS{threadsRIGHT_COL_WIDTH}>
+			<b>$language{date}:</b>
+		</td>
+	</tr>
+EOP
+
+	my $sort_field;
+	# The order by changes depending on user preference
+	if (!$input{order_by} || $input{order_by} eq"newest") { 
+		$sort_field = "timestamp";
+	} elsif ($input{order_by} eq"oldest") {
+		$sort_field = "timestamp";
+	} elsif ($input{order_by} eq"title") {
+		$sort_field = "title";
+	} elsif ($input{order_by} eq"name") {
+		$sort_field = "poster";
+	} 
+
+	$internal{'threads_left'} = $forumTWEAKS{threadsNUM_ROWS_PER_TABLE};
+	$internal{'thread_count'} = 0;
+
+	my $number = 0;
+	my $drop;
+
+	# Clean up the drop
+	$input{drop} =~ s/,,/,/g;
+
+	$internal{master_drop} = $input{'drop'};
+	$internal{master_drop} .= "," if ($internal{master_drop});
+
+	if ($input{drop} eq"all") {
+		&get_posts(2);
+	} else {
+		my @DROP = split(",",$input{'drop'});
+		push @DROP, $root_id;
+		&get_posts(1,"0",@DROP);
+		my $num;
+		while ($drop = $DROP[$num++]) {
+			$rain{$drop} = 1 if ($drop);
+		}
+	}
+
+	my @sorted_ids = 
+		map { $_->[0] }
+		sort { $a->[1] cmp $b->[1] }
+		map { [ $_, $mailbox{$root_id}{$_}{$sort_field} ] }
+		(keys %{ $mailbox{$root_id} });
+
+	my $id;
+	while ($id = pop(@sorted_ids)) {
+		$internal{'thread_count'}++;
+		$internal{'threads_left'}--;	
+
+		&print_thread_row("",$root_id,0,$id);
+
+		if ($internal{threads_left} <= 0) {
+			print "\n\n</table><table border=0 width=$width>\n\n";
+			$internal{'threads_left'} = $forumTWEAKS{threadsNUM_ROWS_PER_TABLE};
+		}
+
+		&print_drop_tree($id,1) if ($rain{$id} || $input{drop} eq"all");
+	}
+
+	print <<EOP unless ($mailbox{$root_id});
+	<tr bgcolor=#$forumTWEAKS{threadsEVEN_ROW_COLOR}>
+	<td>
+	<font color=#$forumTWEAKS{threadsEVEN_FONT_COLOR}>
+		$language{no_posts_at_lvl}
+	</font>
+	</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+EOP
+
+	print "</table>";
+}
+
+#----------
+
+sub print_drop_tree {
+# This subroutine prints a drop down tree of replies to a post
+
+	my $root_id = shift;
+	my $level = shift;
+
+	my $sort_field;
+	# The order by changes depending on user preference
+	if (!$input{order_by} || $input{order_by} eq"newest") { 
+		$sort_field = "timestamp";
+	} elsif ($input{order_by} eq"oldest") {
+		$sort_field = "timestamp";
+	} elsif ($input{order_by} eq"title") {
+		$sort_field = "title";
+	} elsif ($input{order_by} eq"name") {
+		$sort_field = "poster";
+	} 
+
+	my %post;
+
+	my @sorted_ids = 
+		map { $_->[0] }
+		sort { $a->[1] cmp $b->[1] }
+		map { [ $_, $mailbox{$root_id}{$_}{$sort_field} ] }
+		(keys %{ $mailbox{$root_id} });
+
+	my $id;
+	while ($id = pop(@sorted_ids)) {
+		$internal{'thread_count'}++;
+		$internal{'threads_left'}--;	
+
+		&print_thread_row("",$root_id,$level,$id);
+
+		if ($rain{$id} || $input{drop} eq"all") {
+			$level++;
+			&print_drop_tree($id,$level);
+			$level--;
+		}
+	}
+}
+
+#----------
+
+sub print_thread_row {
+# This subroutine prints a row of the threads table
+	
+	my $extra_linkage = shift;
+	my $root_id = shift;
+	my $level = shift;
+	my $id = shift;
+
+	my $even_or_odd = $internal{'thread_count'}%2;
+	my $color;
+
+	if ($even_or_odd) {
+		$color = $forumTWEAKS{threadsEVEN_ROW_COLOR};
+		$font_color = $forumTWEAKS{threadsEVEN_FONT_COLOR};
+	} else {
+		$color = $forumTWEAKS{threadsODD_ROW_COLOR};
+		$font_color = $forumTWEAKS{threadsODD_FONT_COLOR};
+	}
+
+	print <<EOP;
+		<a name="$post{id}">
+		<tr bgcolor=#$color><td bgcolor=#$color width=$forumTWEAKS{threadsLEFT_COL_WIDTH}>
+EOP
+
+	if ($level) {
+		my $temp_level = 0;
+		my $temp_width = $images{'bar_w'}/2;
+		while ($temp_level++ < $level) {
+			print <<EOP;
+			<img src="$images{'dir'}/$images{'bar'}" height=$images{'bar_h'} 
+			width=$temp_width alt="-">
+EOP
+		}
+	}
+
+	print <<EOP unless ($mailbox{$root_id}{$id}{children});
+	<img src="$images{'dir'}/$images{'bar'}" height=$images{'bar_h'}
+	width=$images{'bar_w'} alt="--"> 
+EOP
+	if ($mailbox{$root_id}{$id}{children}) {
+		print <<EOP unless ($rain{$id} || $input{drop} eq"all");
+		<a href="$forum{'path'}/$internal{'script'}/$input{forum}/$input{function}?drop=$internal{master_drop}$id&id=$input{id}&order_by=$input{order_by}$extra_linkage#$id">
+		<img src="$images{'dir'}/$images{'right'}" height=$images{'right_h'} 
+		width=$images{'right_w'} alt="-->" border=0></a>
+EOP
+		my $un_drop = &un_drop($id);
+		print <<EOP if ($rain{$id} || $input{drop} eq"all");
+		<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?drop=$un_drop&id=$input{id}&order_by=$input{order_by}$extra_linkage#$id">
+		<img src="$images{'dir'}/$images{'down'}" height=$images{'down_h'} 
+		width=$images{'down_w'} alt="\/" border=0></a>
+EOP
+	}
+
+	my ($mon,$mday,$year,$hour,$min,$sec,$month) = &convert_timestamp_to_time($mailbox{$root_id}{$id}{'timestamp'});
+
+	print <<EOP;
+	<a href="$forum{'path'}/$internal{'script'}/$input{forum}/view_post?id=$id&order_by=$input{order_by}">
+	<font color=#$font_color>$mailbox{$root_id}{$id}{'title'}</font></a>
+EOP
+	if ($internal{script} eq"$tweak{moderator_script}") {
+		my $status;
+		if ($post{status}) {
+			$status = "$language{approved}";
+		} else {
+			$status = "<b>$language{unapproved}</b>";
+		}
+
+		print "</td><td bgcolor=#$color><font color=#$font_color>$status</font>";
+	}
+
+	print <<EOP;
+	</td><td bgcolor=#$color width=$forumTWEAKS{threadsMIDDLE_COL_WIDTH}>
+	<a href="mailto:$mailbox{$root_id}{$id}{'poster_email'}">
+		<font color=#$font_color>$mailbox{$root_id}{$id}{'poster'}</font>
+	</a>
+	</td><td bgcolor=#$color width=$forumTWEAKS{threadsRIGHT_COL_WIDTH}>
+EOP
+	if ($language{information}{date_format} == 1) {
+		print "<font size=2 color=#$font_color>$mon/$mday/$year - $hour:$min:$sec</font>";
+	} else {
+	}
+	print "</td></tr>";
+
+}
+
+#----------
+
+sub un_drop {
+# This subroutine returns a drop list without $_[0] in it
+	my $dont_drop = shift;
+	my $drop_this;
+	my $id;
+
+	if ($input{drop} eq"all") {
+		$drop_this = $dont_drop;
+	} else {
+		foreach $id (keys %rain) {
+			$drop_this .= "$id," unless ($id == $dont_drop);
+		}
+	}
+	return $drop_this;
+}
+
+#----------
+
+sub check_for_replies {
+# This subroutine takes $_[0] (a post id), and looks for replies to it.
+
+	my $id = shift;
+
+	my $check_for_replies = $dbh->prepare("
+		select id from $forum{'main_tbl'} where child_of=$id
+	");
+
+	&bail($dbh->errstr) unless ($check_for_replies->execute);
+	return $check_for_replies->rows;
+}
+
+#----------
+
+sub view_post {
+# This subroutine takes an input $id and prints the post.
+	print "$forum{'header'}";
+
+	# Get post information
+	my $get_post_info = $dbh->prepare("
+		select title,poster,poster_email,timestamp,body,child_of,status,username 
+		from $forum{'main_tbl'} where id=$input{'id'}
+	");
+
+	&bail($dbh->errstr) unless ($get_post_info->execute);
+
+	my %post;
+
+	(
+		$post{'title'},$post{'poster'},$post{'poster_email'},
+		$post{'timestamp'},$post{'body'},$post{'child_of'},
+		$post{status},$post{username}
+	) = $get_post_info->fetchrow_array;
+
+	my ($mon,$mday,$year,$hour,$min,$sec,$month) = &convert_timestamp_to_time($post{'timestamp'});
+
+	print <<EOP;
+	<table border=0 width=$forumTWEAKS{postsTABLE_WIDTH}>
+	<tr bgcolor=#$forumTWEAKS{postsTOP_ROW_BG_COLOR}>
+	<td colspan=2>$post{'title'}
+EOP
+	if ($post{username} eq"$user{username}" && $tweak{auth_view_script} eq"$internal{script}") {
+		print qq( 
+			(<a href="$forum{path}/$internal{script}/$input{forum}/edit_post?id=$input{id}">
+			$language{edit_post}</a>)
+		);
+	}
+	print <<EOP;
+	</td></tr>
+	<tr bgcolor=#$forumTWEAKS{postsSECOND_ROW_BG_COLOR}>
+	<td width=$forumTWEAKS{postsPOSTER_WIDTH}>
+	$language{posted_by}: <a href="mailto:$post{'poster_email'}">$post{'poster'}</a> 
+	($post{'poster_email'})</td>
+	<td width=$forumTWEAK{postsTIMESTAMP_WIDTH}>
+	<font size=2>
+	$language{time}: 
+EOP
+	if ($language{information}{date_format} == 1) {
+		print "$month $mday, $year - $hour:$min:$sec";
+	} else {
+
+	}
+
+	print <<EOP;
+	</td></tr></font>
+	<tr bgcolor=#$forumTWEAKS{postsTHIRD_ROW_BG_COLOR}>
+	<td colspan=2><b>$language{options}:</b> $internal{'post_options'}</td></tr>
+	<tr bgcolor=#$forumTWEAKS{postsBODY_BG_COLOR}>
+	<td colspan=2 width=$tweak{'post_display'}{'table_width'}>
+	$post{'body'}<br>&nbsp;
+	</td></tr>
+	<tr bgcolor=#$forumTWEAKS{postsOPTION_BAR_BG_COLOR}>
+	<td colspan=2><b>$language{options}:</b> 
+EOP
+	if ($post{username}) {
+		print <<EOP;
+		<a href="$forum{path}/$internal{script}/$input{forum}/posts_by_user?user=$post{username}">
+		Other Posts by $post{username}</a>
+		 - <a href="$forum{path}/$internal{script}/$input{forum}/user_profile?user=$post{username}">
+		User Profile for $post{username}</a>
+EOP
+	} else {
+		print "<i>$language{none_for_this_post}.</i>";
+	}
+
+	print <<EOP;
+	</td>
+	</tr></table>
+	<p><b>$language{replies_to_post}:</b><br>
+EOP
+
+	&print_threads($input{'id'});
+
+	&print_button_bar("post",%post);
+
+	print "$forum{'footer'}";
+}
+
+#----------
+
+sub user_profile {
+	my $user = $input{user};
+
+	my %user = &auth_get_userinfo($user);
+
+	my $dbu = &db_dbu_connect;
+
+	my $get_user_description = $dbu->prepare("
+		select description from $forum{user_tbl} 
+		where username='$user{username}'
+	");
+
+	&bail($dbu->errstr) unless ($get_user_description->execute);
+	$user{description} = $get_user_description->fetchrow_array;
+	$get_user_description->finish;
+	$dbu->disconnect;
+
+	my ($mon,$mday,$year,$hour,$min,$sec,$month) = &convert_timestamp_to_time($user{timestamp});
+
+	my $member_since = "$month $mday, $year";
+	$user{signature} =~ s/\n/<br>\n/g;
+	$user{description} =~ s/\n/<br>\n/g;
+
+	print "$forum{header}";
+
+	my $width = ($forumTWEAKS{htmlCOL2_LEFT} + $forumTWEAKS{htmlCOL2_RIGHT});
+
+	print <<EOP;
+	<table border=0 width=$width>
+	
+	<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+		<td colspan=2>
+			<font color=#$forumTWEAKS{htmlTITLE_FONT_COLOR}>
+			<b>$language{s_user_profile}$user:</b>
+			</font>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td width=$forumTWEAKS{htmlCOL2_LEFT}>
+			$language{name}:
+		</td>
+		<td width=$forumTWEAKS{htmlCOL2_RIGHT}>
+			$user{firstname} $user{lastname}
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			$language{email_address}:
+		</td>
+		<td>
+			<a href="mailto:$user{email}">$user{email}</a>
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td>
+			$language{member_since}:
+		</td>
+		<td>
+			$member_since
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW1_COLOR}>
+		<td>
+			$language{signature}:
+		</td>
+		<td>
+			$user{signature}&nbsp;
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlROW2_COLOR}>
+		<td colspan=2>
+			$user{description}&nbsp;
+		</td>
+	</tr>
+	<tr bgcolor=#$forumTWEAKS{htmlTITLE_BAR_COLOR}>
+		<td colspan=2>
+			&nbsp;
+		</td>
+	</tr>
+
+	</table>
+EOP
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub posts_by_user {
+	my $user = $input{user};
+
+	print "$forum{header}";
+
+	my %user = &auth_get_userinfo($user);
+
+	print <<EOP;
+	<font size=4><b>Posts by $user:</b></font>
+	<p>
+	<b>$language{order_by}</b> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?user=$user&order_by=newest">
+	$language{sort_newest}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?user=$user&order_by=oldest"> 
+	$language{sort_oldest}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?user=$user&order_by=title">
+	$language{sort_title}</a>
+
+	<table border=0>
+	<tr>
+		<td width=$forumTWEAKS{threadsLEFT_COL_WIDTH}>
+			<b>$language{thread}:</b>
+EOP
+	print <<EOP;
+		</td>
+		<td width=$forumTWEAKS{threadsMIDDLE_COL_WIDTH}>
+			<b>$language{posted_by}:</b>
+		</td>
+		<td width=$forumTWEAKS{threadsRIGHT_COL_WIDTH}>
+			<b>$language{date}:</b>
+		</td>
+	</tr>
+EOP
+
+	&get_posts("3","$user");
+
+	my $sort_field;
+	# The order by changes depending on user preference
+	if (!$input{order_by} || $input{order_by} eq"newest") { 
+		$sort_field = "timestamp";
+	} elsif ($input{order_by} eq"oldest") {
+		$sort_field = "timestamp";
+	} elsif ($input{order_by} eq"title") {
+		$sort_field = "title";
+	} elsif ($input{order_by} eq"name") {
+		$sort_field = "poster";
+	} 
+
+	my @sorted_ids = 
+		map { $_->[0] }
+		sort { $a->[1] cmp $b->[1] }
+		map { [ $_, $mailbox{0}{$_}{$sort_field} ] }
+		(keys %{ $mailbox{0} });
+
+	my $id;
+	while ($id = pop(@sorted_ids)) {
+		&print_thread_row("&user=$user",0,0,$id);
+	}
+
+	print "</table>";
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub search_form {
+# This subroutine prints out a form for searching.  A variation of this form 
+# should also be on the front page.
+
+	my $detail_level = shift;
+	my $query = shift;
+
+	print "$forum{'header'}" unless ($detail_level eq"simple");
+
+	if ($database{supports_searching} && $settings{allow_searching}) {
+
+		print <<EOP;
+		<font size=2>
+		<form action="$forum{'path'}/$internal{'script'}/$input{forum}/search" method=get>
+		<a href="$forum{'path'}/$internal{'script'}/$input{forum}/search_form">
+		$language{search_ethreadsII}:</a> 
+		<font color=#000000>
+			<select name="look_for">
+				<option value="phrase" selected>$language{find_the_phrase}
+				<option value="words">$language{find_the_words}
+			</select>
+		</font>
+		<input type=text name="query" size=30 value="$query">
+		<font color=#000000>
+			<select name="limit_to">
+EOP
+		print qq(<option value="all">$language{all_fields});
+	
+		print qq(<option value="body">$language{message_body}) 
+		if ($database{supports_body_searching});
+	
+		print qq(<option value="title">$language{message_title})
+		if ($database{supports_title_searching});
+	
+		print qq(<option value="poster">$language{poster_name})
+		if ($database{supports_name_searching});
+	
+		print <<EOP;
+			</select>
+		<input type=submit value="$language{search}">
+		</font>
+		</form>
+		</font>
+EOP
+
+		print <<EOP if ($detail_level eq"advanced");
+		<font size=3>
+		<table width=500><tr><td>
+			$language{phrases}{34}
+		</td></tr></table>
+		</font>
+EOP
+	}
+
+	print "$forum{'footer'}" unless ($detail_level eq"simple");
+}
+
+#----------
+
+sub search {
+# This subroutine searches and returns results
+
+	my $query = $input{query};
+	my $results;
+
+	print "$forum{header}";
+
+	&search_form("simple",$query);
+
+	print <<EOP;
+	<b>$language{search_for}:</b> $query
+	<p>
+EOP
+
+	my (%result_ids,%result_scores);
+
+	# The first part of the query will always be the same...
+	my $search_query = "
+		select id,body from $forum{'main_tbl'} where 
+	";
+
+	my (@ids,@query);	
+	if ($input{look_for} eq"words") {
+		@QUERY = split(" ",$query);
+	} else {
+		push @QUERY, $query;
+	}
+
+	while ($current_query = pop(@QUERY)) {
+		my $search_query = $search_query;
+		if ($input{limit_to} eq"all") {
+			$search_query .= "title like '\%$current_query\%' or body like '\%$current_query\%'
+					  or poster like '\%$current_query\%'";
+		} elsif ($input{limit_to} eq"body") {
+			$search_query .= "body like '\%$current_query\%'";
+		} elsif ($input{limit_to} eq"poster") {
+			$search_query .= "poster like '\%$current_query\%'";
+		}
+		my $search = $dbh->prepare($search_query);
+	
+		&bail($dbh->errstr) unless ($search->execute);
+		while (my ($id,$body) = $search->fetchrow_array) {
+			$result_ids{$id} = 1;
+			# hack to get the body into that little mailbox hole
+			$mailbox{0}{$id}{body} = $body;
+		}
+	}
+
+	foreach my $id (keys %result_ids) {
+		push @ids, $id;
+	}
+
+	&get_posts('4',@ids);
+
+	my %scores;
+	my $id;
+	while ($id = pop(@ids)) {
+		sub score {
+			$scores{$id} = ($scores{$id}+$_[0]);
+		}
+
+
+		if ($input{look_for} eq"words") {
+			@QUERY = split(" ",$query);
+			while ($query_term = pop(@QUERY)) {
+#				warn "id: $id - query_term: $query_term\n" if (
+#				$result_ids{$id}{matches} .= "$query_term " if (
+#					$mailbox{0}{$id}{title} =~ /$query_term/i
+#					$mailbox{0}{$id}{body} =~ /$query_term/i 
+#					$mailbox{0}{$id}{poster} =~ /$query_term/i
+#				);
+				score(2) if ($mailbox{0}{$id}{title} =~ /$query_term/i);
+				score(1) if ($mailbox{0}{$id}{body} =~ /$query_term/i);
+				score(1) if ($mailbox{0}{$id}{poster} =~ /$query_term/i);
+				score(1) if ((substr(0,(length($mailbox{0}{$id}{body})/4)),$mailbox{0}{$id}{body}) =~ /$query_term/i);
+			}
+		} else {
+#			$result_ids{$id}{matches} = "$query";
+			score(2) if ($mailbox{0}{$id}{title} =~ /$query/i);
+			score(1) if ($mailbox{0}{$id}{body} =~ /$query/i);
+			score(1) if ($mailbox{0}{$id}{poster} =~ /$query/i);
+			score(1) if ((substr(0,(length($mailbox{0}{$id}{body})/4)),$mailbox{0}{$id}{body}) =~ /$query/i);
+			#$count++ while ($mailbox{0}{$id}{body} =~ m/\G$query/);
+		}
+		$result_scores{$scores{$id}}{$id} = 1;
+	}
+
+	# Set up the table for showing threads in...
+	my $left_width;
+	if ($internal{script} eq"$tweak{moderator_script}") {
+		$left_width = ($forumTWEAKS{threadsLEFT_COL_WIDTH}-80);
+	} else {
+		$left_width = $forumTWEAKS{threadsLEFT_COL_WIDTH};
+	}
+
+	my $width = ($forumTWEAKS{threadsLEFT_COL_WIDTH} + $forumTWEAKS{threadsMIDDLE_COL_WIDTH} + $forumTWEAKS{threadsRIGHT_COL_WIDTH});
+
+	print <<EOP;
+	<b>$language{order_by}</b> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=newest&id=$input{id}">
+	$language{sort_newest}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=oldest&id=$input{id}"> 
+	$language{sort_oldest}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=title&id=$input{id}">
+	$language{sort_title}</a> - 
+	<a href="$forum{path}/$internal{script}/$input{forum}/$input{function}?order_by=name&id=$input{id}">
+	$language{sort_name}</a>
+
+	<table border=0 width=$width>
+	<tr>
+		<td width=$left_width>
+			<b>$language{thread}:</b>
+EOP
+	print <<EOP if ($internal{script} eq"$tweak{moderator_script}");
+		</td>
+		<td width=80>
+			<b>$language{status}:</b>
+EOP
+	print <<EOP;
+		</td>
+		<td width=$forumTWEAKS{threadsMIDDLE_COL_WIDTH}>
+			<b>$language{posted_by}:</b>
+		</td>
+		<td width=$forumTWEAKS{threadsRIGHT_COL_WIDTH}>
+			<b>$language{date}:</b>
+		</td>
+	</tr>
+EOP
+
+	sub up { $b <=> $a }
+	foreach my $score (sort up keys %result_scores) {
+		# now alphabetize
+		my @sorted_ids = 
+			map { $_->[0] }
+			sort { $a->[1] cmp $b->[1] }
+			map { [ $_, $result_ids{$_}{timestamp} ] }
+			(keys %{ $result_scores{$score} });
+
+		my $id;
+
+		while ($id = pop(@sorted_ids)) {
+			&print_thread_row('',0,0,$id);
+			my $even_or_odd = $internal{'thread_count'}%2;
+			my $color;
+			if ($even_or_odd) {
+				$color = $forumTWEAKS{threadsEVEN_ROW_COLOR};
+				$font_color = $forumTWEAKS{threadsEVEN_FONT_COLOR};
+			} else {
+				$color = $forumTWEAKS{threadsODD_ROW_COLOR};
+				$font_color = $forumTWEAKS{threadsODD_FONT_COLOR};
+			}
+			print <<EOP;
+			<tr bgcolor=#$color>
+				<td>
+					<i>$language{matched}: $result_ids{$id}{matches}</i>
+				</td>
+				<td>
+					<i>$language{score}: $score</i>
+				</td>
+				<td>
+					&nbsp;
+				</td>
+			</tr>
+EOP
+			$internal{thread_count}++;
+		}
+	}
+
+	print "</table>";
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub write_post {
+# This subroutine outputs a form where users can write posts
+
+	print "$forum{'header'}";
+
+	my $post_script;
+
+	if ($internal{'script'} eq"$tweak{'auth_view_script'}") {
+		$post_script = $tweak{'auth_post_script'};
+	} else {
+		$post_script = $tweak{'post_script'};
+	}
+
+	my $title;
+
+	if ($input{reply_to}) {
+		my $get_parent_title = $dbh->prepare("
+			select title from $forum{main_tbl} where id=$input{reply_to}
+		");
+		&bail($dbh->errstr) unless ($get_parent_title->execute);
+		my $parent_title = $get_parent_title->fetchrow_array;
+		$title = "Re: $parent_title";
+	}
+
+	print <<EOP;
+	<form action="$forum{'path'}/$post_script/$input{forum}" method=post>
+	<input type=hidden name="reply_to" value="$input{'reply_to'}">
+	<input type=hidden name="forum" value="$input{'forum'}">
+	
+	<table border=0 width=$forumTWEAKS{postsTABLE_WIDTH}>
+	<tr bgcolor=#$forumTWEAKS{postsTOP_ROW_BG_COLOR}>
+	<td><b>$language{post_a_message}:</b></td></tr>
+	<tr bgcolor=#$forumTWEAKS{postsSECOND_ROW_BG_COLOR}>
+	<td>$language{title}: 
+	<input type=text name="title" size=$forumTWEAKS{posts_formTITLE_SIZE} value="$title">
+	</td></tr>
+EOP
+	if ($internal{'script'} eq"$tweak{'auth_view_script'}") {
+		print <<EOP;
+		<tr bgcolor=#$forumTWEAKS{postsTHIRD_ROW_BG_COLOR}>
+		<td><b>$language{name}:</b> $user{firstname} $user{lastname} - - 
+		<b>$language{email_address}:</b> $user{email}</td>
+		</tr>
+EOP
+	} else {
+		print <<EOP;
+		<tr bgcolor=#$forumTWEAKS{postsTHIRD_ROW_BG_COLOR}>
+		<td>Name: <input type=text name="poster" size=$forumTWEAKS{posts_formNAME_SIZE}>
+		Email: <input type=text name="poster_email" size=$forumTWEAKS{posts_formEMAIL_SIZE}>
+		</td></tr>
+EOP
+	}
+	print <<EOP;
+	<tr bgcolor=#$forumTWEAKS{postsBODY_BG_COLOR}>
+	<td><textarea wrap="virtual" name="body" cols=$forumTWEAKS{posts_formBODY_COLS} 
+	rows=$forumTWEAKS{posts_formBODY_ROWS}></textarea>
+	</td></tr>
+	<tr bgcolor=#$forumTWEAKS{postsOPTION_BAR_BG_COLOR}>
+	<td><input type=submit value="$language{post_message}">
+	</td></tr></table>
+EOP
+
+	&print_button_bar();
+
+	print "$forum{'footer'}";
+}
+
+#----------
+
+sub post_message {
+# This subroutines takes the input message, and puts it in the database
+
+	# Get input and clean it up.
+	my $body = $input{'body'};
+	my $email = $input{'poster_email'};
+	my $name = $input{'poster'};
+	my $title = $input{'title'};
+	my $reply_to = $input{'reply_to'};
+
+	if ($internal{'script'} eq"$tweak{'auth_post_script'}") {
+		$name = "$user{firstname} $user{lastname}";
+		$email = $user{email};
+		$body .= "\n$user{signature}";
+	}
+
+	$body =~ s/\'/\\'/g;
+	$body =~ s/\n/<br>\n/g;
+	$email =~ s/\'/\\'/g;
+	$name =~ s/\'/\\'/g;
+	$title =~ s/\'/\\'/g;
+
+	my $next_id = &db_get_next_id;
+
+	my $timestamp = time;
+
+	$reply_to = 0 unless ($reply_to);
+
+	my ($message_status,$status,$word,$level);
+
+	# Compare against our profanity filter...
+	my $get_filtered_words = $dbm->prepare("
+		select word,level from $settings{filter_table} where forum='$input{forum}'
+	");
+
+	&bail($dbm->errstr) unless ($get_filtered_words->execute);
+
+	while (($word,$level) = $get_filtered_words->fetchrow_array) {
+		if ($body =~ /$word/) {
+			$message_status = $level if ($level > $message_status);
+			$body =~ s/$word/****/g if ($level == 2);
+		}
+		if ($title =~ /$word/) {
+			$message_status = $level if ($level > $message_status);
+			$title =~ s/$word/****/g if ($level == 3);
+		}
+	}
+
+	if ($forum{is_moderated} || $message_status == 3) {
+		$status = 0;
+	} else {
+		$status = 1;
+	}
+
+	if ($reply_to) {
+		&bail($dbh->errstr) unless ($dbh->do("
+			update $forum{main_tbl} set children=(children+1) where id=$reply_to
+		"));
+	}
+
+	my $message = $dbh->prepare("
+		insert into $forum{'main_tbl'}
+		(id,title,body,poster,poster_email,child_of,timestamp,status,username) 
+		values
+		($next_id,'$title','$body','$name','$email',$reply_to,$timestamp,$status,'$user{username}')
+	");
+
+	&bail($dbh->errstr) unless ($message->execute);
+
+	my $view_script;
+
+	if ($internal{'script'} eq"$tweak{'auth_post_script'}") {
+		$view_script = $tweak{'auth_view_script'};
+	} else {
+		$view_script = $tweak{'view_script'};
+	}
+
+	$next_id = &db_get_message_id($message) unless ($next_id);
+
+	if ($message_status) {
+		my @MONTHS = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec');
+		my @DAYS = ('Sun','Mon','Tue','Wed','Thu','Fri','Sat');
+		my ($msec,$mmin,$mhr,$mmday,$mmon,$myear,$mwday,$mrest) = localtime;
+		$myear = ($myear + 1900);
+		my $mzero = $mmin < 10 ? "0" : "";
+		my $day = $DAYS[$mwday];
+
+		open (EMAIL, "| $settings{mail_program} $forum{admin_email}");
+
+		print EMAIL "Date: $DAYS[$mwday], $mmday $MONTHS[$mmon] $myear $mhr:$mzero$mmin\n";
+		print EMAIL "From: eThreads at $settings{site_name} <$settings{admin_email}>\n";
+		print EMAIL "To: Forum Administrator <$forum{admin_email}>\n";
+		print EMAIL "Subject: Inappropriate Language Detected\n\n";
+
+		print EMAIL <<EOP;
+The eThreads system has detected inappropriate language in the post 
+with id number $next_id.  This message contained a word (or words) 
+in violation of your banned word list.
+
+EOP
+		print EMAIL <<EOP if ($message_status == 1);
+The most serious (possibly the only) violation was merely classified 
+as a warning.  As such, the post has been allowed and the contents 
+remain intact.  You should still take a look.
+
+You may view/edit/delete the post at...
+http://$settings{site_name}/$forum{path}/$tweak{admin_script}/$input{forum}/view_post?id=$next_id
+
+EOP
+		print EMAIL <<EOP if ($message_status == 2);
+The top violation was a level 2 offense.  As you know, level 2's are 
+replaced with ****.  The post was granted viewable status with this 
+modification.
+
+You may view/edit/delete the post at...
+http://$settings{site_name}/$forum{path}/$tweak{admin_script}/$input{forum}/view_post?id=$next_id
+
+EOP
+		print EMAIL <<EOP if ($message_status == 3);
+This post contained a level 3 violation.  It was dropped to the approve 
+queue, where you must approve it manually.  The URL to approve this post 
+is...
+
+http://$settings{site_name}/$forum{path}/$tweak{moderator_script}/$input{forum}/view_post?id=$next_id
+
+EOP
+		print EMAIL <<EOP;
+------------------------------------------------------------------
+eThreadsII - a new revolution in forum software
+http://www.ethreads.com
+------------------------------------------------------------------
+EOP
+		close EMAIL;
+	}
+
+	print "Content-type: text/html\n\n";
+	print "$forum{'header'}";
+
+	if ($message_status == 3) {
+		$language{phrases}{35} =~ s/#TITLE/$title/g;
+		$language{phrases}{35} =~ s/#EMAIL/$forum{admin_email}/g;
+
+		print <<EOP;
+		$language{phrases}{35}
+		<p>
+		<a href="$forum{path}/$internal{script}/$input{forum}/">$language{return_to_forum}</a>
+EOP
+	} else {
+		$language{phrases}{36} =~ s/#TITLE/$title/g;
+		$language{phrases}{36} =~ s!#URL!$forum{'path'}/$view_script/$input{forum}/view_post?id=$next_id!g;
+		print <<EOP;
+		$language{phrases}{36}
+EOP
+		print <<EOP if ($message_status == 2);
+		<p>$language{phrases}{37}
+EOP
+		print <<EOP if ($forum{is_moderated});
+		<p>$language{phrases}{38}
+EOP
+	}
+	print "$forum{'footer'}";
+}
+
+#----------
+
+sub convert_timestamp_to_time {
+# This subroutine takes a UNIX timestamp and turns it into a human readable date
+	my $timestamp = shift;
+
+	my @MONTHS = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec');
+
+	# What day is it, anyway?
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($timestamp);
+	$year += 1900;
+	my $month = $MONTHS[$mon];
+	$mon++;
+	$mon = $mon < 10 ? "0$mon" : $mon;
+	$mday = $mday < 10 ? "0$mday" : $mday;
+	$min = $min < 10 ? "0$min" : $min;
+	$sec = $sec < 10 ? "0$sec" : $sec;
+
+	return ($mon,$mday,$year,$hour,$min,$sec,$month);
+}
+
+#----------
+
+sub get_forum_info {
+	my $forum;
+	if ($input{forum}) {
+		$forum = $input{forum};
+	} else {
+		$forum = shift;
+	} 
+
+	$forum = ".LISTINGS_PREFS" unless ($forum);
+
+	# Check if cached file exists
+	if (-e"cached/$forum.forum.cache") {
+		require "cached/$forum.forum.cache";
+		
+		# Get the forum timestamp
+		my $get_forum_timestamp = $dbm->prepare("
+			select updated from $settings{preset_table} where forum='$forum'
+		");
+
+		&bail($dbm->errstr) unless ($get_forum_timestamp->execute);
+		my $forum_timestamp = $get_forum_timestamp->fetchrow_array;
+
+		&write_new_cache if ($forum_timestamp > $forum{updated});
+
+		# Get the image set timestamp
+		my $get_imageset_timestamp = $dbm->prepare("
+			select updated from $settings{imageset_table} where name='$images{name}'
+		");
+
+		&bail($dbm->errstr) unless ($get_imageset_timestamp->execute);
+		my $imageset_timestamp = $get_imageset_timestamp->fetchrow_array;
+
+		&write_new_cache if ($imageset_timestamp > $images{updated});
+
+		# Get the tweakage timestamp
+		my $get_tweakage_timestamp = $dbm->prepare("
+			select updated from $settings{tweak_table} where forum='$input{forum}'
+		");
+
+		&bail($dbm->errstr) unless ($get_tweakage_timestamp->execute);
+		my $tweakage_timestamp = $get_tweakage_timestamp->fetchrow_array;
+
+		&write_new_cache if ($tweakage_timestamp > $forumTWEAKS{updated});
+
+		
+		
+	} else {
+		&write_new_cache;
+	}
+	unless ($forum eq".LISTINGS_PREFS" || !$forum) {
+		&bail("Could not connect dbh: $forum : $!") unless ($dbh = &db_dbh_connect);
+	}
+}
+
+#----------
+
+sub write_new_cache {
+	undef %forum;
+	undef %images;
+	undef %forumTWEAKS;
+
+	my $get_forum_info = $dbm->prepare("
+		select main_db,main_tbl,user_db,user_tbl,path,images,
+		header,footer,user,passwd,is_moderated,updated,admin_email 
+		from $settings{'preset_table'} where forum='$input{forum}'
+	");
+
+	&bail($dbm->errstr) unless ($get_forum_info->execute);
+
+	(
+		$forum{'main_db'},$forum{'main_tbl'},$forum{'user_db'},$forum{'user_tbl'},
+		$forum{'path'},$forum{'images'},$forum{'header'},$forum{'footer'},$forum{'user'},
+		$forum{'passwd'},$forum{is_moderated},$forum{updated},$forum{admin_email}
+	) = $get_forum_info->fetchrow_array;
+
+	# Now we get their image set information
+
+	my $get_image_set = $dbm->prepare("
+		select * from $settings{'imageset_table'} where name='$forum{'images'}'
+	");
+
+	&bail("Could not get image set info. $forum{'images'}") unless ($get_image_set->execute);
+	
+	($images{name},
+	$images{descript},
+	$images{'author'},
+	$images{'website'},
+	$images{'dir'},
+	$images{'right'},
+	$images{'right_h'},
+	$images{'right_w'},
+	$images{'down'},
+	$images{'down_h'},
+	$images{'down_w'},
+	$images{'bar'},
+	$images{'bar_h'},
+	$images{'bar_w'},
+	$images{'login'},
+	$images{'login_h'},
+	$images{'login_w'},
+	$images{'sign'},
+	$images{'sign_h'},
+	$images{'sign_w'},
+	$images{'post'},
+	$images{'post_h'},
+	$images{'post_w'},
+	$images{'options'},
+	$images{'option_h'},
+	$images{'option_w'},
+	$images{'up'},
+	$images{'up_h'},
+	$images{'up_w'},
+	$images{'reply'},
+	$images{'reply_h'},
+	$images{'reply_w'},
+	$images{'updated'}) = $get_image_set->fetchrow_array;
+
+	# Now we get all the tweak options
+	my $get_forum_tweaks = $dbm->prepare("
+		select * from $settings{tweak_table} where forum='$input{forum}'
+	");
+
+	&bail($dbm->errstr) unless ($get_forum_tweaks->execute);
+
+	(
+		$forumTWEAKS{forum},
+		$forumTWEAKS{threadsLEFT_COL_WIDTH},
+		$forumTWEAKS{threadsMIDDLE_COL_WIDTH},
+		$forumTWEAKS{threadsRIGHT_COL_WIDTH},
+		$forumTWEAKS{threadsEVEN_ROW_COLOR},
+		$forumTWEAKS{threadsODD_ROW_COLOR},
+		$forumTWEAKS{threadsNUM_ROWS_PER_TABLE},
+		$forumTWEAKS{postsTABLE_WIDTH},
+		$forumTWEAKS{postsPOSTER_WIDTH},
+		$forumTWEAKS{postsTIMESTAMP_WIDTH},
+		$forumTWEAKS{posts_formTITLE_SIZE},
+		$forumTWEAKS{posts_formNAME_SIZE},
+		$forumTWEAKS{posts_formEMAIL_SIZE},
+		$forumTWEAKS{posts_formBODY_COLS},
+		$forumTWEAKS{posts_formBODY_ROWS},
+		$forumTWEAKS{postsTOP_ROW_BG_COLOR},
+		$forumTWEAKS{postsSECOND_ROW_BG_COLOR},
+		$forumTWEAKS{postsTHIRD_ROW_BG_COLOR},
+		$forumTWEAKS{postsBODY_BG_COLOR},
+		$forumTWEAKS{postsOPTION_BAR_BG_COLOR},
+		$forumTWEAKS{htmlTITLE_BAR_COLOR},
+		$forumTWEAKS{htmlTITLE_FONT_COLOR},
+		$forumTWEAKS{htmlROW1_COLOR},
+		$forumTWEAKS{htmlROW1_FONT_COLOR},
+		$forumTWEAKS{htmlROW2_FONT_COLOR},
+		$forumTWEAKS{htmlROW2_COLOR},
+		$forumTWEAKS{htmlCOL2_LEFT},
+		$forumTWEAKS{htmlCOL2_RIGHT},
+		$forumTWEAKS{htmlCOL3_LEFT},
+		$forumTWEAKS{htmlCOL3_MIDDLE},
+		$forumTWEAKS{htmlCOL3_RIGHT},
+		$forumTWEAKS{updated},
+		$forumTWEAKS{threadsEVEN_FONT_COLOR},
+		$forumTWEAKS{threadsODD_FONT_COLOR},
+		$forumTWEAKS{threadsMAX_THREADS_PER_PAGE}
+	) = $get_forum_tweaks->fetchrow_array;
+
+	# Now we write the cache file
+	open (CACHE, ">cached/$input{forum}.forum.cache") or &bail("Could not create cache file: $!");
+
+	print CACHE <<EOP;
+#!/usr/bin/perl
+#---------------------#
+# eThreads Forum Cache #
+#----------------------#
+# This is a cache of the preferences for the eThreads 
+# forum $input{forum}.
+
+#----------------#
+# Forum Settings #
+#----------------#
+
+EOP
+
+	my $key;
+	foreach $key (keys %forum) {
+		my $value = $forum{$key};
+		$value =~ s/\"/\\"/g;
+		$value =~ s/\@/\\@/g;
+		print CACHE "\$forum{$key} = \"$value\";\n";
+	}
+
+	print CACHE <<EOP;
+
+#--------------------#
+# Image Set Settings #
+#--------------------#
+
+EOP
+
+	foreach $key (keys %images) {
+		print CACHE "\$images{$key} = \"$images{$key}\";\n";
+	}
+
+	print CACHE <<EOP;
+
+#----------------#
+# Forum Tweakage #
+#----------------#
+
+EOP
+	foreach $key (keys %forumTWEAKS) {
+		print CACHE "\$forumTWEAKS{$key} = \"$forumTWEAKS{$key}\";\n";
+	}
+	print CACHE <<EOP;
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;
+
+EOP
+
+	close CACHE;
+}
+
+#----------
+
+sub select_forum {
+# This subroutine takes $input{'forum'} and connects $dbh to the right forum
+
+	my $forum;
+
+	if ($input{forum}) {
+		$forum = $input{'forum'};
+	} else {
+		$forum = shift;
+	}
+
+	my $get_forum_info = $dbm->prepare("
+		select main_db,main_tbl,user_db,user_tbl,path,images,
+		header,footer,user,passwd,is_moderated 
+		from $settings{'preset_table'} where forum='$forum'
+	");
+
+	&bail($dbm->errstr) unless ($get_forum_info->execute);
+
+	(
+		$forum{'main_db'},$forum{'main_tbl'},$forum{'user_db'},$forum{'user_tbl'},
+		$forum{'path'},$forum{'images'},$forum{'header'},$forum{'footer'},$forum{'user'},
+		$forum{'passwd'},$forum{is_moderated}
+	) = $get_forum_info->fetchrow_array;
+
+	$dbh = &db_dbh_connect;
+	&bail("Could not connect dbh: $input{'forum'}: $!") unless ($dbh);
+
+	# Now we get their image set information
+
+	my $get_image_set = $dbm->prepare("
+		select * from $settings{'imageset_table'} where name='$forum{'images'}'
+	");
+
+	&bail("Could not get image set info. $forum{'images'}") unless ($get_image_set->execute);
+	
+	# We don't need the first four entries
+	my $trash;
+	($trash,$trash,
+	$images{'author'},
+	$images{'website'},
+	$images{'dir'},
+	$images{'right'},
+	$images{'right_h'},
+	$images{'right_w'},
+	$images{'down'},
+	$images{'down_h'},
+	$images{'down_w'},
+	$images{'bar'},
+	$images{'bar_h'},
+	$images{'bar_w'},
+	$images{'login'},
+	$images{'login_h'},
+	$images{'login_w'},
+	$images{'sign'},
+	$images{'sign_h'},
+	$images{'sign_w'},
+	$images{'post'},
+	$images{'post_h'},
+	$images{'post_w'},
+	$images{'options'},
+	$images{'option_h'},
+	$images{'option_w'},
+	$images{'up'},
+	$images{'up_h'},
+	$images{'up_w'},
+	$images{'reply'},
+	$images{'reply_h'},
+	$images{'reply_w'}) = $get_image_set->fetchrow_array;
+}
+
+#----------
+
+sub print_button_bar {
+# This subroutine prints the button bar of options
+
+	my $called_from = shift;
+	my %post = @_;
+
+	print "<p>";
+
+	print <<EOP unless ($internal{'script'} eq"$tweak{'auth_view_script'}");
+	<a href="$forum{'path'}/$tweak{'auth_view_script'}/$input{forum}/">
+	<img src="$images{'dir'}/$images{'login'}" height=$images{'login_h'} 
+	width=$images{'login_w'} alt="$language{login}" border=0></a>
+	<a href="$forum{'path'}/$tweak{'view_script'}/$input{forum}/signup">
+	<img src="$images{'dir'}/$images{'sign'}" height=$images{'sign_h'} 
+	width=$images{'sign_w'} alt="$language{sign_up}" border=0></a>
+EOP
+	print <<EOP if ($internal{'script'} eq"$tweak{'auth_view_script'}");
+	<a href="$forum{'path'}/$tweak{'auth_view_script'}/$input{forum}/options">
+	<img src="$images{'dir'}/$images{'options'}" height=$images{'option_h'} 
+	width=$images{'option_w'} alt="$language{options}" border=0></a>
+EOP
+
+	print <<EOP if ($called_from eq"top");
+	<a href="$forum{'path'}/$internal{'script'}/$input{forum}/post?reply_to=0">
+	<img src="$images{'dir'}/$images{'post'}" height=$images{'post_h'}
+	width=$images{'post_w'} alt="$language{post}" border=0></a>
+EOP
+
+	if ($called_from eq"post"){
+		print <<EOP unless ($post{status} == 2);
+		<a href="$forum{'path'}/$internal{'script'}/$input{forum}/post?reply_to=$input{'id'}">
+		<img src="$images{'dir'}/$images{'reply'}" height=$images{'reply_h'} 
+		width=$images{'reply_w'} alt="$language{reply}" border=0></a>
+EOP
+		unless ($post{'child_of'} == 0) {
+			print qq(<a href="$forum{'path'}/$internal{'script'}/$input{forum}/view_post?
+			id=$post{'child_of'}">);
+		} else {
+			print qq(<a href="$forum{'path'}/$internal{'script'}/$input{forum}/">);
+		}
+		print <<EOP;
+		<img src="$images{'dir'}/$images{'up'}" height=$images{'up_h'} 
+		width=$images{'up_w'} alt="$language{up_a_level}" border=0></a>
+EOP
+	}
+
+}
+
+#----------
+
+sub connect_to_database {
+# This subroutine connects $dbm to the main eThreads database.
+
+	$dbm = &db_dbm_connect;
+	&bail("Could not connect dbm") unless ($dbm); 
+
+	return $dbm;
+}
+
+#----------
+
+sub bail {
+# This subroutine logs errors and kills the script.
+
+	my $error_message = shift;
+	my $special_death = shift;
+
+	print "Content-type: text/html\n\n";
+
+	print <<EOP unless ($special_death eq"email");
+	<p><hr><p>
+	<b>Fatal Error:</b><br>
+	eThreads has encountered a fatal error.  Please try again later.
+	<p><hr><p>
+EOP
+
+	# Are debugging messages socially acceptable?
+	if ($tweak{print_error_messages_to_screen}) {
+		print <<EOP unless ($special_death eq"email");
+		<b>Error Message:</b> 
+		<br>$error_message
+		<p><hr><p>
+EOP
+	}
+
+	# If the deceased willed it, notify next of kin...
+	if ($tweak{send_email_on_death}) {
+		# TODO, we're not in Kansas anymore...
+	}
+
+	# Should we leave lots of info in the error logs?
+	if ($tweak{leave_messages_in_error_logs}) {
+		die "eThreads : Fatal : $error_message\n";
+	}
+
+	# Or should we pass on without notice... forgotten by civilization...
+	if ($tweak{die_quietly}) {
+		exit;
+	}
+}
+
+#----------
+
+sub user_guide {
+
+	print "$forum{header}";
+
+	require "users_manual.$settings{language}";
+	&manual_print_manual;
+
+	print "$forum{footer}";
+}
+
+#----------
+
+sub get_vars_from_input {
+# This subroutine takes the input and makes it useable
+
+	my $info;
+	if ($ENV{'REQUEST_METHOD'} eq "POST") {
+		read(STDIN,$info,$ENV{"CONTENT_LENGTH"});
+	} else {
+		$info=$ENV{QUERY_STRING};
+	}
+
+	foreach (split(/&/,$info)) {
+		my ($var,$val) = split(/=/,$_,2);
+		$var =~ s/\+/ /g;
+		$val =~ s/\+/ /g;
+		$val =~ s/%([0-9,A-F]{2})/sprintf("%c",hex($1))/ge;
+		$input{$var} .= ", " if (defined($input{$var}));
+		$input{$var} .= $val;
+	}
+
+	my $junk;
+	($junk,$input{forum},$input{function}) = split("/",$ENV{PATH_INFO});
+}
+
+#------------#
+# Change Log #
+#------------#
+
+# $Log: shared-code,v $
+# Revision 1.34  1998/11/14 20:53:08  eric
+# * we're now language module friendly
+#
+# Revision 1.33  1998/11/07 17:09:47  eric
+# * search: added score seperators
+#
+# Revision 1.32  1998/11/07 17:08:55  eric
+# * seperated phrase and word searching
+#
+# Revision 1.31  1998/11/07 00:55:40  eric
+# * added the other limit_to stuff to searching
+#
+# Revision 1.30  1998/11/07 00:46:34  eric
+# * searching now works.
+# * fixed some none root level drop stuff
+#
+# Revision 1.29  1998/11/06 23:51:46  eric
+# * fixed posts_by_user
+#
+# Revision 1.28  1998/11/03 22:36:11  eric
+# * moved all post get for threads stuff into &get_posts
+#
+# Revision 1.27  1998/11/03 21:06:39  eric
+# * added wordlists
+#
+# Revision 1.26  1998/11/01 19:35:06  eric
+# * fixed drop=all
+# * cut out the check for children, saving huge ammounts of cpu
+#
+# Revision 1.25  1998/11/01 02:27:04  eric
+# * got strict about column widths in threads
+# * add <a name=""> stuff to find your spot in a big forum
+#
+# Revision 1.24  1998/11/01 00:14:42  eric
+# * fixed a little bug that caused un-authenticated users to get the Edit
+#   Post link
+#
+# Revision 1.23  1998/11/01 00:12:51  eric
+# * added a bare-bones forum listing with threaded forums
+# * added a couple lines for post modification
+#
+# Revision 1.22  1998/10/24 21:42:26  eric
+# * added font colors to thread display
+#
+# Revision 1.21  1998/10/24 17:27:00  eric
+# * moved some more hard-coded English to the language module
+# * added reverse-drop code (for pulling in dropped threads)
+# * removed some warns from the broken search code.
+#
+# Revision 1.20  1998/10/18 21:07:19  eric
+# * added order_by sorting to dropped posts
+#
+# Revision 1.19  1998/10/18 17:46:06  eric
+# * added code to rewrite cache when tweakage is updated
+#
+# Revision 1.18  1998/10/18 01:50:32  eric
+# * massive change to move tweakage to forum prefs
+#
+# Revision 1.17  1998/10/17 18:32:41  eric
+# * fixed get_post_id stuff after posting
+#
+# Revision 1.16  1998/10/07 01:34:23  eric
+# * added &select_forum_info to use caching
+# * added &write_new_cache
+#
+# Revision 1.15  1998/09/28 23:18:56  eric
+# * added order_by code
+# * added posts_by_user
+# * added user_profile
+# * fixed some misc things
+#
+# Revision 1.14  1998/09/27 16:55:29  eric
+# * moved some text to the lang.module
+# * did some more backend work on searching (still doesn't work)
+#
+# Revision 1.13  1998/09/22 00:30:30  eric
+# * added a snipet to select_forum that allows the forum name to be specified
+#   via &select_forum($forum) if $input{forum} is not defined.
+#
+# Revision 1.12  1998/09/19 17:27:33  eric
+# * The big change-over to use strict has now occured.
+#
+# Revision 1.11  1998/09/19 16:44:39  eric
+# Talk about a major diff...
+# * Moderation is now implemented.
+# * Lots of changes for the upcoming use strict
+# * Misc stuff here and there
+#
+# Revision 1.10  1998/09/13 21:09:38  eric
+# * re-worked drop code to allow non-sequential drops.
+#
+# Revision 1.9  1998/09/13 20:43:52  eric
+# * modified link style to be (script)/(forum)/(function)?whatever
+# * added code for dropping all posts
+# * added code snipet to default reply subjects to Re: (parent_title)
+# * fixed posting code to be MySQL compliant (doesn't break mSQL or others)
+#
+# Revision 1.8  1998/07/19 01:55:23  eric
+# Some slight bug fixes.  Added subroutine to print users manual.
+#
+# Revision 1.7  1998/07/18 22:03:54  eric
+# Added search form.  Added spot where search code will go when I figure out
+# how I want to do it.  Fixed some minor bugs.  Changed option code to be a
+# script-by-script thing.  That'll help the admin code.
+#
+# Revision 1.6  1998/07/16 11:29:51  eric
+# Made drop downs work.  Viewer wise, everything is now functional.
+#
+# Revision 1.5  1998/07/15 01:28:47  eric
+# Tons of new stuff.  Posting now works.  The button bar works. Dates are
+# displayed correctly.
+#
+# Revision 1.4  1998/07/14 17:30:01  eric
+# Added log to script end.
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;
