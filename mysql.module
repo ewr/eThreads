@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+#########################################################
+#       $Id: mysql.module,v 1.1 1998/06/13 17:24:57 eric Exp $
+#
+#       eThreads - Threaded forum software for the web
+#       Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the web site at
+#       http://www.ethreads.com/
+#
+#       $Log: mysql.module,v $
+#       Revision 1.1  1998/06/13 17:24:57  eric
+#       This is the module file for MySQL database calls.
+#
+#
+########################################################
+
+sub db_connect_dbm {
+	$dbm = DBI->connect("DBI:$db_type:$db_main:$db_host",$db_user, $db_password);
+}
+
+sub db_connect_dbh {
+	$dbh = DBI->connect("DBI:$db_type:$db:$db_host",$db_user, $db_password);
+}
+
+sub db_post_message {
+	if ($username) {
+		$post_message = "insert into $tbl(name,email,subject,message,replyto,timestamp,user,id) values('$fullname','$email','$subject','$message',$replyto,$timestamp,'$username',NULL)";
+	}
+	else {
+		$post_message = "insert into $tbl(name,email,subject,message,replyto,timestamp,id) values('$fullname','$email','$subject','$message',$replyto,$timestamp,NULL)";
+	}
+}
+
+sub db_create_table {
+	$dbh->do("
+		create table $tbl (
+		name      varchar(30),                                  
+		email     varchar(30),
+		posted    varchar(20),                                  
+		replyto   int,
+		id        int DEFAULT '0' NOT NULL auto_increment,      
+		subject   varchar(80),
+		message   mediumblob,                                   
+		timestamp int,                                          
+		user      varchar(30)
+		KEY id (id))
+	")
+}
+
+sub db_create_index {
+	# Already done
+}
+
+sub db_create_index {
+	# Already done
+}
+
+1;

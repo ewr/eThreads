@@ -1,0 +1,742 @@
+#!/usr/bin/perl
+########################################
+# $Id: maintenance,v 1.12 1998/06/13 17:17:00 eric Exp $
+#
+#       eThreads - Threaded forum software for the web
+#       Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the web site at
+#       http://www.ethreads.com/
+#
+#	This script contains code to update
+#	forums on the eThreads system. 
+#	This script allows normal admins to
+#	change database, table, header, and
+#	footer information for their forum.
+#	System admin users can use this to 
+#	add or remove forums.
+#
+# $Log: maintenance,v $
+# Revision 1.12  1998/06/13 17:17:00  eric
+# Huge Revision.  Moved db specific calls to a sperate *.module file.
+# That file is called by config and specified at system configuration.
+# Also, cleaned up a lot of code.  Added &html_header and &html_footer.
+#
+# Revision 1.11  1998/06/12 23:22:52  eric
+# Moved configuration variables to config.
+#
+# Revision 1.10  1998/05/10 21:03:29  eric
+#  - Bugfixes in modify_header.  It still has that thing where you can't include '
+#    I should find the hex code for that and try to fix it.
+#  - Changed graphics set chooser thingy to list all availible grphics sets.  Now
+#    if you add it to the server, it will automagically show up tin the chooser.
+#  - Added system variable $file_path for sys path to graphics
+#
+# Revision 1.9  1998/04/30 20:07:52  eric
+# The apostrophe fix was messing up the change_header, so I fixed that.
+#
+# Revision 1.8  1998/04/30 20:06:02  eric
+# Fixed a little bug that was escaping apostrophes too many times.
+#
+# Revision 1.7  1998/04/30 19:38:05  eric
+# Added $path to make links work.
+#
+# Revision 1.6  1998/04/30 19:36:49  eric
+# Removed debugging code that was bailing.
+#
+# Revision 1.5  1998/04/25 16:27:37  eric
+# Clarified hard coded variable documentation.
+# Cleaned up coding style
+#
+# Revision 1.4  1998/04/23 01:18:36  eric
+# Escaped tabs in headers so db's don't choke on 'em.
+#
+# Revision 1.3  1998/04/22 23:23:32  eric
+# Added GPL Information to comments
+#
+# Revision 1.2  1998/04/21 02:35:36  eric
+# Added RCS Log Information
+#
+########################################
+
+print "Content-type: text/html\n\n";
+
+use DBI;
+
+BEGIN {
+	require "config";
+}
+
+############################
+############################
+
+&get_vars;
+
+# Connect to the database
+&db_connect_dbm;
+
+# Get user information
+$username = $ENV{'REMOTE_USER'};
+
+$admin_for = $dbm->prepare("
+	select admin from users where username='$username'
+");
+
+unless ($admin_for->execute) {
+	&log_error;
+}
+else {
+	$admin = $admin_for->fetchrow_array;
+}
+
+if ($admin eq"all") {
+	&system_menu;
+}
+else {
+	&forum_menu;
+}
+
+# The following is all subroutines. 
+
+###########################
+# - - - Subroutines - - - #
+###########################
+
+###############################
+# # # System Maintentance # # #
+###############################
+
+sub system_menu {
+	&system_welcome unless ($syntax);
+	&system_forum_add if ($syntax == 110);
+	&system_approve_add if ($syntax == 111);
+	&system_do_add if ($syntax == 112);
+	&system_warn_delete if ($syntax == 120);
+	&system_do_delete if ($syntax == 121);
+	&system_forum_modify if ($syntax == 130);
+	&system_do_modify if ($syntax == 131);
+}
+
+##########
+##########
+
+sub system_welcome {
+	&html_header;
+	print <<EOP;
+	This is the eThreads system administration menu.  You, the system administrator, 
+	can use this menu to add, remove, or modify forums.  Select your choice below...
+	<p><hr><p>
+	 - <a href="$path/maintenance?syntax=110">Add a forum</a>
+	<p><b>Forums:</b><p>
+	<table>
+	<tr><td width=100><b>Name:</b></td><td width=100>
+	<b>Delete:</b></td><td width=100><b>Modify:</b></td></tr>
+EOP
+
+	$list_forums = $dbm->prepare("select name from presets");
+	&log_error unless ($list_forums->execute);
+
+	while ($name = $list_forums->fetchrow_array) {
+		print <<EOP;
+		<tr><td>$name</td>
+		<td><a href="$path/maintenance?syntax=120&forum=$name">Delete</a></td> 
+		<td><a href="$path/maintenance?syntax=130&forum=$name">Modify</a></td></tr>
+EOP
+	}
+
+	print <<EOP;
+	</table>
+EOP
+	&html_footer;
+}
+
+##########
+##########
+
+sub system_forum_add {
+	&html_header;
+	print <<EOP;
+	Fill in the following fields to generate a nifty new forum...
+	<p><form action="$path/maintenance" METHOD=GET>
+	<input type=hidden name="syntax" value=111>
+	
+	Forum Name: <input type=text name="name" size=15>
+	<br><blockquote><font size=2>
+	Type in the name for your forum (10 chars or less).
+	</font></blockquote><br>
+
+	Database: <input type=text name="db" size=20>
+	<br><blockquote><font size=2>
+	Type in the name of the database that will contain the table for your forum 
+	(15 chars or less).
+	</font></blockquote><br>
+
+	Database Table: <input type=text name="tbl" size=20>
+	<br><blockquote><font size=2>
+	Type in the name of the table that will hold the posts in your forum (20 chars 
+	or less).
+	</font></blockquote><br>
+
+	Path: <input type=text name="script_path" size=40>
+	<br><blockquote><font size=2>
+	Type in the path on the web people will use to access your script.  For example, 
+	if the address for your forum is http://www.blah.com/blah/view?who=blah , you 
+	would type /blah here. This address must be ScriptAlias'ed to the directory 
+	containing the main eThreads scripts.  If in doubt, contact the system  
+	administrator. (40 chars or less).
+	</font></blockquote><br>
+
+	Administrator: <input type=text name="administrator" size=30>
+	<br><blockquote><font size=2>
+	Type in the username of the administrator for this forum.  This user cannot  
+	already be an administrator for another forum.  (30 chars or less).
+	</font></blockquote><br>
+
+	Submit: <input type="submit" name="submit" value="Submit New Forum">
+
+	</form>
+EOP
+	&html_footer;
+}
+
+##########
+##########
+
+sub system_approve_add {
+	&html_header;
+	print <<EOP;
+	The following are the values you entered.  
+	Please double-check them before clicking 
+	continue.
+	<br>
+	<br>Name: $name
+	<br>Database: $db
+	<br>Table: $tbl
+	<br>Path: $script_path
+	<br>Administrator: $administrator
+
+	<p>
+
+	Are these values the values you want for the new forum?
+
+	<form action="$path/maintenance" method=get>
+	<input type=hidden name="syntax" value=112>
+	<input type=hidden name="name" value="$name">
+	<input type=hidden name="db" value="$db">
+	<input type=hidden name="tbl" value="$tbl">
+	<input type=hidden name="script_path" value="$script_path">
+	<input type=hidden name="administrator" value="$administrator">
+	<input type=submit name=sumit value="- - Yes (Continue) - -"></form>
+	- - No (Hit Back Button) - - 
+EOP
+	&html_footer;
+}
+
+##########
+##########
+
+sub system_do_add {
+	&html_header;
+
+	# First we see if we can create the table
+
+	# To do that we have to connect to their database
+	&log_error unless (&db_connect_dbh);
+
+	# Now we can create the table
+	&log_error unless (&db_create_table);
+
+	# If we have to do other stuff...
+	&db_create_index;
+	&db_create_sequence;
+
+	# Now, we add them to the presets
+	&log_error unless ($dbm->do("
+		insert into presets(name,db,tbl,path) 
+		values('$name','$db','$tbl','$script_path')
+	"));
+
+	&log_error unless ($dbm->do("
+		update users set admin='$name', 
+		group='admin' where username='$administrator'
+	"));
+
+	# Ok, we're finally done.
+	print <<EOP;
+	<html><body bgcolor="#FFFFFF">
+	Ok.  It's done.  <a href="$path/maintenance">Return to the Menu</a>.
+	</body></html>
+EOP
+
+}
+
+##########
+##########
+
+sub system_warn_delete {
+	&html_header;
+	print <<EOP;
+	<b>There are several different ways to delete:</b>
+	<p> - <a href="$path/maintenance?syntax=121&option=1&forum=$forum">
+	Delete forum entirely</a>
+	<blockquote>
+	This gets rid of all references to the forum.  It's deleted from 
+	the presets, and the table that contains the forum data is deleted.
+	</blockquote>
+	 - <a href="$path/maintenance?syntax=121&option=2&forum=$forum">
+	Deactivate forum</a>
+	<blockquote>
+	This method of deletion does not delete the forum data, only the pointer 
+	in the presets table.  Use this option is you want to back up the forum data 
+	after you bring it down.
+	</blockquote>
+EOP
+	&html_footer;
+}
+
+##########
+##########
+
+sub system_do_delete {
+	&html_header;
+
+	# Get database and table info before we blow it away
+	$get_presets = $dbm->prepare("
+		select db,tbl from presets where name='$forum'
+	");
+
+	&log_error unless ($get_presets->execute);
+
+	($db,$tbl) = $get_presets->fetchrow_array;
+
+	if ($option == 1) {
+		# Delete the forum from the presets
+		&log_error unless ($delete_from_preset = $dbm->do("
+			delete from presets where name='$forum'
+		"));
+
+		# Connect to the right database
+		&log_error unless(&db_connect_dbh);
+
+		# Blow away the table
+		$drop_table = $dbh->do("drop table $tbl") if $dbu;
+	}
+	elsif ($option == 2) {
+		# Delete the forum from the presets
+		&log_error unless($delete_from_preset = $dbm->do("
+			delete from presets where name='$forum'
+		"));
+	}
+
+	print <<EOP;
+	Unless some error is displayed above, the delete succeeded. 
+	<a href="$path/maintenance">Return to Menu</a>
+EOP
+	&html_footer;
+}
+
+##########
+##########
+
+sub system_forum_modify {
+	&html_header;
+
+	$get_current_values = $dbm->prepare("
+		select name,db,tbl,path from presets where name='$forum'
+	");
+
+	&log_error unless ($get_current_values->execute);
+	($name,$db,$tbl,$path) = $get_current_values->fetchrow_array;
+
+	print <<EOP;
+	Modify the following fields to change your forum...
+	<p><form action="$path/maintenance" METHOD=GET>
+	<input type=hidden name="syntax" value=131>
+	<input type=hidden name="name" value="$forum">
+
+	Forum Name: <input type=text name="forum" size=10 value="$forum">
+	<br><blockquote><font size=2>
+	Type in the name for your forum (10 chars or less).
+	</font></blockquote><br>
+
+	Database: <input type=text name="db" size=20 value="$db">
+	<br><blockquote><font size=2>
+	Type in the name of the database that will contain the table for your forum
+	(15 chars or less).
+	</font></blockquote><br>
+
+	Database Table: <input type=text name="tbl" size=20 value="$tbl">
+	<br><blockquote><font size=2>
+	Type in the name of the table that will hold the posts in your forum (20 chars
+	or less).
+	</font></blockquote><br>
+
+	Path: <input type=text name="script_path" size=40 value="$path">
+	<br><blockquote><font size=2>
+	Type in the path on the web people will use to access your script.  For example,
+	if the address for your forum is http://www.blah.com/blah/view?who=blah , you
+	would type /blah here. This address must be ScriptAlias'ed to the directory 
+	containing the main eThreads scripts.  If in doubt, contact the system 
+	administrator. (40 chars or less).
+	</font></blockquote><br>
+
+	Submit: <input type="submit" name="submit" value="Submit New Forum">
+
+	</form>
+EOP
+	&html_footer;
+}
+
+##########
+##########
+
+sub system_do_modify {
+	&html_header;
+
+	if ($forum ne"$name") {
+
+		# First we get the original values
+		$get_all_presets = $dbm->prepare("select * from presets where name='$name'");
+		&log_error unless ($get_all_presets->execute);
+		($orig_path,$orig_db,$orig_tbl,$orig_name,$orig_graphic_option,$orig_html_header,$orig_html_footer) = $get_all_presets->fetchrow_array;
+
+		# If that worked we'll create the new preset
+		&log_error unless ($create_new_preset = $dbm->do("
+			insert into presets values(
+			'$script_path','$db','$tbl','$forum',$orig_graphic_option,
+			'$orig_html_header','$orig_html_footer')
+		"));
+
+		# If that worked we can delete the old preset
+		&log_error unless ($delete_orig_preset = $dbm->do("
+			delete from presets where name='$name'
+		"));
+
+		# If all that worked we'll tell 'em that
+		print <<EOP;
+		Update (with a name change) succeeded. 
+		<a href=\"$path/maintenance\">Return to Menu</a>.
+EOP
+	}
+
+	if ($forum eq"$name") {	
+		$update_forum = $dbm->prepare("
+			update presets set db='$db', tbl='$tbl', path='$path' 
+			where name='$forum'
+		");
+
+		&log_error unless ($update_forum->execute);
+
+		print <<EOP;
+		Update was successful.  
+		<a href="$path/maintenance">Return to Menu</a>
+EOP
+	}
+	&html_footer;
+}
+
+#############################
+# # # Forum Maintenance # # #
+#############################
+
+sub forum_menu {
+
+	$dbm = DBI->connect("DBI:$db_type:$db_main:$db_host",eric, whatever);
+	$get_forum_info = $dbm->prepare("
+		select db,tbl,html_header,html_footer,graphic_option,path 
+		from presets where name = '$admin'
+	");
+
+	unless ($get_forum_info->execute) {
+		&log_error;
+	}
+	else {
+		($db,$tbl,$html_header,$html_footer,$graphic_option,$path) = $get_forum_info->fetchrow_array;
+	}
+
+	&forum_welcome unless($syntax);
+	&forum_modify_header if ($syntax == 10);
+	&forum_approve_header if ($syntax == 11);
+	&forum_change_header if ($syntax == 12);
+	&forum_modify_footer if ($syntax == 20);
+	&forum_approve_footer if ($syntax == 21);
+	&forum_change_footer if ($syntax == 22);
+	&forum_modify_graphics if ($syntax == 30);
+	&forum_change_graphics if ($syntax == 31);
+}
+
+##########
+##########
+
+sub forum_welcome {
+	print "$html_header";
+
+	print <<EOP;
+	<b><font size=4>eThreads Maintenance for $admin:</font></b>
+	<p><font size=3>
+	Your options are as follows...
+	<br> - <a href="$path/maintenance?syntax=10">Change HTML Header</a>
+	<br> - <a href="$path/maintenance?syntax=20">Change HTML Footer</a>
+	<br> - <a href="$path/maintenance?syntax=30">Change Graphics Set</a>
+	</font>
+EOP
+
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub forum_modify_header {
+	print "$html_header";
+
+	print <<EOP;
+	<form action="$path/maintenance" METHOD=GET>
+	<input type=hidden name="syntax" value="11">
+	Use the following textarea to update the HTML for your forum header...
+	<p><textarea name="new_header" rows=20 cols=70>$html_header</textarea><p>
+	<input type=submit name=submit value="Update Header"></form>
+EOP
+
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub forum_approve_header {
+
+	print "$new_header";
+	
+	print <<EOP;
+	So, how do you like your new header?  Do you want to keep it?
+	<br><form action="$path/maintenance" METHOD=GET>
+	<input type=hidden name=syntax value=12>
+	<input type=hidden name=new_header value='$new_header'>
+	<input type=submit name=submit value="Commit Changes"></form>
+	 - - <a href="$path/maintenance?syntax=11">Try Again</a> - -
+EOP
+
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub forum_change_header {
+	&log_error unless($update_header = $dbm->do("
+		update presets set html_header='$new_header' where name='$admin'
+	"));
+
+	print <<EOP;
+	$html_header
+	Changes successful.  
+	<a href=\"$path/maintenance\">Go Back to Menu</a>";
+	$html_footer
+}
+
+##########
+##########
+
+sub forum_modify_footer {
+	print "$html_header";
+
+ print <<EOP;
+   <form action="$path/maintenance" METHOD=GET>
+   <input type=hidden name="syntax" value="21">
+   Use the following textarea to update the HTML for your forum footer...
+   <p><textarea name="new_footer" rows=20 cols=70>$html_footer</textarea><p>
+   <input type=submit name=submit value="Update Footer"></form>
+EOP
+
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub forum_approve_footer {
+   print "$html_header";
+
+   print <<EOP;
+   So, how do you like your new footer?  Do you want to keep it?
+   <br><form action="$path/maintenance" METHOD=GET>
+   <input type=hidden name=syntax value=22>
+   <input type=hidden name=new_footer value="$new_footer">
+   <input type=submit name=submit value="Commit Changes"></form>
+    - - <a href="$path/maintenance?syntax=11">Try Again</a> - -
+EOP
+
+   print "$new_footer";
+}
+
+##########
+##########
+
+sub forum_change_footer {
+   &log_error unless($update_footer = $dbm->do("
+		update presets set html_footer='$new_footer' where name='$admin'
+	"));
+
+	print "$html_header";
+    print "Changes successful.  <a href=\"$path/maintenance\">Go Back to Menu</a>";
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub forum_modify_graphics {
+	print "$html_header";
+
+	print <<EOP;
+	The following are several graphics sets available for your use.  You 
+	are currently using set number $graphic_option.
+	<p><table><tr><td width=100><b>Set Number</b></td>
+	<td width=50><b>Bar Graphic</b></td>
+	<td width=50><b>Right Arrow</b></td>
+	<td width=50><b>Down Arrow</b></td></tr>
+EOP
+
+	$number = 1;
+	while (-e "$file_path/bar-$number.gif") {
+		print <<EOP;
+		<tr><td><a href="$path/maintenance?syntax=31&option=$number">
+		Set $number</a></td>
+		<td><img src="$web_path/bar-$number.gif"></td>
+		<td><img src="$web_path/right-arrow-$number.gif"></td>
+		<td><img src="$web_path/down-arrow-$number.gif"></td></tr>
+EOP
+	$number++;
+	}
+
+	print <<EOP;
+	</table>
+EOP
+
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub forum_change_graphics {
+
+	&log_error unless ($dbm->do("
+		update presets set graphic_option=$option where name='$admin'
+	"));
+
+	print "$html_header";
+	print "Changes successful.  <a href=\"$path/maintenance\">Go Back to Menu</a>";
+	print "$html_footer";
+}
+
+##########
+##########
+
+sub html_header {
+	print <<EOP;
+	<html><head><title>eThreads Maintenance</title></head>
+	<body bgcolor=#FFFFFF>
+	<table width=500>
+	<tr><td>
+	<font face="Arial,Helvetica">
+	<font size=4>
+	<b>eThreads System Maintenance
+	</font><font size=2>
+	<br>F o r u m &nbsp;&nbsp;S o f t w a r e &nbsp;&nbsp;f o r
+	&nbsp;&nbsp; t h e &nbsp;&nbsp;w e b
+	</b></font>
+	<blockquote>
+	<font size=3>
+EOP
+}
+
+##########
+##########
+
+sub html_footer {
+	print <<EOP;
+	</blockquote>
+	<p></font><font size=2>
+	<b>eThreads - Copyright (C) 1998 Eric Richardson</b>
+	<br> - http://www.ethreads.com
+	</font></font>
+	</td></tr></table>
+	</body></html>
+EOP
+}
+
+##########
+##########
+
+sub get_vars {
+	# Get the CGI POST input
+	if ($ENV{'REQUEST_METHOD'} eq "POST") {
+		read(STDIN,$info,$ENV{"CONTENT_LENGTH"});
+	} 
+	else {
+		$info=$ENV{QUERY_STRING};
+	}
+	foreach (split(/&/,$info)) {
+		($var,$val) = split(/=/,$_,2);
+		$var =~ s/\+/ /g;
+		$val =~ s/\+/ /g;
+		$val =~ s/%([0-9,A-F]{2})/sprintf("%c",hex($1))/ge;
+		$value{$var} .= ", " if (defined($value{$var}));
+		$value{$var} .= $val;
+	}
+
+	# Define some variables
+	$syntax = $value{'syntax'};
+	$new_header = $value{'new_header'};
+	$new_footer = $value{'new_footer'};
+	$option = $value{'option'};
+	$name = $value{'name'};
+	$db = $value{'db'};
+	$tbl = $value{'tbl'};
+	$administrator = $value{'administrator'};
+	$script_path = $value{'script_path'};
+	$forum = $value{'forum'};
+}
+
+##########
+##########
+
+sub log_error {
+   $errstr = $dbm->errstr;
+   print <<EOP;
+   <html>
+   <head><title>eThreads Maintenance - ERROR</title></head>
+   <body bgcolor="#FFFFFF">
+   <font face="Arial,Helvetica">
+   <font size=5><b>eThreads - Error</b></font>
+   <p><blockquote>
+   <font size=3>
+   Sorry, but the eThreads system was unable to complete this request.  Most likely,
+   this error was caused by either a database problem, or an attempt to enter illegal
+   data.  Please report this error to the system administrator.
+   <p>
+   Error message: $errstr
+   <p><i>eThreads, by Eric Richardson</i>
+   </blockquote>
+   </font></font>
+   </body></html>
+EOP
+	die;
+}

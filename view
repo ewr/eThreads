@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+
+#########################################################
+# $Id: view,v 1.6 1998/06/11 13:07:46 eric Exp $
+#	This is the viewer portion of the
+#	eThreads package.  Members who choose not to 
+#	log in get to browse this way.  It has much of 
+#	the same functionality as member, but none of 
+#	the member-only stuff (duh.).
+#
+# $Log: view,v $
+# Revision 1.6  1998/06/11 13:07:46  eric
+# Added a pointer for syntax=555
+#
+# Revision 1.5  1998/05/16 20:48:23  eric
+# Added a space at the bottom of signup_form so that the
+# graphic options aren't on the same line as the submit
+# button.
+#
+# Revision 1.4  1998/04/25 16:33:05  eric
+# Cleaned up coding style
+# Moved browse switchboard out of a subroutine
+# Added exit code
+# Removed unused login subroutine
+#
+# Revision 1.3  1998/04/22 16:05:34  eric
+# Fixed signup form.  Now bounces to member after signup.
+#
+# Revision 1.2  1998/04/22 15:38:10  eric
+# Added RCS Logging
+#
+#########################################################
+
+require "common.pl";
+
+&get_vars;
+&select_group;
+&options;
+
+# Now we browse...
+&main_topics_list unless ($syntax);
+&write_message if ($syntax == 10);
+&get_post if ($syntax == 20);
+&posts_by_sender if ($syntax == 30);
+&signup_form if ($syntax eq"signup");
+&signup if ($syntax == 50);
+&login if ($syntax eq"login");
+
+&show_all_threads if ($syntax == 555);
+
+exit(0);
+
+# The following is all subroutines...
+
+#########################################################
+# # # # # # # # # # # # Subroutines # # # # # # # # # # #
+#########################################################
+
+sub signup {
+	$check_for_username = $dbm->prepare("select username from users where username = '$signup_username'");
+	$check_for_username->execute;
+	$test_username = $check_for_username->fetchrow_array;
+	$error = 10 if ($test_username);
+	$error = 20 unless($signup_password);
+	
+	unless ($error) {
+		$signup_password = crypt($signup_password,'k9');
+		$create_user = $dbm->prepare("insert into users(username,password,email,fullname) values('$signup_username','$signup_password','$email','$fullname')");
+		unless ($create_user->execute) {
+			&log_error;
+		} 
+		else {
+			print "Location: $spath/member?$options\n\n";
+		}
+	}
+
+	print "Location: $spath/view?$options&syntax=signup&username=$username&fullname=$fullname&email=$email&error=$error\n\n" if ($error);
+}
+
+###########
+###########
+
+sub signup_form {
+	&html_header;
+	print <<EOP;
+	<B>eThreads - User Signup</b>
+	<br>This form will add your username to the 
+	eThreads username database on this site.  This username/password 
+	will be good on any forum hosted by this  
+	site.
+	<br><hr><br>
+EOP
+	if ($error) {
+		print "<b>The username you selected is already in use, please select another.<br></b>" if ($error == 10);
+		print "<b>You must enter a password.<br></b>" if ($error == 20);
+		print "<br><hr><br>";
+}
+	print <<EOP;
+	<form action="$spath/view" METHOD=POST>
+	<input type=hidden name=who value="$who">
+	<input type=hidden name=syntax value="50">
+	Username: <input type=text name=signup_username size=20 value="$username">
+	<br>Password: <input type=password name=signup_password size=20 value="$password">
+	<p><b>User Info:</b><i> (so you don't have to enter it later)</i>
+	<p>Name: <input type=text name=fullname size=30 value="$fullname">
+	<br>Email: <input type=text name=email size=30 value="$email">
+	<p>Submit: <font color=#000000><input type=submit name=submit value="Sign Up!"></font>
+	<p><hr><p>
+EOP
+	&html_footer;
+}

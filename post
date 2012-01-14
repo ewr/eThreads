@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+#################################################
+# $Id: post,v 1.3 1998/04/25 16:31:30 eric Exp $
+#	This script is part of the eThreads
+#	discussion group software by eSoft.
+#	This script is called by the others to
+#	write to the database.
+#
+# $Log: post,v $
+# Revision 1.3  1998/04/25 16:31:30  eric
+# Removed local use code, now uses common.pl
+# Removed a lost } that was causing it to bail
+#
+# Revision 1.2  1998/04/21 02:40:39  eric
+# Added RCS Log information
+#
+#################################################
+
+require "common.pl";
+
+&get_vars;
+&select_group;
+
+&post_message;
+
+print "Location: /e-threads/view?who=$who&syntax=20&id=$replyto\n\n" if ($username eq"" && $replyto != 0);
+print "Location: /e-threads/view?who=$who\n\n" if ($username eq"" && $replyto == 0);
+print "Location: /e-threads/view?who=$who\n\n" if ($syntax == 20);

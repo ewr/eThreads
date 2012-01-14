@@ -1,0 +1,14 @@
+$db_type = "";
+$db_host = "";
+$db_main = "";
+$auth_method = "";
+$web_path = "";
+$mail_program = "";
+$admin_email = "";
+$file_path = "";
+$path = "";
+$db_user = "";
+$db_password = "";
+use DBD::;
+require ".module";
+1;

@@ -1,0 +1,212 @@
+#!/usr/bin/perl
+
+#########################################################
+# $Id: member,v 1.4 1998/04/25 16:28:21 eric Exp $
+#
+#       eThreads - Threaded forum software for the web
+#       Copyright (C) 1998 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#       For information on eThreads, contact Eric Richardson at
+#       eric@gospelcom.net , or check out the web site at
+#       http://www.ericrichardson.com/e-threads/
+#
+#	This is the member viewer portion of the 
+#	eThreads package.  With this script users 
+#	can do all the varying cool stuff they 	
+#	couldn't if they were normal users.  Also, 
+#	it takes the place of the admin script.	
+#
+# $Log: member,v $
+# Revision 1.4  1998/04/25 16:28:21  eric
+# Added exit code for clarity
+#
+# Revision 1.3  1998/04/22 23:24:35  eric
+# Added GPL information to comments
+#
+# Revision 1.2  1998/04/21 02:37:23  eric
+# Added RCS Log Information
+#
+#########################################################
+
+# Get all common subroutines
+require "common.pl";
+
+# Get the username from http...
+$username = $ENV{'REMOTE_USER'};
+
+&get_vars;
+&select_group;
+&options;
+
+# Let's go browsing...
+&main_menu;
+
+exit(0);
+
+# The following code is all contained in subroutines
+
+#########################################################
+# # # # # # # # # # # # Subroutines # # # # # # # # # # #
+#########################################################
+
+sub main_menu {
+	# Let's find out if they're an admin
+	$get_admin = $dbm->prepare("select admin from users where username='$username'");
+	$get_admin->execute;
+	$admin = $get_admin->fetchrow_array;
+	
+	# Switchboard central... Let's point 'em on...
+	&main_topics_list unless ($syntax);
+	&write_message if ($syntax == 10);
+	&get_post if ($syntax == 20);
+	&posts_by_sender if ($syntax == 30);
+	&user_main if ($syntax == 75);
+	&user_change if ($syntax == 76);
+	&user_view if ($syntax == 77);
+	&user_message_modify if ($syntax == 78);
+	&user_change_run if ($syntax == 81);
+	&admin_delete if ($syntax == 150 && $admin eq"$who");
+	&admin_modify if ($syntax == 151 && $admin eq"$who");
+}
+###########
+###########
+
+sub user_main {
+	&html_header;
+
+	print <<EOP;
+	User Options for <b>$username</b>:
+	<p>
+	 - <a href="$spath/$script?$options&syntax=76">Change User Information</a>
+	<br><blockquote><i>This is where you go to change the user information (such 
+	as name, email, password, etc.) stored in the database.
+	</i></blockquote>
+	<p>
+	 - <a href="$spath/$script?$options&syntax=77">Modify Your Messages</a>
+	<br><blockquote><i>From the Modify Your Messages screen you have the 
+	opportunity to view all the messages you have posted, make changes to them, 
+	or delete them (deletion not available in some situations).
+	</i></blockquote>
+EOP
+
+	&html_footer;
+}
+
+###########
+###########
+
+sub user_change {
+	&html_header;
+
+	$get_user_info = $dbm->prepare("select fullname,email from users where username='$username'");
+	unless ($get_user_info->execute) {
+		&log_error;
+	}
+	else {
+		($fullname,$email) = $get_user_info->fetchrow_array;
+
+		print <<EOP;
+		<b>Change User Information</b>
+		<p>You can use this form to change your username, password, name, and/or email.
+		<p><b><I>Do not enter anything in the password field UNLESS you truely want to
+		change your password.</I></b>
+		<p><hr><p>
+		<form action="$spath/member-post" method=post>
+		<input type=hidden name=who value="$who">
+		<input type=hidden name="syntax" value="81">
+		Username: <input type=text name=username value="$username" size=20>
+		<br>Password: <input type=password name=password size=20>
+		<p>Name: <input type=text name=fullname value="$fullname" size=20>
+		<br>Email: <input type=text name=email value="$email" size=20>
+		<br>Submit Changes: <font color=#000000><input type=submit name=submit value="Change Information"></font>
+EOP
+	}
+	&html_footer;
+}
+
+###########
+###########
+
+sub user_view {
+	&html_header;
+	
+	print <<EOP;
+	The following is a list of all the messages you have posted to this forum. Please 
+	select a post to view or modify <i>(you can delete only if there are no replies to 
+	your post)</i>.
+	<p>
+	<table>
+	<tr><td width=150>Subject:</td><td width=150>Post Date:</td></tr>
+EOP
+	$get_user_messages = $dbh->prepare("select subject,timestamp,id from $tbl where user='$username'");
+	unless ($get_user_messages->execute) {
+		&log_error;
+	} 
+	else {
+		while (($subject,$timestamp,$id) = $get_user_messages->fetchrow_array) {
+			&convert_time;
+			print qq(<tr><td><a href="$spath/$script?$options&syntax=78&id=$id">$subject</a></td><td>$mon/$mday/$year $hour:$min:$sec</td></tr>);
+		}
+	}
+
+	print "</table>";
+
+	&html_footer;
+}
+
+##########
+##########
+
+sub user_message_modify {
+	&html_header;
+
+	$get_message_info = $dbh->prepare("select subject,message from $tbl where id=$id and user='$username'");	
+	unless ($get_message_info->execute) {
+		&log_error;
+	} 
+	else {
+		($subject,$body) = $get_message_info->fetchrow_array;
+		print <<EOP;
+		<b>$subject</b>
+		<br><blockquote>$body</blockquote>
+		<p><hr><p>
+EOP
+		&check_for_replies;
+		print qq( - <a href="$spath/member-post?$options&syntax=20&id=$id"><b>Delete</b></a> - or Modify...) unless ($replies);
+		print <<EOP;
+		<form action="$spath/member-post" METHOD=POST>
+		<input type=hidden name="syntax" value="10">
+		<input type=hidden name="id" value="$id">
+		<input type=hidden name="who" value="$who">
+		<input type=hidden name="username" value="$username">
+		<input type=hidden name="password" value="$password">
+		Subject: <input type=text name=subject value="$subject" size=20>
+EOP
+		$body =~ s/<br>//g;
+		print <<EOP;
+		<br>
+		Body:
+		<br><textarea name="message" cols=60 rows=10>
+$body
+</textarea>
+		<br>Submit: <font color=#000000><input type=submit name=submit value="Submit Modified Message">
+		</form>
+EOP
+	}
+
+	&html_footer;
+}
