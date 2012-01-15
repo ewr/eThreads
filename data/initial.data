@@ -1,0 +1,109 @@
+# MySQL dump 7.1
+#
+# Host: localhost    Database: ethreads_devel
+#--------------------------------------------------------
+# Server version	3.22.32
+
+# These two inserts must be customized before being run
+
+INSERT INTO preset_headers VALUES (1,'Default Root Directory (DO NOT DELETE)','/eThreads',0,0,'(admin email)',1);
+INSERT INTO users VALUES (1,'(user)','(name)','(crypted passwd)','(email)','','');
+
+#
+# Dumping data for table 'f_bindings'
+#
+
+INSERT INTO f_bindings VALUES ('.default',1);
+
+#
+# Dumping data for table 'preset_headers'
+#
+
+
+#
+# Dumping data for table 'rights'
+#
+
+INSERT INTO rights VALUES (1,1,'admin',1);
+INSERT INTO rights VALUES (1,1,'browse',1);
+INSERT INTO rights VALUES (1,1,'moderate',1);
+INSERT INTO rights VALUES (1,1,'maint',1);
+
+#
+# Dumping data for table 'theme_data'
+#
+
+INSERT INTO theme_data VALUES (1,'header','<html><head>\r\n  <title>eThreads: #{title}</title>\r\n</head>\r\n<body bgcolor=#FFFFFF>\r\n<img src=\"http://ethreads.com/images/6.0/header.gif\" width=600 height=100 border=0 alt=\"eThreads: a new breed of forum software\">\r\n<table width=600 border=0>\r\n<tr><td>\r\n<font face=\"Arial,Helvetica\">\r\n<b><font size=2>#{title}</font></b>\r\n<blockquote>');
+INSERT INTO theme_data VALUES (1,'footer','<p><hr><p>\r\n<font size=2><b>\r\neThreads: a new generation of forum software\r\n<br><a href=\"http://ethreads.com\">http://ethreads.com</a>\r\n</blockquote>\r\n</font>\r\n</td></tr></table></body></html>');
+INSERT INTO theme_data VALUES (3,'header','<html><head>\r\n  <title>eThreads: #{title}</title>\r\n</head>\r\n<body bgcolor=#FFFFFF>\r\n<img src=\"http://ethreads.com/images/6.0/header.gif\" width=600 height=100 border=0 alt=\"eThreads: a new breed of forum software\">\r\n<table width=600 border=0>\r\n<tr><td>\r\n<font face=\"Arial,Helvetica\">\r\n<b><font size=2>#{title}</font></b>\r\n<blockquote>');
+INSERT INTO theme_data VALUES (3,'footer','<p><hr><p>\r\n<font size=2><b>\r\neThreads: a new generation of forum software\r\n<br><a href=\"http://ethreads.com\">http://ethreads.com</a>\r\n</blockquote>\r\n</font>\r\n</td></tr></table></body></html>');
+INSERT INTO theme_data VALUES (3,'thread_table_top','<table border=0 width=600>\r\n<tr bgcolor=#aaedaa>\r\n  <td width=250>\r\n    #{title}Title</a>:\r\n  </td>\r\n  <td width=150>\r\n    #{poster}Posted By</a>:\r\n  </td>\r\n  <td width=100>\r\n    #{timestamp}Post Date</a>:\r\n  </td>\r\n</tr>\r\n	');
+INSERT INTO theme_data VALUES (3,'images','pale_blue');
+INSERT INTO theme_data VALUES (3,'thread_html','<tr bgcolor=#BG_COLOR>\r\n  <td><font color=#F_COLOR>\r\n    #ICONS<a href=\"#L_START/view_post?id=#{id}\">#{title}</a>\r\n  </td>\r\n  <td><font color=#F_COLOR>\r\n    <a href=\"mailto:#{poster_email}\">#{poster}</a>\r\n  </td>\r\n  <td><font color=#F_COLOR>\r\n    #{timestamp}\r\n  </td>\r\n</tr>\r\n	');
+INSERT INTO theme_data VALUES (3,'thread_table_bottom','<tr bgcolor=#DDDDDD>\r\n  <td colspan=3>\r\n    #P_LINK - - \r\n    #F_LINK\r\n  </font></td>\r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (3,'post_html','<table border=0 width=500>\r\n<tr bgcolor=#000000>\r\n  <td colspan=2>\r\n    <font color=#FFFFFF>\r\n    <b>#{title}</b>\r\n    </font>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#EEEEEE>\r\n  <td width=350>\r\n     #{poster} (<a href=\"mailto:#{poster_email}\">#{poster_email}</a>)\r\n  </td>\r\n  <td width=150>\r\n    #{timestamp}\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2>\r\n    <b>Options:</b> #OPTIONS\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#FFFFFF>\r\n  <td colspan=2>#{body}</td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2><b>Options:</b> #O_OPTIONS\r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (3,'c_post_html','<table border=0 width=500>\r\n<tr bgcolor=#000000>\r\n  <td colspan=2>\r\n    <font color=#FFFFFF>\r\n    <b>Title: <input name=title size=50 value=\"#{title}\"></b>\r\n    </font>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#EEEEEE>\r\n  <td width=500>\r\n     Name: #{poster} (email: #{poster_email})\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#FFFFFF>\r\n  <td colspan=2><textarea name=body cols=50 rows=10 wrap=virtual>#{body}</textarea></td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2><b>Submit:</b> #{preview} -- #{submit}\r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (3,'profile_html','<table border=0 width=500>\r\n  <tr bgcolor=#000000>\r\n    <td colspan=2><font color=#FFFFFF><b>\r\n      User Profile for:&nbsp;#USER\r\n    </font></b></td>\r\n  </tr>\r\n  <tr bgcolor=#EEEEEE>\r\n    <td width=75>\r\n      Name</td><td width=425>&nbsp;#NAME\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#DDDDDD>\r\n    <td>\r\n      email</td><td>&nbsp;#EMAIL\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#EEEEEE>\r\n    <td>\r\n      Sig</td><td>&nbsp;#SIG\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#FFFFFF>\r\n    <td colspan=2>\r\n     &nbsp;#DESCRIPT\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#000000>\r\n    <td><font color=#FFFFFF>\r\n      Options:\r\n    </font></td>\r\n    <td><font color=#FFFFFF>\r\n      #OPTIONS&nbsp;\r\n    </font></td>  \r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (3,'search_box','<b>Search: </b>\r\n<input type=text name=\"query\" size=30 value=\"#{query}\">\r\n<input type=submit value=\"Search!\">');
+INSERT INTO theme_data VALUES (3,'search_results_top','<table>\r\n<tr bgcolor=#000000>\r\n<td colspan=3><font color=#FFFFFF><b>Search Results:</td></tr>');
+INSERT INTO theme_data VALUES (3,'search_results_html','<tr bgcolor=#CCCCEE>\r\n  <td width=300><a href=\"#{link}\">#{title}</a></td>\r\n  <td width=125><a href=\"mailto:#{poster_email}\">#{poster}</a></td>\r\n  <td width=125>#{timestamp}</td>\r\n</tr><tr bgcolor=#EEEEEE>\r\n  <td colspan=3> - Contains: #{t_matches}</td>\r\n</tr>');
+INSERT INTO theme_data VALUES (3,'search_results_bottom','</table>');
+INSERT INTO theme_data VALUES (4,'header','<html><head>\r\n  <title>eThreads: #{title}</title>\r\n</head>\r\n<body bgcolor=#FFFFFF>\r\n<img src=\"http://ethreads.com/images/6.0/header.gif\" width=600 height=100 border=0 alt=\"eThreads: a new breed of forum software\">\r\n<table width=600 border=0>\r\n<tr><td>\r\n<font face=\"Arial,Helvetica\">\r\n<b><font size=2>#{title}</font></b>\r\n<blockquote>');
+INSERT INTO theme_data VALUES (4,'footer','<p><hr><p>\r\n<font size=2><b>\r\neThreads: a new generation of forum software\r\n<br><a href=\"http://ethreads.com\">http://ethreads.com</a>\r\n</blockquote>\r\n</font>\r\n</td></tr></table></body></html>');
+INSERT INTO theme_data VALUES (4,'post_html','<table border=0 width=500>\r\n<tr bgcolor=#000000>\r\n  <td colspan=2>\r\n    <font color=#FFFFFF>\r\n    <b>#{title}</b>\r\n    </font>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#EEEEEE>\r\n  <td width=350>\r\n     #{poster} (<a href=\"mailto:#{poster_email}\">#{poster_email}</a>)\r\n  </td>\r\n  <td width=150>\r\n    #{timestamp}\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2>\r\n    <b>Options:</b> #OPTIONS\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#FFFFFF>\r\n  <td colspan=2>\r\n#{intro}\r\n<p>\r\n#{body}\r\n</td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2><b>Options:</b> #O_OPTIONS\r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (4,'c_post_html','<table border=0 width=500>\r\n<tr bgcolor=#000000>\r\n  <td colspan=2>\r\n    <font color=#FFFFFF>\r\n    <b>Title: <input name=title size=50 value=\"#{title}\"></b>\r\n    </font>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#EEEEEE>\r\n  <td width=500>\r\n     Name: #{poster} (email: #{poster_email})\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#FFFFFF>\r\n  <td colspan=2><textarea name=body cols=50 rows=10 wrap=virtual>#{body}</textarea></td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2><b>Submit:</b> #{preview} -- #{submit}\r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (4,'profile_html','<table border=0 width=500>\r\n  <tr bgcolor=#000000>\r\n    <td colspan=2><font color=#FFFFFF><b>\r\n      User Profile for:&nbsp;#USER\r\n    </font></b></td>\r\n  </tr>\r\n  <tr bgcolor=#EEEEEE>\r\n    <td width=75>\r\n      Name</td><td width=425>&nbsp;#NAME\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#DDDDDD>\r\n    <td>\r\n      email</td><td>&nbsp;#EMAIL\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#EEEEEE>\r\n    <td>\r\n      Sig</td><td>&nbsp;#SIG\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#FFFFFF>\r\n    <td colspan=2>\r\n     &nbsp;#DESCRIPT\r\n    </td>\r\n  </tr>\r\n  <tr bgcolor=#000000>\r\n    <td><font color=#FFFFFF>\r\n      Options:\r\n    </font></td>\r\n    <td><font color=#FFFFFF>\r\n      #OPTIONS&nbsp;\r\n    </font></td>  \r\n</tr>\r\n</table>\r\n	');
+INSERT INTO theme_data VALUES (4,'search_box','<b>Search: </b>\r\n<input type=text name=\"query\" size=30 value=\"#{query}\">\r\n<input type=submit value=\"Search!\">');
+INSERT INTO theme_data VALUES (4,'search_results_top','<table>\r\n<tr bgcolor=#000000>\r\n<td colspan=3><font color=#FFFFFF><b>Search Results:</td></tr>');
+INSERT INTO theme_data VALUES (4,'search_results_html','<tr bgcolor=#CCCCEE>\r\n  <td width=300><a href=\"#{link}\">#{title}</a></td>\r\n  <td width=125><a href=\"mailto:#{poster_email}\">#{poster}</a></td>\r\n  <td width=125>#{timestamp}</td>\r\n</tr><tr bgcolor=#EEEEEE>\r\n  <td colspan=3> - Contains: #{t_matches}</td>\r\n</tr>');
+INSERT INTO theme_data VALUES (4,'search_results_bottom','</table>');
+INSERT INTO theme_data VALUES (4,'thread_table_top','<table border=0 width=500>');
+INSERT INTO theme_data VALUES (4,'thread_html','<tr bgcolor=#aaedaa>\r\n  <td colspan=2><font face=\"Arial,Helvetica\"><b>\r\n    #{link}#{title}#{/link}\r\n  </font></td>\r\n</tr>\r\n<tr bgcolor=#abaed1>\r\n  <td width=350><font face=\"Arial,Helvetica\">\r\n    #{poster}\r\n  </font></td>\r\n  <td width=150><font face=\"Arial,Helvetica\">\r\n    #{timestamp}\r\n  </td>\r\n</tr>\r\n<tr><td colspan=2><font face=\"Arial,Helvetica\">\r\n#{intro}\r\n</font></td></tr>');
+INSERT INTO theme_data VALUES (4,'thread_table_bottom','<tr bgcolor=#aaedaa>\r\n  <td colspan=2><font face=\"Arial,Helvetica\">\r\n    #P_LINK -- #N_LINK\r\n  </font></td>\r\n</tr>\r\n</table>');
+INSERT INTO theme_data VALUES (5,'header','<html><head>\r\n  <title>eThreads: #{title}</title>\r\n</head>\r\n<body bgcolor=#FFFFFF>\r\n<img src=\"http://ethreads.com/images/6.0/header.gif\" width=600 height=100 border=0 alt=\"eThreads: a new breed of forum software\">\r\n<table width=600 border=0>\r\n<tr><td>\r\n<font face=\"Arial,Helvetica\">\r\n<b><font size=2>#{title}</font></b>\r\n<blockquote>');
+INSERT INTO theme_data VALUES (5,'footer','<p><hr><p>\r\n<font size=2><b>\r\neThreads: a new generation of forum software\r\n<br><a href=\"http://ethreads.com\">http://ethreads.com</a>\r\n</blockquote>\r\n</font>\r\n</td></tr></table></body></html>');
+INSERT INTO theme_data VALUES (5,'day_table_top','<table width=480>\r\n<tr bgcolor=#aadeaa>\r\n  <td colspan=2><b>Calendar for #{mon}/#{year}</b></td>\r\n</tr> \r\n');
+INSERT INTO theme_data VALUES (5,'day_table_day','<tr bgcolor=#BG_COLOR>\r\n  <td width=30><b><font color=#F_COLOR size=3 face=\"Arial,Helvetica\">(#{day})</font></b></td>\r\n  <td width=470>\r\n  <font color=#F_COLOR>#{events}</font>\r\n  </td>\r\n</tr> ');
+INSERT INTO theme_data VALUES (5,'day_table_event','#{timestamp}: #{link}#{title}#{/link}<br>');
+INSERT INTO theme_data VALUES (5,'day_table_bottom','<tr bgcolor=#aadeaa>\r\n  <td colspan=2>\r\n    <b><a href=\"#P_MONTH\">Previous Month</a> \r\n    --- <a href=\"#N_MONTH\">Next Month</a></b>\r\n  </td>\r\n</tr>\r\n</table>\r\n');
+INSERT INTO theme_data VALUES (5,'post_html','<table border=0 width=480>\r\n<tr bgcolor=#aadeaa>\r\n  <td>\r\n    <b>#{title}</b>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#EEEEEE>\r\n  <td width=500>\r\n    #{timestamp}\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#FFFFFF>\r\n  <td colspan=2>#{body}</td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2> </td>\r\n</tr>\r\n</table>\r\n     ');
+INSERT INTO theme_data VALUES (5,'c_post_html','<table border=0 width=480>\r\n<tr bgcolor=#000000>\r\n  <td>\r\n    <font color=#FFFFFF>\r\n    <b>Title: <input name=title size=50></b>\r\n    </font>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#EEEEEE>\r\n  <td width=500>\r\n     Date: <input name=\"mon\" size=2>/<input name=\"day\" size=2>/<input name=\"year\" size=4> @ <input name=\"hour\" size=2>:<input name=\"min\" size=2>\r\n  </td>\r\n</tr>\r\n<tr bgcolor=#FFFFFF>\r\n  <td><textarea name=body cols=50 rows=10 wrap=virtual></textarea></td>\r\n</tr>\r\n<tr bgcolor=#DDDDDD>\r\n  <td colspan=2><b>Submit:</b> <input type=submit name=submit value=\"Post Message\">\r\n</tr>\r\n</table>\r\n');
+
+#
+# Dumping data for table 'theme_headers'
+#
+
+INSERT INTO theme_headers VALUES (1,1,'directory','Default look for eThreads directories.',963265959,1,0);
+INSERT INTO theme_headers VALUES (3,1,'forum','The default normal forum look',963265959,0,0);
+INSERT INTO theme_headers VALUES (4,1,'weblog','Default look for weblogs',963265959,2,0);
+INSERT INTO theme_headers VALUES (5,1,'calendar','The default theme for calendars',963265959,4,0);
+
+#
+# Dumping data for table 'tweaks'
+#
+
+INSERT INTO tweaks VALUES (1,'htmlCOL2_LEFT','150');
+INSERT INTO tweaks VALUES (1,'htmlCOL2_RIGHT','350');
+INSERT INTO tweaks VALUES (1,'htmlCOL3_LEFT','120');
+INSERT INTO tweaks VALUES (1,'htmlCOL3_MIDDLE','150');
+INSERT INTO tweaks VALUES (1,'htmlCOL3_RIGHT','150');
+INSERT INTO tweaks VALUES (1,'htmlROW1_COLOR','abaed1');
+INSERT INTO tweaks VALUES (1,'htmlROW1_FONT_COLOR','000000');
+INSERT INTO tweaks VALUES (1,'htmlROW2_COLOR','aaedaa');
+INSERT INTO tweaks VALUES (1,'htmlROW2_FONT_COLOR','000000');
+INSERT INTO tweaks VALUES (1,'htmlTITLE_BAR_COLOR','000000');
+INSERT INTO tweaks VALUES (1,'htmlTITLE_FONT_COLOR','FFFFFF');
+INSERT INTO tweaks VALUES (1,'threadsEVEN_FONT_COLOR','000000');
+INSERT INTO tweaks VALUES (1,'threadsEVEN_ROW_COLOR','EEEEEE');
+INSERT INTO tweaks VALUES (1,'threadsMAX_THREADS_PER_PAGE','30');
+INSERT INTO tweaks VALUES (1,'threadsNUM_ROWS_PER_TABLE','20');
+INSERT INTO tweaks VALUES (1,'threadsODD_FONT_COLOR','000000');
+INSERT INTO tweaks VALUES (1,'threadsODD_ROW_COLOR','CCCCEE');
+INSERT INTO tweaks VALUES (1,'updated','963262954');
+
+#
+# Dumping data for table 'users'
+#
+
+
+

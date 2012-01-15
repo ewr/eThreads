@@ -1,0 +1,354 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: module.glomule.0,v 1.5 2000/07/11 18:53:26 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999 Eric Richardson
+#
+#     This program is free software; you can redistribute it and/or
+#     modify it under the terms of the GNU General Public License
+#     as published by the Free Software Foundation; either version 2
+#     of the License, or (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program; if not, write to the Free Software
+#     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+#     02111-1307, USA.
+#
+#     For information, contact eThreads:
+#         ethreads@ethreads.com
+#         http://ethreads.com
+#
+#  This is a glomule module.  It contains code for displaying 
+#  forums of its type.
+#
+#  forum type:  Normal Forums
+#     This module doesn't do much...  It uses all the defaults
+#
+#---------------------------------------------------------------------
+
+package eThreads::glomule::0;
+
+use eThreads::core;
+use strict;
+use vars qw($core $viewer %e $m_db $db %input %posts %post);
+
+sub init {
+	my $class = shift;
+	my %args = @_;
+
+	# get core to export to us
+	$core = eThreads::core->substart();
+
+	bless ( { %args }, $class );
+}
+
+#----------
+
+sub settings{ my %s = (
+	type 	=> 'default',
+	author	=> 'e@ethreads.com',
+
+	options	=> {
+		d_sort_field	=> "timestamp",
+		find_new_posts	=> 1,
+	},
+);}
+
+sub fields_schema { my %s = (
+	id				=> {
+		def			=> "int(11) DEFAULT '0' NOT NULL auto_increment",
+		d_value		=> "#{id}",
+		p_key		=> 1,
+	},
+	title			=> {
+		def			=> "varchar(150) DEFAULT '' NOT NULL",
+		notnull		=> 1,
+		search		=> 1,
+	},
+	poster			=> {
+		def			=> "text",
+		auth_value	=> $e{user}{name},
+		search		=> 1,
+	},
+	poster_email	=> {
+		def			=> "text",
+		auth_value	=> $e{user}{email},
+	},
+	timestamp		=> {
+		def			=> "int(11)",
+		type		=> "datetime",
+		d_value		=> time,
+	},
+	child_of		=> {
+		def			=> "int(11)",
+		d_value		=> $input{reply_to},
+	},
+	body			=> {
+		def					=> "text",
+		allow_html			=> 1,
+		convert_newlines	=> 1,
+		search		=> 1,
+	},
+	status			=> {
+		def			=> "tinyint(3) unsigned",
+		d_value 	=> "#{status}",
+	},
+	username		=> {
+		def			=> "varchar(30)",
+		auth_value	=> $e{user}{username},
+	},
+	children		=> {
+		def			=> "int(11)",
+	},
+); return %s;}
+
+# fields used in $core->get_posts()
+sub fields_get_posts {my @f = (
+	'id','title','poster','poster_email','timestamp','child_of','status'
+);return @f;}
+
+# fields used in $core->get_post()
+sub fields_get_post {my @f = (
+	'title','poster','poster_email','username','timestamp','body',
+	'child_of','status'
+);return @f;}
+
+#----------
+
+sub theme_fields { return (
+	'header','footer','thread_table_top','thread_html','thread_table_bottom',
+	'post_html','c_post_html','profile_html','search_box','search_results_top',
+	'search_results_html','search_results_bottom'
+);}
+
+#----------
+
+sub data_tbls {
+	my $class = shift;
+
+	my %tbls = (
+		$class->{main_tbl}	=> {
+			$class->fields_schema
+		},
+	);
+}
+
+#----------
+
+sub preset_data {
+	my $class = shift;
+	$class->{main_tbl} = "glomdata_".$class->{name};
+	$class->{main_tbl} =~ s!/!WOOP!g;
+
+	my %g = (
+		fields		=> ['intro','main_tbl','is_moderated'],
+		intro		=> {
+			visible	=> 0,
+		},
+		main_tbl	=> {
+			visible	=> 0,
+			d_value	=> $class->{main_tbl},
+		},
+		is_moderated	=> {
+			visible		=> 1,
+			descript	=> qq(
+				Is your forum moderated? (1 = yes, 0 = no)
+			),
+			d_value		=> 0,
+		}
+	); 
+	return %g;
+}
+
+#----------
+
+sub prefs {my %p = (
+	new_time		=> {
+		d_val		=> "24",
+		descript	=> qq(
+			How many hours a post should be "new".
+		),
+	},
+	d_depth			=> {
+		d_val		=> "0",
+		descript	=> qq(
+			How many levels of posts should be dropped by default.
+		),
+	},
+	datetime_format		=> {
+		d_val		=> "%D %I:%M%p",
+		descript	=> qq(
+			How eThreads should format fields marked as containing date & time.
+		),
+	},
+	date_format		=> {
+		d_val		=> "%D",
+		descript	=> qq(
+			How eThreads should format fields marked as containing a date.
+		),
+	},
+	max_threads		=> {
+		d_val		=> "20",
+		descript	=> qq(
+			How many threads eThreads should print per page.
+		),
+	},
+);return %p;}
+
+#------------------------#
+# glomule subroutines #
+#------------------------#
+
+sub startup {
+	# this subroutine must be present in all glomule modules.  It 
+	# is called when the glomule is loaded.  If you have anything 
+	# you want to do at startup, do it here
+}
+
+#----------
+
+sub disable_buttons {}
+
+#----------
+
+sub create_data_table {
+	my $class = shift;
+	my $database = shift;
+	my $table_name = shift;
+	my $user = shift;
+	my $passwd = shift;
+
+	# connect our temporary database handle so we can create the table.
+	$core->bail(0,"Could Not Connect t_db: $!") unless (
+		my $t_db = DBI->connect(
+			"DBI:$e{settings}{db}{type}:$database:$e{settings}{db}{host}",
+			"$user","$passwd"
+		)
+	);
+
+	# create the table
+	$core->bail(0,$t_db->errstr) unless ($t_db->do("
+		CREATE TABLE $table_name (
+			id int(11) DEFAULT '0' NOT NULL auto_increment,
+			title varchar(100) DEFAULT '' NOT NULL,
+			poster text,
+			poster_email text,
+			timestamp int(11),
+			child_of int(11),
+			body text,
+			status tinyint(3) unsigned,
+			username varchar(20),
+			children int(11),
+			PRIMARY KEY (id)
+		)
+	"));
+
+	# disconnect the handle
+	$t_db->disconnect;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: module.glomule.0,v $
+# Revision 1.5  2000/07/11 18:53:26  eric
+# * ummm...  i did stuff...  good stuff, i think.
+#   (WTF do you expect?!?!?  It's a 1000+ line diff)
+#
+# Revision 1.4  2000/06/07 18:14:49  eric
+# * glomule creation fixes
+# * glomule deletion fixes
+# * fixed all old references to presets
+# * domain rooting work
+# * glomule module work
+# * assorted other fixes
+#
+# Revision 1.3  2000/06/06 00:01:15  eric
+# * finished integrating look classes and the preset_headers/preset_data
+#
+# Revision 1.2  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+# Revision 1.1  2000/04/29 16:53:37  eric
+# * added files created during eThreads1_2-devel to main tree
+#
+# Revision 1.1.2.4  2000/04/22 20:31:05  eric
+# * work on the domain rooting code
+# * added the glomule::disable_buttons sub to the rest of the glom types
+# * added a '</form>' whose absense was dorking up picky CSS
+#
+# Revision 1.1.2.3  2000/04/11 01:12:11  eric
+# * merging changes after apparently doing some CVS screwing up...
+#
+# Revision 1.1.2.2  2000/03/07 23:29:42  eric
+# * just making the moderator's life a little easier
+#
+# Revision 1.1.2.1  2000/03/06 21:57:20  eric
+# * created glomule registry
+# * coined "glomule" term to refer to data holders (formerly we used
+#   "forum", but that's too specific).  Glomule comes from the word
+#   agglomeration, meaning "a confused or disordered mass".
+#
+# Revision 1.1.2.3.4.11  2000/02/23 06:51:25  eric
+# * ummm...  i did stuff.  lots of stuff.
+#
+# Revision 1.1.2.3.4.10  2000/02/21 19:09:02  eric
+# * updated user information to use new user tbl structure
+#
+# Revision 1.1.2.3.4.9  2000/02/17 22:05:51  eric
+# * fixed forum creation and updated it to new db structure
+#
+# Revision 1.1.2.3.4.8  2000/02/16 17:44:36  eric
+# * rewrote most of the search engine matching code
+# * fixed post modification
+#
+# Revision 1.1.2.3.4.7  2000/01/13 19:15:02  eric
+# * fixed presets caching
+# * moved preset fields to db module
+# * fixed r_drop with forum ids
+#
+# Revision 1.1.2.3.4.6  2000/01/13 17:21:15  eric
+# * reverted to previous presets table structure
+# * changed forum cache code to use glomule::fields_presets
+#
+# Revision 1.1.2.3.4.5  2000/01/11 01:10:32  eric
+# * started changeover to new-style presets table
+#
+# Revision 1.1.2.3.4.4  1999/12/22 18:41:14  eric
+# * new post code
+# * schema work
+#
+# Revision 1.1.2.3.4.3  1999/12/21 22:16:26  eric
+# * broke the post code mightily
+# * started work on drop-to-post
+#
+# Revision 1.1.2.3.4.2  1999/11/24 01:04:17  eric
+# * changed get_posts over to glomule based field specs.
+#
+# Revision 1.1.2.3.4.1  1999/11/23 02:13:06  eric
+# * misc changes in the process towards 1.2
+#
+# Revision 1.1.2.3  1999/09/03 12:25:04  eric
+# * rolled $u_db into $m_db
+#
+# Revision 1.1.2.2  1999/08/26 14:04:25  eric
+# * updated all headers to conform to standard eThreads header
+#
+# Revision 1.1.2.1  1999/08/25 18:51:25  eric
+# * some changes to forum creation code
+# * removed some hardcoded html table widths
+#
+
+#--------------
+1;

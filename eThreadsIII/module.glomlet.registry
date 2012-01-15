@@ -1,0 +1,90 @@
+#---------------------------------------------------------------------
+#  $Id: module.glomlet.registry,v 1.1 2000/06/01 00:32:04 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999-2000 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+#       02111-1307, USA.
+#
+#       For information, contact eThreads:
+#           ethreads@ethreads.com
+#           http://ethreads.com
+#
+#  This module keeps track of what glomlet modules are installed
+#
+#---------------------------------------------------------------------
+
+package eThreads::glomlet::registry;
+
+use strict;
+
+#----------
+
+sub init {
+	my $class = shift;
+	bless ( { }, $class);
+}
+
+#----------
+
+sub main {my %r = (
+	'0'	=> {
+		name		=> "invitation-only",
+		descript	=> qq(
+			Restrict access to only users who have been assigned browse 
+			rights.
+		),
+	},
+	'1'	=> {
+		name		=> "disable-html",
+		descript	=> qq(
+			Disable HTML tags in your glomule.
+		),
+	},
+	'2'	=> {
+		name		=> "anon-read/auth-post",
+		descript	=> qq(
+			Let anyone read your forum, but force them to login before 
+			posting.
+		),
+	},
+	'3'	=> {
+		name		=> "moderated-topics",
+		descript	=> qq(
+			With this glomlet enabled only moderators are able to post 
+			on the top level.  Anyone may reply below these top-level posts.
+		),
+	},
+);}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: module.glomlet.registry,v $
+# Revision 1.1  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;

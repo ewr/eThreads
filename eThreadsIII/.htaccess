@@ -1,0 +1,15 @@
+<FILES ~ "members|maintenance|admin">
+Auth_MYSQL on
+Auth_MySQL_Empty_Passwords off
+Auth_MySQL_Encrypted_Passwords on
+AuthName "eThreads Login"
+AuthType Basic
+Auth_MySQL_DB ethreads
+Auth_MySQL_Password_Table users
+Auth_MySQL_Username_Field username
+Auth_MySQL_Password_Field password
+
+<Limit GET POST>
+require valid-user
+</Limit>
+</FILES>

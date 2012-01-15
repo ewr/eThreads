@@ -1,0 +1,33 @@
+------------------------------------------------------------------------
+       _______ __                        __          ___   _______ 
+.-----|       |  |--.----.-----.---.-.--|  .-----.  |   | |       |
+|  -__|.|   | |     |   _|  -__|  _  |  _  |__ --|  |   |_|___|   |
+|_____`-|.  |-|__|__|__| |_____|___._|_____|_____|  |.  |__/  ___/ 
+        |:  |  eThreads 1.2:                        |:  | |:  1  \ 
+        `---'         a new breed of forum software '---' `-------'
+------------------------------------------------------------------------
+
+This directory contains the schemas and inital data you need to poulate 
+into the eThreads database in order for the software to function
+correctly.
+
+tables.schema
+	This file will create the tables eThreads uses to store its data.
+	It is highly recommended to give eThreads its own database free of 
+	other applications.
+
+initial.data
+	This file sets up the data for the root glomule directory.  It also
+	contains look information for each of the glomule modules' default 
+	look.
+
+icons.data
+	This file contains the SQL for the pale_blue, blue, and HTML icon
+	themes.  As a default, the files are pointed to with ethreads.com as
+	the host.  For performance and control reasons you may wish to
+	download the icon themes from the ethreads.com site and install the
+	images locally.  Once you've done this, simply open the icons.data
+	file in an editor and replace all instances of ethreads.com/themes
+	with the path to your local images.
+
+------------------------------------------------------------------------

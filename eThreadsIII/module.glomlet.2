@@ -1,0 +1,120 @@
+#---------------------------------------------------------------------
+#  $Id: module.glomlet.2,v 1.1 2000/06/01 00:32:04 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999-2000 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+#       02111-1307, USA.
+#
+#       For information, contact eThreads:
+#           ethreads@ethreads.com
+#           http://ethreads.com
+#
+#  This is a glomlet.  Glomlets are small plugins that modify the 
+#  behavior of a glomule class.  Multiple glomets may be layered 
+#  onto a plain glomule class in order to achieve the desired effect.
+#
+#  This is the invitation-only glomlet.  It only allows users who have 
+#  been granted browse rights to see the glomule
+#
+#---------------------------------------------------------------------
+
+package eThreads::glomlet::2;
+
+use strict;
+use eThreads::core;
+use vars qw(%e $core $viewer $m_db $db %post %input);
+
+#----------
+
+sub init {
+	my $class = shift;
+
+	# the first thing we do is init our core connection
+	$core = eThreads::core->substart();
+
+	my %g = (
+		info	=> {
+			name	=> "anon-read/auth-post",
+			author	=> "eric richardson <e\@ethreads.com>",
+		},
+	);
+
+	$core->add_sub_wrap(
+		before	=> \&startup,
+		sub		=> "eThreads::glomule::$e{forum}{type}::startup",
+	);
+
+	$core->add_sub_wrap(
+		sub		=> "eThreads::glomule::$e{forum}{type}::disable_buttons",
+		after	=> \&disable_buttons,
+	);
+
+	bless ( \%g , $class );
+}
+
+#----------
+
+sub disable_buttons {
+	my @disabled = @Hook::WrapSub::result;
+
+	push @disabled, ("post","reply") if (
+		$e{script} eq $e{settings}{scripts}{view}
+	);
+
+	@Hook::WrapSub::result = @disabled;
+}
+
+#----------
+
+sub startup {
+	# edit the function map
+	$e{functions}{post}{view} = "eThreads::glomlet::2::post_explain";
+	$e{functions}{reply}{view} = "eThreads::glomlet::2::post_explain";
+}
+
+#----------
+
+sub post_explain {
+	$core->header("Login Required to Post");
+
+	print <<EOP;
+	In order to post or reply on this forum, you must first login.
+	<p>
+	<a href="$e{forum}{path}/$e{script}/$input{forum}/login">Login Now</a>
+EOP
+
+	$core->footer;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: module.glomlet.2,v $
+# Revision 1.1  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;

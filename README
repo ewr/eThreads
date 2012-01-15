@@ -1,0 +1,24 @@
+------------------------------------------------------------------------
+       _______ __                        __          ___   _______ 
+.-----|       |  |--.----.-----.---.-.--|  .-----.  |   | |       |
+|  -__|.|   | |     |   _|  -__|  _  |  _  |__ --|  |   |_|___|   |
+|_____`-|.  |-|__|__|__| |_____|___._|_____|_____|  |.  |__/  ___/ 
+        |:  |  eThreads 1.2.1:                      |:  | |:  1  \ 
+        `---'         a new breed of forum software '---' `-------'
+------------------------------------------------------------------------
+
+This is the long-promised 1.2 revision of the eThreads forum software.
+Installation instructions can be found online at:
+
+http://ethreads.com/documentation/installing/
+
+eThreads is open-source software licensed under the terms of the GNU
+General Public License.  See the enclosed COPYING file for the license
+text.
+
+---  Differences from eThreads 1.2
+* In subscription code testing a couple email related issues were found
+* in the members script.  Those are cleaned up now.  Also, the schema
+* for the subscriptions table was incorrect.
+
+------------------------------------------------------------------------

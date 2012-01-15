@@ -1,0 +1,294 @@
+#---------------#
+# Main Settings #
+#---------------#
+
+sub settings {
+my %settings = (
+	db			=> {
+		# database host name (blank if connecting to localhost)
+		host	=> "",
+		# database type (only MySQL is supported by default.  module.db.(type) must exist)
+		type	=> "mysql",
+		# db user and password (unencrypted...)
+		user	=> "",
+		pass	=> "",
+		# the main database eThreads will use
+		main	=> "ethreads",
+
+		tbls	=> {
+			# table names.  If you didn't change any names in the schema file 
+			# the defaults should be fine
+			preset_headers	=> "preset_headers",
+			preset_data		=> "preset_data",
+			preset			=> "presets",
+			iconthemes		=> "icons",
+			filter			=> "wordfilters",
+			words			=> "wordmods",
+			theme_headers	=> "theme_headers",
+			theme_data		=> "theme_data",
+			rights			=> "rights",
+			users			=> "users",
+			bindings		=> "bindings",
+			f_bindings		=> "f_bindings",
+			d_bindings		=> "d_bindings",
+			auth_strings	=> "auth_strings",
+			prefs			=> "prefs",
+			tweaks			=> "tweaks",
+			subscriptions	=> "subscriptions",
+			plugins			=> "plugins",
+		},
+	},
+
+	# allowed html tags for use in posts.
+	allowed_tags	=> {
+		a			=> 1,
+		b			=> 1,
+		i			=> 1,
+		p			=> 1,
+		br			=> 1,
+		hr			=> 1,
+		font		=> 1,
+		ul			=> 1,
+		li			=> 1,
+		blockquote	=> 1,
+		center		=> 1,
+	},
+
+	# as of eThreads 1.2 domain rooting is not yet a supported option.  Please 
+	# do not enable it.
+	domain_rooting				=> 0,
+
+	# admin email address. (user\@host.com)
+	admin_email					=> "",
+
+	# name of function map file
+	function_map				=> "functions.map",
+
+	# language (module.lang.(d_lang) must exist)
+	d_lang						=> "english",
+
+	# default path on the web
+	d_path						=> "/eThreads",
+
+	# program to use for sending mail
+	mail_prog					=> "/usr/sbin/sendmail",
+
+	# site host name (eg. www.foo.com)
+	site_name					=> "",
+
+	# cache directory
+	cache_dir					=> "cached",
+
+	# authentication module (module.auth.(d_auth) must exist)
+	d_auth						=> "apache",
+
+	# enable email subscriptions?  (must have email scripts set up in order 
+	# for these to work 
+	email_subs					=> 0,
+
+	# prefix for remailer messages
+	remailer					=> "ethreads_remail",
+
+	# user to say email is from
+	auto_email_from				=> "",
+
+	# host where remailer addresses are found
+	email_host					=> "",
+
+	scripts		=> {
+		# script names.  If you haven't renamed any scripts these will work 
+		# with the default values
+		view		=> "view",
+		members		=> "members",
+		maintenance	=> "maintenance",	
+		admin		=> "admin",
+		users		=> "users",
+	},
+
+	death		=> {
+		screen_msg	=> 1,
+	}
+);
+	return %settings;
+}
+
+#----------
+
+sub settings::d_tweaks {
+	my %d = (
+	threadsEVEN_ROW_COLOR		=> "EDFFED",
+	threadsODD_ROW_COLOR		=> "DDFFDD",
+	threadsNUM_ROWS_PER_TABLE	=> 20,  
+	htmlTITLE_BAR_COLOR			=> "000000",
+	htmlTITLE_FONT_COLOR		=> "FFFFFF",
+	htmlROW1_COLOR 				=> "FFFFFF",	
+	htmlROW1_FONT_COLOR 		=> "000000",
+	htmlROW2_FONT_COLOR 		=> "000000",
+	htmlROW2_COLOR				=> "DDDDDD",	
+	htmlCOL2_LEFT 				=> 100,		 
+	htmlCOL2_RIGHT 				=> 200,		 
+	htmlCOL3_LEFT 				=> 120,		 
+	htmlCOL3_MIDDLE				=> 150,		 
+	htmlCOL3_RIGHT				=> 150,
+	threadsODD_FONT_COLOR 		=> "000000",
+	threadsEVEN_FONT_COLOR 		=> "000000",
+	threadsMAX_THREADS_PER_PAGE	=> 20,
+	);
+	return %d;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: cfg.main,v $
+# Revision 1.16  2000/07/14 15:37:51  eric
+# * email subscription manager works again
+# * unsubscription updated to new format
+#
+# Revision 1.15  2000/07/11 18:53:26  eric
+# * ummm...  i did stuff...  good stuff, i think.
+#   (WTF do you expect?!?!?  It's a 1000+ line diff)
+#
+# Revision 1.14  2000/07/10 20:54:21  eric
+# * merged BCI and tgp devel trees
+# * cleaned up some code in forum_info and cache
+#
+# Revision 1.13  2000/06/06 00:01:15  eric
+# * finished integrating look classes and the preset_headers/preset_data
+#
+# Revision 1.12  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+# Revision 1.10.4.7.4.17  2000/04/15 22:49:22  eric
+# * made an exception in $core->start to not authenticate if its the
+#   view script
+# * moved all user notification to the remailer
+#
+# Revision 1.10.4.7.4.16  2000/04/11 01:12:11  eric
+# * merging changes after apparently doing some CVS screwing up...
+#
+# Revision 1.10.4.7.4.15  2000/03/27 20:54:36  eric
+# * assorted tweaks and fixes
+# * rewrote the news glomule module
+#
+# Revision 1.10.4.7.4.14  2000/03/11 18:51:17  eric
+# * misc. tweaks in the road towards 1.2-stable
+#
+# Revision 1.10.4.7.4.13  2000/03/07 22:33:39  eric
+# * rewrote restricted wordlist editor to build in support for recursion
+#
+# Revision 1.10.4.7.4.12  2000/02/24 15:26:31  eric
+# * fixed some rights loading
+# * fixed user pref caching
+#
+# Revision 1.10.4.7.4.11  2000/02/21 19:09:02  eric
+# * updated user information to use new user tbl structure
+#
+# Revision 1.10.4.7.4.10  2000/02/12 19:58:57  eric
+# * migrated wordmods over to new standard db structure
+# * abstracted forum_tree building code
+#
+# Revision 1.10.4.7.4.9  2000/02/12 19:13:35  eric
+# * rewrote tweak caching code to support recursive pref loading and
+#   new db structure
+#
+# Revision 1.10.4.7.4.8  2000/02/12 02:45:52  eric
+# * commiting changes from hosehead
+#
+# Revision 1.10.4.7.4.7  2000/01/13 22:46:57  eric
+# * rewrote theme modification code
+# * rewrote theme creation code
+# * changed theme database structure to split tables with ident,value pair
+#
+# Revision 1.10.4.7.4.6  2000/01/11 01:10:32  eric
+# * started changeover to new-style presets table
+#
+# Revision 1.10.4.7.4.5  1999/12/22 21:28:51  eric
+# * drop to new posts now works
+# * renamed router function to function_finder
+#
+# Revision 1.10.4.7.4.4  1999/12/22 18:48:25  eric
+# * updated default forumset
+#
+# Revision 1.10.4.7.4.3  1999/12/22 18:41:14  eric
+# * new post code
+# * schema work
+#
+# Revision 1.10.4.7.4.2  1999/12/21 22:16:25  eric
+# * broke the post code mightily
+# * started work on drop-to-post
+#
+# Revision 1.10.4.7.4.1  1999/09/27 23:22:25  eric
+# * started changeover to new forum name system
+# * started changeover to new function calling system
+#
+# Revision 1.10.4.7  1999/09/03 12:25:03  eric
+# * rolled $u_db into $m_db
+#
+# Revision 1.10.4.6  1999/08/25 18:51:24  eric
+# * some changes to forum creation code
+# * removed some hardcoded html table widths
+#
+# Revision 1.10.4.5  1999/08/18 14:39:33  eric
+# * changed path in maintenance to use $e{settings}{d_path}.  This allows
+#   an admin to fix screwed up paths in forum settings.
+#
+# Revision 1.10.4.4  1999/08/18 07:43:45  eric
+# * finally fixed the last of the $e{forum}{user_tbl} linger calls...  how
+#   did those stay around so long?
+# * members:   code for unsubscribe and manage_email
+# * viewer.pm: code to call instamailer when post made
+#
+# Revision 1.10.4.3  1999/08/18 06:30:52  eric
+# * forum_type modules and code
+# * first revision of instamailer (subscription notifier)
+# * some subscription code in members
+#
+# Revision 1.10.4.2  1999/07/27 15:39:24  eric
+# * added option to put child forums in main database
+#
+# Revision 1.10.4.1  1999/06/22 14:37:33  eric
+# * added support for password protected forums
+#
+# Revision 1.10  1999/05/27 00:19:01  eric
+# * various changes to get ready for eThreads 0.9
+#
+# Revision 1.9  1999/05/20 22:51:26  eric
+# * created up script names
+#
+# Revision 1.8  1999/04/29 23:09:52  eric
+# * added settings::d_forumset for default forumset html stuff
+#
+# Revision 1.7  1999/04/29 22:46:18  eric
+# * removed un-needed fields (redundant with forumsets)
+#
+# Revision 1.6  1999/04/13 23:12:55  eric
+# * added settings{db}{users} subsection
+# * added rights table pointer
+#
+# Revision 1.5  1999/04/06 21:34:33  eric
+# * added forumset tbl pointer
+#
+# Revision 1.4  1999/03/23 23:10:29  eric
+# * added pointer for word table
+#
+# Revision 1.3  1999/03/22 00:42:54  eric
+# * added default tweaks
+#
+# Revision 1.2  1999/01/20 19:57:22  eric
+# * added d_lang for default language
+#
+# Revision 1.1.1.1  1999/01/20 02:48:04  eric
+# * e import
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;

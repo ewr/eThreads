@@ -1,0 +1,183 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: module.glomule.1,v 1.4 2000/06/07 18:14:49 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999-2000 Eric Richardson
+#
+#     This program is free software; you can redistribute it and/or
+#     modify it under the terms of the GNU General Public License
+#     as published by the Free Software Foundation; either version 2
+#     of the License, or (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program; if not, write to the Free Software
+#     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+#     02111-1307, USA.
+#
+#     For information, contact eThreads:
+#         ethreads@ethreads.com
+#         http://ethreads.com
+#
+#  This is a forum_type module.  It contains code for displaying 
+#  forums of its type.
+#
+#  forum type:  Forum Directories
+#	Forum Directories list children of forums
+#
+#---------------------------------------------------------------------
+
+package eThreads::glomule::1;
+
+use eThreads::core;
+use strict;
+use vars qw($core $viewer %e $m_db $db %input %posts %post);
+
+$viewer = bless ( { }, 'eThreads::viewer');
+$core 	= bless ( { }, 'eThreads::core');
+
+#----------
+
+sub init {
+	my $class = shift;
+
+	# get core to export to us
+	$core = $core->substart();
+
+	bless ( { }, $class );
+}
+
+#----------
+
+sub settings{ my %s = (
+	type 	=> 'directory',
+	author	=> 'e@ethreads.com',
+
+	options	=> {
+	},
+);}
+
+#-----------------#
+# Database Fields #
+#-----------------#
+
+sub fields_schema {
+	return ();
+};
+
+#----------
+
+# fields used in $core->get_posts()
+sub fields_get_posts {
+	return ();
+}
+
+#----------
+
+# fields used in $core->get_post()
+sub fields_get_post {
+	return ();
+}
+
+#----------
+
+sub preset_data {
+	return ();
+}
+
+#----------
+
+sub prefs {
+	return ();
+}
+
+#----------
+
+sub theme_fields { return (
+	'header','footer'
+);}
+
+#----------
+
+sub data_tbls {
+	return ();
+}
+
+#---------------------#
+# glomule subroutines #
+#---------------------#
+
+sub startup {
+	# this subroutine must be present in all forum_type modules.  It 
+	# is called when the forum_type is loaded.  If you have anything 
+	# you want to do at startup, do it here
+
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: module.glomule.1,v $
+# Revision 1.4  2000/06/07 18:14:49  eric
+# * glomule creation fixes
+# * glomule deletion fixes
+# * fixed all old references to presets
+# * domain rooting work
+# * glomule module work
+# * assorted other fixes
+#
+# Revision 1.3  2000/06/06 00:01:15  eric
+# * finished integrating look classes and the preset_headers/preset_data
+#
+# Revision 1.2  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+# Revision 1.1  2000/04/29 16:53:37  eric
+# * added files created during eThreads1_2-devel to main tree
+#
+# Revision 1.1.2.1  2000/03/06 21:57:20  eric
+# * created glomule registry
+# * coined "glomule" term to refer to data holders (formerly we used
+#   "forum", but that's too specific).  Glomule comes from the word
+#   agglomeration, meaning "a confused or disordered mass".
+#
+# Revision 1.1.2.3.4.5  2000/02/24 15:26:31  eric
+# * fixed some rights loading
+# * fixed user pref caching
+#
+# Revision 1.1.2.3.4.4  2000/02/21 15:24:45  eric
+# * fixed creation of forum directories
+#
+# Revision 1.1.2.3.4.3  2000/01/13 17:21:15  eric
+# * reverted to previous presets table structure
+# * changed forum cache code to use fields_presets
+#
+# Revision 1.1.2.3.4.2  2000/01/11 01:10:32  eric
+# * started changeover to new-style presets table
+#
+# Revision 1.1.2.3.4.1  1999/11/24 01:04:17  eric
+# * changed get_posts over to forum_type based field specs.
+#
+# Revision 1.1.2.3  1999/09/03 12:25:04  eric
+# * rolled $u_db into $m_db
+#
+# Revision 1.1.2.2  1999/08/26 14:04:25  eric
+# * updated all headers to conform to standard eThreads header
+#
+# Revision 1.1.2.1  1999/08/25 18:51:25  eric
+# * some changes to forum creation code
+# * removed some hardcoded html table widths
+#
+
+#--------------
+1;

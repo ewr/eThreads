@@ -1,0 +1,1113 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: maintenance,v 1.24 2000/07/13 21:36:35 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  
+#       02111-1307, USA.
+#
+#       For information, contact eThreads:
+#           ethreads@ethreads.com
+#           http://ethreads.com
+#
+#  This is the maintenance interface for eThreadsIII.  It 
+#  uses the eThreads::core Perl module.
+#
+#---------------------------------------------------------------------
+
+use eThreads::core;
+use strict;
+use vars qw($viewer $admin $core %e $db $m_db %posts %input);
+
+$core = eThreads::core->start(
+	script 			=> "maintenance",
+	get_rights		=> 1,
+	disable_browse	=> 1,
+);
+
+#---------#
+# Routing #
+#---------#
+
+# make sure they have maintenance rights here
+$core->auth::require("maint");
+
+# route 'em to the subroutine they're supposed to find
+$core->function_finder;
+
+#-------------#
+# Subroutines #
+#-------------#
+
+sub main_menu {
+	$core->header("Main Menu");
+	
+	print "$e{forum}{intro}<p>";
+
+	if ($e{forum}{type} == 1 || !$input{forum}) {
+		print <<EOP;
+		<a href="$e{settings}{d_path}/$e{script}/$input{forum}/create_glomule">
+		$e{language}{create_glomule}</a>
+		<p>
+		<b>$e{language}{child_forums}</b>
+EOP
+		$core->browse_child_forums($e{forum}{id},1,1);
+	} 
+
+	if ($input{forum}) {
+		my $parent = $core->forum_id2name($e{forum}{child_of});
+
+		print <<EOP;
+		<p>
+		<a href="$e{settings}{d_path}/$e{settings}{scripts}{view}/$input{forum}/">View this Forum</a>
+		<br><a href="$e{settings}{d_path}/$e{settings}{scripts}{admin}/$input{forum}/">Administer this Forum</a>
+		<p><a href="$e{settings}{d_path}/$e{script}/$input{forum}/modify">Modify Settings for this Forum</a>
+		<br><a href="$e{settings}{d_path}/$e{script}/$parent/delete?child=$e{forum}{id}">Delete this Forum</a>
+EOP
+	}
+
+	my ($cols,$m_width);
+	if ($e{options}{use_browse_rights}) {
+		$m_width = ($e{tweak}{htmlCOL3_MIDDLE}/4);
+		$cols = 6;
+	} else {
+		$m_width = ($e{tweak}{htmlCOL3_MIDDLE}/3);
+		$cols = 5;
+	}
+
+	print <<EOP;
+	<p><table border=0><tr bgcolor=#$e{tweak}{htmlTITLE_BAR_COLOR}><td colspan=$cols>
+		<b><font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>Modify Admin Rights</font></b>
+	</td></tr>
+	<tr bgcolor=#$e{tweak}{htmlROW1_COLOR}>
+		<td width=$e{tweak}{htmlCOL3_LEFT}>
+			<i>Username:</i>
+		</td><td width=$m_width>
+			<font size=1>
+			<i>Moderate</i>
+		</td><td width=$m_width>
+			<font size=1>
+			<i>Admin</i>
+		</td><td width=$m_width>
+			<font size=1>
+			<i>Maint</i>
+EOP
+	print <<EOP if ($e{options}{use_browse_rights});
+		</td><td width=$m_width>
+			<font size=1>
+			<i>Browse</i>
+EOP
+	print <<EOP;
+		</td><td width=$e{tweak}{htmlCOL3_RIGHT}>
+			<i>Options:</i>
+		</td></tr>
+EOP
+
+	my @ids = $core->build_forum_tree($e{forum}{id});
+	push @ids, '0';
+
+	my $get_admins = $m_db->prepare("
+		select distinct user from $e{settings}{db}{tbls}{rights} 
+		where forum in (" . join(",",@ids) . ")"
+	);
+
+	$core->bail(0,"get_admins: ".$m_db->errstr) unless (
+		$get_admins->execute
+	);
+
+	my %rights;
+	while (my $user = $get_admins->fetchrow_array) {
+		%{$rights{$user}} = $core->auth::get_rights(
+			user	=> $user,
+			forum	=> ($input{forum} ? $e{forum}{id} : '0')
+		);
+	}
+
+	my $user_id2name = $m_db->prepare("
+		select username from $e{settings}{db}{tbls}{users} where id = ?
+	");
+
+	foreach my $user (keys %rights) {
+		# convert user id to user name
+		$user_id2name->execute($user);
+		my $username = $user_id2name->fetchrow_array;
+
+		my $moderate_box 	= "checked" if ($rights{$user}{moderate});
+		my $admin_box 		= "checked" if ($rights{$user}{admin});
+		my $maint_box		= "checked" if ($rights{$user}{maint});
+		my $browse_box		= "checked" if ($rights{$user}{browse});
+
+		print <<EOP;
+		<form action="$e{settings}{d_path}/$e{script}/$input{forum}/alter_rights" method=get>
+		<tr bgcolor=#$e{tweak}{htmlROW2_COLOR}>
+			<td>$username</td><td>
+				<input type=hidden name=user value="$user">
+				<input type=checkbox $moderate_box value=1 name="moderate">
+			</td><td>
+				<input type=checkbox $admin_box value=1 name="admin">
+		</td><td>
+				<input type=checkbox $maint_box value=1 name="maint">
+EOP
+		print <<EOP if ($e{options}{use_browse_rights});
+			</td><td>
+				<input type=checkbox $browse_box value=1 name="browse">
+EOP
+		print <<EOP;
+			</td><td><font size=2>
+			<input type=submit value="Modify"> - - 
+			<a href="$e{settings}{d_path}/$e{script}/$input{forum}/delete_rights?user=$user">Remove</a>
+			</font>
+		</td></tr>
+		</form>
+EOP
+	}
+
+	my $get_all_users = $m_db->prepare("
+		select id,username from $e{settings}{db}{tbls}{users} order by username
+	");
+
+	$core->bail(1,$m_db->errstr) unless ($get_all_users->execute);
+
+	print <<EOP;
+	<form action="$e{settings}{d_path}/$e{script}/$input{forum}/alter_rights" method=get>
+		<tr bgcolor=#$e{tweak}{htmlROW1_COLOR}><td>
+EOP
+
+	# this approach still isn't as flexible as i would like, but i guess it'll 
+	# do for now.  Massive numbers of users will present the same problem with 
+	# three lists as they would with one.
+
+	if ($get_all_users->rows > 100) {
+		# first we sort the users into three lists.  one contains usernames a-g, 
+		# one h-n, and the other contains o-z and non-alpha characters
+
+		my ($id,$user,$anum,$unum,%u,@d);
+		$get_all_users->bind_columns(\$id,\$user);
+		while ($get_all_users->fetch) {
+			# the first thing we do is associate the uid with the user name
+			$u{$id} = $user;
+
+			# these are already sorted, so we just stick 'em into arrays
+			push @{$d[$anum]}, $id;
+
+			$unum++;
+
+			# determine when to switch arrays
+			if ($unum == 200) {
+				$unum = 0;
+				$anum++;
+			}
+		}
+
+		# now print back each group of 200 users in a drop-down
+		for (my $a = 0; $a <= $anum; $a++) {
+			print qq(<select name="user"><option value="">Select One...);
+			while (my $uid = shift @{$d[$a]}) {
+				print qq(<option value="$uid">$u{$uid}) unless ($rights{$u{$uid}});
+			}
+			print qq(</select><br>);
+		}
+
+		print <<EOP;
+		
+EOP
+	} else {	
+		print qq(<select name="user"><option value="">Select One...);
+		while (my ($id,$username) = $get_all_users->fetchrow_array) {
+			print qq(<option value="$id">$username) unless ($rights{$username});
+		}
+		print qq(</select>);
+	}
+
+	print <<EOP;
+			</td>
+				<td><input type=checkbox name="moderate" value=1></td> 
+				<td><input type=checkbox name="admin" value=1></td> 
+				<td><input type=checkbox name="maint" value=1></td> 
+EOP
+				print qq(<td><input type=checkbox name="browse"></td>) if ($e{options}{use_browse_rights});
+	print <<EOP;
+				<td><input type=submit value="Create Rights">
+		</tr>
+		</form>	
+	</table>
+EOP
+
+	$core->footer;
+}
+
+#----------
+
+sub alter_rights {
+	# convert input user id to username
+	my $user = $core->user_id2name($input{user});
+
+	# print out our header
+	$core->header("Alter Rights for $user");
+
+	my @g_rights = ('admin','maint','browse','moderate');	
+
+	# now what rights do they already have
+	my %e_rights = $core->auth::get_rights(
+		user	=> $input{user},
+		forum	=> ($input{id} ? $e{forum}{id} : '0'),
+	);
+
+	while (my $right = shift @g_rights) {
+		if (($input{$right} || $e_rights{$right}) && ($input{$right} != $e_rights{$right})) {
+			$core->set_value(
+				set_zero_val	=> 1,
+				tbl				=> $e{settings}{db}{tbls}{rights},
+				key_field		=> 'forum',
+				key				=> ($input{forum} ? $e{forum}{id} : '0'),
+				skey_field		=> 'user',
+				skey			=> $input{user},
+				ident			=> $right,
+				value			=> $input{$right},
+			);
+		} else {
+			# do nothing...  no change.
+		}
+	}
+
+	if (!$input{maint} && !$input{moderate} && !$input{browse} && !$input{admin}) {
+		# hmmm...  they no longer have any rights here.  We should delete them 
+		# unless they have rights farther up the tree that we specifically 
+		# revoked here.
+
+		my @ids = $core->build_forum_tree($e{forum}{id});
+
+		my $revoke_rights = $m_db->prepare("
+			delete from $e{settings}{db}{tbls}{rights} where forum = ? and user = ?
+		");
+
+		if ($input{forum}) {
+			# hmmm...  how do we know if we can delete the user, or if they're 
+			# just putting a null mask over the user's pre-existing rights up the 
+			# tree?  Let's try seeing if we get a match on their username with a 
+			# right in our parent tree
+
+			my @tree = $core->build_forum_tree($e{forum}{id});
+
+			my $get_parent_rights = $m_db->prepare("
+				select max(value) from $e{settings}{db}{tbls}{rights} 
+				where user = ? and forum in (" . join(",",@tree) . ")"
+			);
+
+			$core->bail(0,"get_parent_rights: ".$m_db->errstr) unless (
+				$get_parent_rights->execute($input{user})
+			);
+			my $max_right = $get_parent_rights->fetchrow_array;
+
+			$revoke_rights->execute($e{forum}{id},$input{user}) if (!$max_right);
+		} else {
+			# we're the top level.  If they ain't here, they ain't nowhere above us.
+			$revoke_rights->execute('0',$input{user});
+		}
+	}
+
+	print <<EOP;
+	<b>alter_rights:</b> rights for $user were successfully altered.<p> 
+EOP
+	&main_menu;
+
+	$core->footer;
+}
+
+#----------
+
+sub modify_glomule {
+	$core->header("Modify Glomule: $input{forum}");
+	my @type_fields;
+
+	my ($order,$fields) = $core->db::fields::preset_headers;
+
+	if (!$input{submit}) {
+		# print out the modify form
+		my ($f_suffix) = ($input{forum} =~ m!/!) ? $input{forum} =~ m!^.*/([^/]+)! : $input{forum};
+
+		my @data = (
+			["<b>$e{language}{field}</b>","<b>$e{language}{description}</b>","<b>$e{language}{value}</b>"],
+			['Name',qq(
+					<center><font size=2>${$fields}{name}{descript}</font></center>
+				),qq(
+					<input type=text name=name size=20 value='$f_suffix'>
+				)
+			]
+		);
+
+
+		foreach my $field (@{$order}) {
+			next if $field eq "name";
+			push @data, [
+				$field,
+				"<center><font size=2>${$fields}{$field}{descript}</font></center>",
+				qq(<input type=text name='$field' value="$e{forum}{$field}" size=20>)
+			] if (${$fields}{$field}{visible});
+		}
+
+		# now push the submit button
+		push @data, ["<b>$e{language}{submit}</b>","&nbsp;",qq(
+			<b><input type=submit name="submit" value="$e{language}{modify_glomule}"></b>
+		)];
+
+		print qq(<form action="$e{settings}{d_path}/$e{script}/$input{forum}/modify" method=get>);
+
+		$core->htmltable_3col(
+			title	=> $e{language}{modify_glomule},
+			data	=> \@data,
+		);
+
+		print qq(</form>);
+
+	} else {
+		# do the modifications
+
+		# step 1 -- do they want to change the glomule name?
+		if ($input{name} ne $input{forum}) {
+			# get the parent's name
+			my $p_name = $core->forum_id2name($e{forum}{child_of});
+
+			# is that a reserved word?
+			$core->bail(0,"$input{name} is a reserved word.  You may not use it as a forum name.") if (
+				$e{functions}{$input{name}} || $e{settings}{scripts}{$input{name}}
+			);			
+			
+			# glom names can't contain spaces...
+			$core->bail(0,"The name '$input{name}' contains illegal characters") if (
+				$input{name} =~ m![^\w-]!
+			);
+
+			# apparently the new name is ok...  NOTE -- We don't check if a forum by this name already 
+			# exists.  We let the unique definition in the db take care of that.
+
+			# make sure the name is how it should be in the db
+			my $name = $core->forum_name2fname($p_name."/".$input{name});
+
+			my $rename = $m_db->prepare("
+				update $e{settings}{db}{tbls}{f_bindings} set name = ? where id = ?
+			");
+
+			$core->bail(0,"rename error: ".$m_db->errstr) unless (
+				$rename->execute($name,$e{forum}{id})
+			);
+
+			print "<b>Forum '$input{forum}' renamed to '$name'.</b><p>";
+
+			$input{forum} = $name;
+		}
+
+		my (@fields,@data);
+		foreach my $field (@{$order}) {
+			next if ($field eq"name");
+			if (${$fields}{$field}{visible} && ($input{$field} ne $e{forum}{$field})) {
+				push @fields, $field . "=?";
+				push @data, $input{$field};
+			}
+		}
+
+		if (@fields) {
+			my $update = $m_db->prepare("
+				update $e{settings}{db}{tbls}{preset_headers} set updated=?, "
+				. join(",",@fields) . "where id = ?
+			");
+	
+			$core->bail(0,"update failure: ".$m_db->errstr) unless (
+				$update->execute(time,@data,$e{forum}{id})
+			);
+		}
+
+		print <<EOP;
+		Your glomule was successfully updated.
+		<p><a href="$e{settings}{d_path}/$e{script}/$input{forum}/">Return to Maintenance Menu</a>
+EOP
+	}
+
+	$core->footer();
+}
+
+#----------
+
+sub delete_glomule {
+	my $name = $core->forum_id2name($input{child});
+	$core->header("Delete Glomule: $name");
+
+	# set this if the forum's not ready to be deleted
+	my $unsafe;	
+
+	# if we're a directory, we might have kids... we'll look just in case
+	my $look_for_kids = $m_db->prepare("
+		select id,descript from $e{settings}{db}{tbls}{preset_headers} 
+		where child_of=?
+	");
+	$core->bail(0,$m_db->errstr) unless ($look_for_kids->execute(
+		$input{child}
+	));
+
+	if ($look_for_kids->rows) {
+		print <<EOP;
+		This glomule directory can not be deleted because it contains children.  Please delete or 
+		reparent these children before trying to delete this directory.
+EOP
+		# declare that deletion is unsafe
+		$unsafe = 1;
+	} else {
+		# empty directory or regular forum... safe to delete
+	}
+
+	if (!$input{approve} && !$unsafe) {
+		print <<EOP;
+		Are you sure you would like to delete this glomule?  There's no undo feature...
+		<p>
+		<a href="$e{settings}{d_path}/$e{script}/$input{forum}/">NO --- Do not delete Glomule</a>
+		<p>---<p>
+		<a href="$e{settings}{d_path}/$e{script}/$input{forum}/delete?child=$input{child}&approve=1">
+		YES --- Delete Glomule</a>
+
+EOP
+	} elsif ($input{approve} && $input{child} && !$unsafe) {
+
+		# make sure they're not trying to delete someone else's glomule
+		my $get_parent = $m_db->prepare("
+			select child_of from $e{settings}{db}{tbls}{preset_headers} where id = ?
+		");
+
+		$get_parent->execute($input{child});
+
+		my $parent = $get_parent->fetchrow_array;
+
+		$core->bail(
+			0,"$input{forum} does not own glomule $input{child}.  Aborting."
+		) unless (
+			$parent == $e{forum}{id}
+		);
+
+		my $f_id = $input{child};
+
+		#----------------------#
+		# delete forum binding #
+		#----------------------#
+
+		{
+			my $delete_binding = $m_db->prepare("
+				delete from $e{settings}{db}{tbls}{f_bindings} where id=?
+			");
+			$delete_binding->execute($f_id);
+		}
+
+		#----------------------#
+		# delete preset header #
+		#----------------------#
+
+		{
+			my $delete_preset = $m_db->prepare("
+				delete from $e{settings}{db}{tbls}{preset_headers} where id=?
+			");
+			$delete_preset->execute($f_id);
+		}
+
+		#-------------------#
+		# delete data table #
+		#-------------------#
+
+		# check if there is a data table to begin with
+
+		# FIX-ME: This code will break as soon as a glomule module is created 
+		# which uses multiple data tables.  None do at this point, however, 
+		# and I can't think of a good way to fix it.
+
+		{
+			# check and see if this glomule uses a data table
+			my $get_tbl = $m_db->prepare("
+				select value from $e{settings}{db}{tbls}{preset_data} 
+				where ident = ? and id = ?
+			");
+
+			$core->bail(0,"get_tbl: ".$m_db->errstr) unless (
+				$get_tbl->execute('main_tbl',$f_id)
+			);
+
+			if ($get_tbl->rows) {
+				(my $forum = $input{child}) =~ s!/!WOOP!g;
+				$m_db->do("drop table ".$get_tbl->fetchrow_array);
+			}
+		}
+
+		#--------------------#
+		# delete preset data #
+		#--------------------#
+
+		{
+			my $delete_pd = $m_db->prepare("
+				delete from $e{settings}{db}{tbls}{preset_data} where id = ?
+			");
+			$delete_pd->execute($f_id);
+		}
+
+		#-------------------#
+		# delete theme data #
+		#-------------------#
+	
+		{
+			my $get_forum_themes = $m_db->prepare("
+				select id from theme_headers where forum = ?
+			");
+			$get_forum_themes->execute($f_id);
+		
+			# set up some db calls
+			my $delete_data = $m_db->prepare("
+				delete from theme_data where id=?
+			");
+		
+			my $delete_headers = $m_db->prepare("
+				delete from theme_headers where id=?
+			");
+		
+			while (my $t_id = $get_forum_themes->fetchrow_array) {
+				$delete_data->execute($t_id);
+				$delete_headers->execute($t_id);
+			}
+		}
+		
+		#--------------#
+		# delete prefs #
+		#--------------#
+		
+		{
+			my $delete_prefs = $m_db->prepare("
+				delete from prefs where forum=?
+			");
+			$delete_prefs->execute($f_id);
+		}
+	
+		#--------------------------#
+		# delete subscription info #
+		#--------------------------#
+		
+		{
+			my $delete_subs = $m_db->prepare("
+				delete from subscriptions where forum = ?
+			");
+			$delete_subs->execute($input{child});
+		}
+		
+		#----------------------#
+		# delete post bindings #
+		#----------------------#
+	
+		{
+			my $delete_p_bindings = $m_db->prepare("
+				delete from bindings where forum = ?
+			");
+			$delete_p_bindings->execute($f_id);
+		}
+		
+		#---------------------#
+		# delete auth strings #
+		#---------------------#
+	
+		{
+			my $delete_auth = $m_db->prepare("
+				delete from auth_strings where forum = ?
+			");
+			$delete_auth->execute($input{child});
+		
+		}
+
+		#----------------------#
+		# delete language mods #
+		#----------------------#
+		
+		{
+			my $delete_words = $m_db->prepare("
+				delete from wordmods where forum = ?
+			");
+			$delete_words->execute($f_id);
+		}
+
+		#--------------------#
+		# delete rights info #
+		#--------------------#
+
+		{ 
+			my $delete_rights = $m_db->prepare("
+				delete from rights where forum = ?
+			");
+			$delete_rights->execute($f_id);
+		}
+
+		#-------------------#
+		# print out success #
+		#-------------------#
+
+		print <<EOP;
+		Forum <i>$name</i> deleted.
+EOP
+		print <<EOP;
+		<p><a href="$e{settings}{d_path}/$e{script}/$input{forum}/">Return to Parent Options</a>
+EOP
+	} else {
+		# do nothing
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub create_glomule {
+	$core->header("Create New Forum: $input{new_forum}");
+	my %glom_fields;
+	my $glomule;
+
+	# load the preset_headers
+	my ($order_ref,$info_ref) = $core->db::fields::preset_headers; 
+
+	if (defined($input{type})) {
+	}
+
+	if (!$input{submit} && !defined($input{type})) {
+		# load the glomule registry so we know what's available
+		my $registry = $core->init_glomule("registry");
+		my %glomules = $registry->main;
+
+		my @data;
+		# now print out a list of available glomules
+		foreach my $g (keys %glomules) {
+			my $title = qq(
+				<a href="$e{settings}{d_path}/$e{script}/$input{forum}/create_glomule?type=$g">
+				$glomules{$g}{title}</a>
+			);
+			
+			# now push our 2 col array onto the one col row array
+			push @data, [$title,$glomules{$g}{descript}];
+		}
+
+		# i like tables with bottoms
+		push @data, ['&nbsp;','&nbsp'];
+
+		$core->htmltable_2col(
+			title	=> $e{language}{avail_glom_types},
+			data	=> \@data,
+		);
+
+	} elsif (!$input{submit} && defined($input{type})) {
+		$glomule = $core->init_glomule($input{type});
+		%glom_fields = $glomule->preset_data;
+
+		print <<EOP;
+		<form action="$e{settings}{d_path}/$e{script}/$input{forum}/create_glomule" method=get>
+		<input type=hidden name=type value=$input{type}>
+EOP
+		my @data = ([
+			qq(<b>$e{language}{field}</b>),
+			qq(<b>$e{language}{description}</b>),
+			qq(<b>$e{language}{value}</b>)
+		]);
+
+		# first we list the fields that every forum must have
+		foreach my $field (@{$order_ref}) {
+			if (${$info_ref}{$field}{visible}) {
+				push @data, [
+					$field,
+					qq(<center><font size=2>${$info_ref}{$field}{descript}</font></center>),
+					qq(<input type=text name='$field' size=20>)
+				];
+			} 
+		}
+
+		# now we do the fields that the glomule class wants to use
+
+		foreach my $field (@{$glom_fields{fields}}) {
+			next unless $glom_fields{$field}{visible};
+
+			push @data, [
+				$field,
+				qq(<center><font size=2>$glom_fields{$field}{descript}</font></center>),
+				qq(<input type=text name='$field' size=20>)
+			];
+		}
+
+		push @data, [
+			qq(<b>$e{language}{submit}</b>),
+			qq(&nbsp;),
+			qq(<input type=submit name=submit value="$e{language}{create_glomule}">)
+		];
+
+
+		$core->htmltable_3col(
+			title	=> $e{language}{create_glomule},
+			data	=> \@data,
+		);
+
+		print qq(</form>);
+
+	} else {
+		$core->bail(0,"$input{name} is a reserved word.  You may not use it as a glomule name.") if (
+			$e{functions}{$input{name}}
+		);
+
+		$core->bail(
+			0,"The name '$input{name}' contains illegal characters.  Glomule not created."
+		) if (
+			$input{name} =~ m![^\w-]!g
+		);
+
+		# convert to a full name
+		my $name = $core->forum_name2fname($input{forum}."/".$input{name});
+
+		# now that we know the glomule name, we can init the glomule module
+		my $glomule = $core->init_glomule(
+			$input{type},
+			name	=> $name,
+		);
+		my %glom_fields = $glomule->preset_data;
+
+		if (!$e{settings}{allow_admin_to_change_path}) {
+			$input{path}        = $e{settings}{d_path};
+		}
+
+		#----------------------#
+		# check for duplicates #
+		#----------------------#
+
+		my $duplicate_check = $m_db->prepare("
+			select id from $e{settings}{db}{tbls}{f_bindings} where name = ?
+		");
+
+		$core->bail(0,"duplicate_check: ".$m_db->errstr) unless (
+			$duplicate_check->execute($name)
+		);
+
+		$core->bail(
+			0,"$name already exists.  Please try a new name."
+		) if (
+			$duplicate_check->rows
+		);
+
+		#--------------------#
+		# make presets entry #
+		#--------------------#
+
+		# shift 'name' off the array...
+		shift(@{$order_ref}); 
+
+		my $make_preset_headers = $m_db->prepare(
+			"insert into preset_headers(" . join(",",@{$order_ref}) . 
+			") values(" . join(',',map { "?" } 1..(scalar @{$order_ref})) . ")" 
+		);
+
+		my @f_values;
+		for (my $i = 0; $i <= $#{$order_ref}; $i++) { 
+			my $val = defined($input{${$order_ref}[$i]}) ? 
+				$input{${$order_ref}[$i]} : 
+				${$info_ref}{${$order_ref}[$i]}{d_value};
+
+			push @f_values, $val;
+		}
+
+		$core->bail(0,"make_preset failure: ".$m_db->errstr) unless (
+			$make_preset_headers->execute(@f_values)
+		);
+
+		# find out what id this new preset was assigned
+		my $f_id = $core->db::get_message_id($make_preset_headers);
+
+		#------------------------#
+		# make preset_data entry #
+		#------------------------#
+
+		{
+			my %p_data = $glomule->preset_data;
+
+			my $insert_preset_data = $m_db->prepare("
+				insert into $e{settings}{db}{tbls}{preset_data}(
+					id,ident,value
+				) values(
+					?,?,?
+				)
+			");
+
+			foreach my $field (@{$p_data{fields}}) {
+				my $val = ($p_data{$field}{visible}) ? 
+					$input{$field} : $p_data{$field}{d_value};
+
+				$insert_preset_data->execute($f_id,$field,$val);
+			}
+		}
+
+		#----------------------#
+		# create forum binding #
+		#----------------------#
+
+		my $bind_forum = $m_db->prepare("
+			insert into $e{settings}{db}{tbls}{f_bindings}(name,id) values(?,?)
+		");
+
+		$core->bail(0,"bind_forum failure: ".$m_db->errstr) unless (
+			$bind_forum->execute($name,$f_id)
+		);
+
+		#-------------------#
+		# create data table #
+		#-------------------#
+
+		# we create the glomule data table(s) using information supplied 
+		# by the glomule class module.
+
+		my %data_tbls = $glomule->data_tbls;
+
+		foreach my $schema (keys %data_tbls) {
+			my $sql;
+			my $p_key;
+
+			foreach my $field (keys %{$data_tbls{$schema}}) {
+				$sql .= "$field $data_tbls{$schema}{$field}{def},\n";
+				$p_key .= "$field," if ($data_tbls{$schema}{$field}{p_key});
+			}
+
+			$p_key =~ s/,$//;
+
+			if ($sql) {
+				$core->bail(
+					0,"create data table failure: ".$m_db->errstr
+				) unless (
+					$m_db->do("
+						create table $schema (
+							$sql
+							primary key($p_key)
+						)
+					")
+				);
+
+			} else {
+				# they don't need a data table
+			}
+
+		}
+
+		#---------------------------#
+		# create default look theme #
+		#---------------------------#
+
+		# create the forum's d_look.  since we're doing the recursive settings stuff 
+		# now, we don't need to actually put any data in the look, just create the 
+		# headers for it.
+
+		my $create_headers = $m_db->prepare("
+			insert into $e{settings}{db}{tbls}{theme_headers}(
+				id,forum,name,descript,updated,class
+			) values (0,?,?,?,?,?)
+		");
+
+		$core->bail(0,"create_headers failure: ".$m_db->errstr) unless (
+			$create_headers->execute($f_id,$e{language}{d_look},$e{language}{d_look},time,$input{type})
+		);
+
+		print <<EOP;
+		Your new forum, $name, was created.
+		<p>
+		<a href="$e{settings}{d_path}/$e{settings}{scripts}{admin}/$name/">Administer it Here</a>
+EOP
+	}
+
+	$core->footer;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: maintenance,v $
+# Revision 1.24  2000/07/13 21:36:35  eric
+# * fixes to make the invitation only glomlet cause maintenance to allow
+#   the setting of browse rights.  And all done cleanly, too, so other
+#   glom(lets|ules) can feel free to set options{use_browse_rights} in
+#   their settings
+#
+# Revision 1.23  2000/07/13 20:54:44  eric
+# * fixed glomule modification bug in maintenance
+#
+# Revision 1.22  2000/07/11 19:40:24  eric
+# * fixed glomule data table deletion code
+# * fixed phantom cache bug
+# * made delete glomule code show glomule name instead of id
+#
+# Revision 1.21  2000/07/11 18:53:26  eric
+# * ummm...  i did stuff...  good stuff, i think.
+#   (WTF do you expect?!?!?  It's a 1000+ line diff)
+#
+# Revision 1.20  2000/07/10 18:52:02  eric
+# * misc
+#
+# Revision 1.19  2000/06/07 18:14:49  eric
+# * glomule creation fixes
+# * glomule deletion fixes
+# * fixed all old references to presets
+# * domain rooting work
+# * glomule module work
+# * assorted other fixes
+#
+# Revision 1.18  2000/06/06 00:01:15  eric
+# * finished integrating look classes and the preset_headers/preset_data
+#
+# Revision 1.17  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+# Revision 1.16  2000/05/01 19:04:10  eric
+# * more work on domain rooting
+#
+# Revision 1.15  2000/04/29 16:39:19  eric
+# * merging eThreads1_2-devel tree back into main eThreads tree
+#
+# Revision 1.14.4.9.2.1.2.14  2000/03/27 20:54:36  eric
+# * assorted tweaks and fixes
+# * rewrote the news glomule module
+#
+# Revision 1.14.4.9.2.1.2.13  2000/03/15 23:26:27  eric
+# * rewrote modify_glomule function (formerly modify_forum)
+#
+# Revision 1.14.4.9.2.1.2.12  2000/03/11 18:51:17  eric
+# * misc. tweaks in the road towards 1.2-stable
+#
+# Revision 1.14.4.9.2.1.2.11  2000/03/06 21:57:20  eric
+# * created glomule registry
+# * coined "glomule" term to refer to data holders (formerly we used
+#   "forum", but that's too specific).  Glomule comes from the word
+#   agglomeration, meaning "a confused or disordered mass".
+#
+# Revision 1.14.4.9.2.1.2.10  2000/03/03 00:54:24  eric
+# * updated rights code
+#
+# Revision 1.14.4.9.2.1.2.9  2000/02/24 20:37:24  eric
+# * fixed some maintenance issues
+#
+# Revision 1.14.4.9.2.1.2.8  2000/02/24 15:26:31  eric
+# * fixed some rights loading
+# * fixed user pref caching
+#
+# Revision 1.14.4.9.2.1.2.7  2000/02/23 18:33:53  eric
+# * fixed forum deletion
+# * created $core->forum_name2id and $core->forum_id2name
+#
+# Revision 1.14.4.9.2.1.2.6  2000/02/22 20:58:11  eric
+# * rewrote core::start function and changed arg style
+# * wrote forum finder
+# * redid browse_child_forum backend to be generic
+#
+# Revision 1.14.4.9.2.1.2.5  2000/02/21 15:24:45  eric
+# * fixed creation of forum directories
+#
+# Revision 1.14.4.9.2.1.2.4  2000/02/17 22:05:51  eric
+# * fixed forum creation and updated it to new db structure
+#
+# Revision 1.14.4.9.2.1.2.3  2000/02/12 02:45:52  eric
+# * commiting changes from hosehead
+#
+# Revision 1.14.4.9.2.1.2.2  1999/11/23 02:13:06  eric
+# * misc changes in the process towards 1.2
+#
+# Revision 1.14.4.9.2.1.2.1  1999/09/27 23:22:25  eric
+# * started changeover to new forum name system
+# * started changeover to new function calling system
+#
+# Revision 1.14.4.9.2.1  1999/09/21 00:30:43  eric
+# * fixed forum modification code
+# * fixed typo in post modification code
+#
+# Revision 1.14.4.9  1999/09/03 12:25:03  eric
+# * rolled $u_db into $m_db
+#
+# Revision 1.14.4.8  1999/08/26 14:04:25  eric
+# * updated all headers to conform to standard eThreads header
+#
+# Revision 1.14.4.7  1999/08/25 18:51:25  eric
+# * some changes to forum creation code
+# * removed some hardcoded html table widths
+#
+# Revision 1.14.4.6  1999/08/24 20:08:11  eric
+# * merging in changes from BCI tree
+#
+# Revision 1.14.4.5  1999/08/18 14:39:33  eric
+# * changed path in maintenance to use $e{settings}{d_path}.  This allows
+#   an admin to fix screwed up paths in forum settings.
+#
+# Revision 1.14.4.4  1999/08/18 06:30:53  eric
+# * forum_type modules and code
+# * first revision of instamailer (subscription notifier)
+# * some subscription code in members
+#
+# Revision 1.14.4.3  1999/07/27 15:39:24  eric
+# * added option to put child forums in main database
+#
+# Revision 1.14.4.2  1999/06/22 20:02:18  eric
+# * fixes for invitation only forums
+#
+# Revision 1.14.4.1  1999/06/22 14:37:33  eric
+# * added support for password protected forums
+#
+# Revision 1.14  1999/06/02 00:30:41  eric
+# * right granting code now functional
+#
+# Revision 1.13  1999/05/27 00:19:01  eric
+# * various changes to get ready for eThreads 0.9
+#
+# Revision 1.12  1999/05/15 19:18:39  eric
+# * forum modification code
+#
+# Revision 1.11  1999/05/14 01:44:50  eric
+# * forum deletion code
+#
+# Revision 1.10  1999/05/06 23:07:52  eric
+# * fixed a bug in forum creation without superuser rights
+#
+# Revision 1.9  1999/04/29 23:51:29  eric
+# * some permissions changes
+#
+# Revision 1.8  1999/04/29 23:09:19  eric
+# * added code to get default html stuff for forumset from cfg.main
+#
+# Revision 1.7  1999/04/29 22:47:04  eric
+# * added code to write tweaks using defaults in cfg.main
+# * added code to set up default forum look
+#
+# Revision 1.6  1999/03/23 23:12:31  eric
+# * language updates
+#
+# Revision 1.5  1999/03/22 00:42:26  eric
+# * moved content-type to core
+#
+# Revision 1.4  1999/03/09 12:01:44  eric
+# * hack to put some default tweak settings in for new forums
+#
+# Revision 1.3  1999/02/27 20:57:02  eric
+# * forum creation code
+#
+# Revision 1.2  1999/02/27 17:40:28  eric
+# * forum browsing now functional
+#
+# Revision 1.1  1999/02/26 21:47:20  eric
+# * forum maintenace interface
+#
+
+#---------------#
+# End of Script #
+#---------------#

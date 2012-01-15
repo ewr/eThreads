@@ -1,0 +1,152 @@
+
+CREATE TABLE auth_strings (
+  forum varchar(100) DEFAULT '' NOT NULL,
+  id int(11) DEFAULT '0' NOT NULL,
+  auth_string varchar(10) DEFAULT '' NOT NULL,
+  PRIMARY KEY (forum,id)
+);
+
+
+CREATE TABLE bindings (
+  forum int(11) DEFAULT '0' NOT NULL,
+  cid int(11) DEFAULT '0' NOT NULL,
+  aid int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (forum,cid,aid)
+);
+
+
+CREATE TABLE d_bindings (
+  domain varchar(60) DEFAULT '' NOT NULL,
+  rootdir int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (domain)
+);
+
+
+CREATE TABLE f_bindings (
+  name varchar(100) DEFAULT '' NOT NULL,
+  id int(10) DEFAULT '0' NOT NULL,
+  UNIQUE k_forum_name (name(50)),
+  UNIQUE k_id (id)
+);
+
+
+CREATE TABLE icons (
+  ident varchar(60) DEFAULT '' NOT NULL,
+  theme varchar(60) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (ident,theme)
+);
+
+
+CREATE TABLE plugins (
+  forum int(11) DEFAULT '0' NOT NULL,
+  user int(11) DEFAULT '0' NOT NULL,
+  ident int(11) DEFAULT '0' NOT NULL,
+  value int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (forum,user,ident)
+);
+
+
+CREATE TABLE prefs (
+  forum int(11) DEFAULT '0' NOT NULL,
+  user int(11) DEFAULT '0' NOT NULL,
+  ident varchar(30) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (forum,user,ident)
+);
+
+
+CREATE TABLE preset_data (
+  id int(11) DEFAULT '0' NOT NULL,
+  ident varchar(60) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (id,ident)
+);
+
+
+CREATE TABLE preset_headers (
+  id int(11) DEFAULT '0' NOT NULL auto_increment,
+  descript text NOT NULL,
+  path varchar(100) DEFAULT '' NOT NULL,
+  updated int(11) DEFAULT '0' NOT NULL,
+  child_of int(11) DEFAULT '0' NOT NULL,
+  admin_email text,
+  type int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (id)
+);
+
+
+CREATE TABLE rights (
+  forum int(11) DEFAULT '0' NOT NULL,
+  user int(11) DEFAULT '0' NOT NULL,
+  ident varchar(30) DEFAULT '' NOT NULL,
+  value int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (forum,user,ident)
+);
+
+
+CREATE TABLE subscriptions (
+  forum int(11) DEFAULT '0' NOT NULL,
+  uid int(11) DEFAULT '0' NOT NULL,
+  pid int(11) DEFAULT '0' NOT NULL,
+  level int(11) DEFAULT '0' NOT NULL,
+  content int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (forum,uid,pid)
+);
+
+CREATE TABLE theme_data (
+  id int(11) DEFAULT '0' NOT NULL,
+  ident varchar(100) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (id,ident)
+);
+
+
+CREATE TABLE theme_headers (
+  id int(11) DEFAULT '0' NOT NULL auto_increment,
+  forum int(11) DEFAULT '0' NOT NULL,
+  name varchar(100) DEFAULT '' NOT NULL,
+  descript text,
+  updated int(11),
+  class int(11) DEFAULT '0' NOT NULL,
+  inherits_from int(11) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (id)
+);
+
+
+CREATE TABLE tweaks (
+  forum int(11) DEFAULT '0' NOT NULL,
+  ident varchar(30) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (forum,ident)
+);
+
+
+CREATE TABLE users (
+  id int(11) DEFAULT '0' NOT NULL auto_increment,
+  username varchar(30) DEFAULT '' NOT NULL,
+  name text,
+  password varchar(20) DEFAULT '' NOT NULL,
+  email text,
+  signature text,
+  description text,
+  PRIMARY KEY (id),
+  UNIQUE username (username)
+);
+
+
+CREATE TABLE wordfilters (
+  forum int(11) DEFAULT '0' NOT NULL,
+  ident varchar(40) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (forum,ident)
+);
+
+
+CREATE TABLE wordmods (
+  forum int(11) DEFAULT '0' NOT NULL,
+  ident varchar(40) DEFAULT '' NOT NULL,
+  value text,
+  PRIMARY KEY (forum,ident)
+);
+

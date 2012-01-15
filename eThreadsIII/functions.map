@@ -1,0 +1,231 @@
+#---------------------------------------------------------------------
+#  $Id: functions.map,v 1.6 2000/07/14 15:37:51 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  
+#       02111-1307, USA.
+#
+#       For information, contact eThreads:
+#           ethreads@ethreads.com
+#           http://ethreads.com
+#
+#  This is the eThreadsIII core.  All eThreadsIII programs call this
+#  core for basic functionality.
+#
+#---------------------------------------------------------------------
+
+sub function_map::load_functions {
+	my %f = (
+		create_glomule	=> {
+			maintenance	=> "create_glomule",
+		},
+		approve		=> {
+			admin		=> "approve_post",
+		},
+		give_judgement	=> 1,
+		delete		=> {
+			maintenance	=> "delete_glomule",
+			admin		=> "delete_post",
+		},
+		modify		=> {
+			maintenance	=> "modify_glomule",
+			admin		=> "modify_post",
+			members		=> "modify_post",
+		},
+		alter_rights	=> {
+			maintenance => "alter_rights",
+		},
+		view_post		=> {
+			view		=> 1,
+			members		=> 1,
+			admin		=> 1,
+			subroutine	=> "view_post",
+		},
+		post			=> {
+			view		=> 1,
+			admin		=> 1,
+			members		=> 1,
+			subroutine	=> "post",
+		},
+		login			=> {
+			view		=> "login",
+			class_var	=> "core",
+		},
+		signup			=> {
+			view		=> "signup",
+		},
+		profile	=> {
+			view		=> 1,
+			admin		=> 1,
+			members		=> 1,
+			subroutine	=> "print_profile",
+			class_var	=> "viewer",
+		},
+		search	=> {
+			view		=> 1,
+			admin		=> 1,
+			members		=> 1,
+			subroutine	=> "search",
+			class_var	=> "viewer",
+		},
+		posts_by_user	=> {
+			view		=> 1,
+			admin		=> 1,
+			members		=> 1,
+			subroutine	=> "posts_by_user",
+			class_var	=> "viewer",
+		},
+		options			=> {
+			admin		=> "option_menu",
+			members		=> "options",
+		},
+		modify_profile		=> {
+			members		=> "modify_profile",
+		},
+		subscribe		=> {
+			members		=> "subscribe",
+		},
+		unsubscribe		=> {
+			members		=> "unsubscribe",
+		},
+		change_look => {
+			admin => "change_look",
+		},
+		create_user => {
+			admin => "create_user",
+		},
+		modify_user => {
+			admin => "modify_user",
+		},
+		change_intro => {
+			admin => "change_intro",
+		},
+		change_icontheme => {
+			admin => "change_icontheme",
+		},
+		view_icontheme => {
+			admin => "view_icontheme",
+		},
+		modify_language => {
+			admin => "modify_language",
+		},
+		modify_tweaks => {
+			admin => "modify_tweaks",
+		},
+		modify_prefs => {
+			admin 	=> "modify_prefs",
+			members => "modify_prefs",
+		},
+		edit_wordlist => {
+			admin => "edit_wordlist",
+		},
+		manage_glomlets => {
+			admin 	=> "manage_glomlets",
+		},
+		manage_email	=> {
+			members	=> "manage_email",
+		},
+	);
+	return %f;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: functions.map,v $
+# Revision 1.6  2000/07/14 15:37:51  eric
+# * email subscription manager works again
+# * unsubscription updated to new format
+#
+# Revision 1.5  2000/07/10 18:52:02  eric
+# * misc
+#
+# Revision 1.4  2000/06/07 18:14:49  eric
+# * glomule creation fixes
+# * glomule deletion fixes
+# * fixed all old references to presets
+# * domain rooting work
+# * glomule module work
+# * assorted other fixes
+#
+# Revision 1.3  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+# Revision 1.2  2000/05/11 00:54:54  eric
+# * committing Gospelcom patches
+#
+# Revision 1.1  2000/04/29 16:53:37  eric
+# * added files created during eThreads1_2-devel to main tree
+#
+# Revision 1.1.2.12  2000/04/12 01:01:31  eric
+# * changed some function map syntax
+# * corrected some annoying behavior in function_finder
+#
+# Revision 1.1.2.11  2000/03/15 23:26:26  eric
+# * rewrote modify_glomule function (formerly modify_forum)
+#
+# Revision 1.1.2.10  2000/03/06 21:57:20  eric
+# * created glomule registry
+# * coined "glomule" term to refer to data holders (formerly we used
+#   "forum", but that's too specific).  Glomule comes from the word
+#   agglomeration, meaning "a confused or disordered mass".
+#
+# Revision 1.1.2.9  2000/03/03 00:54:24  eric
+# * updated rights code
+#
+# Revision 1.1.2.8  2000/02/23 07:07:29  eric
+# * added function map entry for members view_post
+#
+# Revision 1.1.2.7  2000/02/23 06:51:25  eric
+# * ummm...  i did stuff.  lots of stuff.
+#
+# Revision 1.1.2.6  2000/02/18 18:20:22  eric
+# * rewrote change_icontheme (formerly change_imageset)
+# * rewrote view_icontheme (formerly view_imageset)
+# * abstracted some value setting code out to a core sub
+#
+# Revision 1.1.2.5  2000/02/12 02:45:52  eric
+# * commiting changes from hosehead
+#
+# Revision 1.1.2.4  2000/01/18 00:55:03  eric
+# * added search to function map
+# * worked on search function
+#
+# Revision 1.1.2.3  1999/11/10 18:43:45  eric
+# * more function map work
+# * changed admin permissions code to utilize function unmapping
+# * created calendar module
+#
+# Revision 1.1.2.2  1999/10/16 17:04:48  eric
+# * fixed some function map related stuff
+# * added code to news forum_type locking down access
+#
+# Revision 1.1.2.1  1999/09/27 23:22:25  eric
+# * started changeover to new forum name system
+# * started changeover to new function calling system
+#
+
+#---------------#
+# End of Script #
+#---------------#
+
+1;

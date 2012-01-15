@@ -1,0 +1,1731 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: admin,v 1.27 2000/07/12 01:51:26 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999 Eric Richardson
+#
+#       This program is free software; you can redistribute it and/or
+#       modify it under the terms of the GNU General Public License
+#       as published by the Free Software Foundation; either version 2
+#       of the License, or (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  
+#       02111-1307, USA.
+#
+#       For information, contact eThreads:
+#           ethreads@ethreads.com
+#           http://ethreads.com
+#
+#  This is the post administration interface for eThreads.  It 
+#  uses the eThreads::[core|viewer] Perl modules.
+#
+#---------------------------------------------------------------------
+
+use eThreads::core;
+use eThreads::viewer;
+use strict;
+use vars qw($viewer $admin $core %e $db $m_db %posts %input);
+
+$core = eThreads::core->start(
+	script			=> "admin",
+	get_rights		=> 1,
+	disable_browse	=> 1,
+);
+
+$viewer = eThreads::viewer->start();
+
+# admins can always post with HTML
+$e{tweak}{htmlALLOW_TAGS_IN_POSTS} = 1 if (
+	$e{user}{rights}{admin} || $e{user}{rights}{moderate}
+);
+
+#---------#
+# Routing #
+#---------#
+
+# creating custom rights-based function map!  Woo Hoo!
+&create_function_map;
+
+# route them using our brand-spankin-new functions!  Woo Hoo!
+$core->function_finder;
+
+#-------------#
+# Subroutines #
+#-------------#
+
+sub create_function_map {
+	my @moderate_functions = ('modify','delete','approve','post');
+
+	my @admin_functions = (
+		'options','change_look','create_user','modify_user','change_intro','change_imageset',
+		'modify_language','modify_tweaks','edit_wordlist','view_imageset'
+	);
+
+	if (!$e{user}{rights}{moderate}) {
+		while (my $function = shift(@moderate_functions)) {
+			# unload the function
+			$e{functions}{$function}{admin} = 'access_denied';
+		}
+	}
+	if (!$e{user}{rights}{admin}) {
+		while (my $function = shift(@admin_functions)) {
+			# unload the function
+			$e{functions}{$function}{admin} = 'access_denied';
+		}
+	}
+}
+
+#----------
+
+sub access_denied {
+	$core->header("Access Denied.");
+
+	print <<EOP;
+	Access to this part of the admin interface has not been granted to you.
+	<p><a href="$e{forum}{path}/$e{script}/$input{forum}/">Return to Forum</a></p>
+EOP
+
+	$core->footer;
+}
+
+#----------
+
+sub main_menu {
+	$core->header("Admin Menu");
+
+	if ($e{forum}{type} == 1) {
+		&option_menu( no_footer => 1 );
+		$core->browse_child_forums($e{forum}{id},1,1);
+	} else {
+
+		if ($input{drop} eq"all") {
+			$core->get_posts(2);
+		} else {
+			$core->get_posts(0,0);
+		}
+		
+		print <<EOP;
+		$e{forum}{intro}
+		<p>
+EOP
+		$viewer->thread_table_top;
+		$viewer->print_threads(0,1,0);
+		$viewer->thread_table_bottom;
+	
+		$core->buttons("top");
+
+		#print qq(</p>);
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub option_menu {
+	my %args = ( @_ );
+	$core->header($e{language}{forum_admin_options});
+
+	print <<EOP;
+	As the administrator of $input{forum}, you have the following options:
+
+	<p><li><a href="$e{forum}{path}/$e{script}/$input{forum}/change_look">
+	$e{language}{change_forum_look}</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/change_intro">
+	$e{language}{change_forum_intro}</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/modify_prefs">
+	 Modify Forum Prefs</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/manage_glomlets">
+	$e{language}{manage_glomlets}</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/modify_tweaks">
+	$e{language}{modify_forum_tweaks}</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/modify_language">
+	$e{language}{update_forum_wordng}</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/edit_wordlist">
+	$e{language}{edit_rstrctd_w_list}</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/create_user">
+	Create a User Account</a>
+	<li><a href="$e{forum}{path}/$e{script}/$input{forum}/modify_user">
+	Modify a User Account</a></p>
+EOP
+	if ($e{user}{rights}{maint}) {
+		print <<EOP;
+		<p><li><a href="$e{forum}{path}/$e{settings}{scripts}{maintenance}/$input{forum}">
+		Access Maintenance Menu</a>
+EOP
+	}
+
+	print <<EOP;
+	<p><li> <a href="./">$e{language}{return_to_forum}</a>
+	<p>
+EOP
+	$core->footer unless ($args{no_footer});
+}
+
+#----------
+
+sub manage_glomlets {
+	$core->header($e{language}{manage_glomlets});
+
+	# get a list of glomlets
+	require "module.glomlet.registry";
+	my $registry = eThreads::glomlet::registry->init();
+	my %glomlets = $registry->main;
+
+	if ($input{submit}) {
+		foreach my $glomlet (keys %glomlets) {
+			$core->set_value(
+				tbl			=> $e{settings}{db}{tbls}{plugins},
+				key_field	=> "forum",
+				key			=> $e{forum}{id},
+				skey_field	=> "user",
+				skey		=> "0",
+				ident		=> $glomlet,
+				value		=> $input{$glomlet},
+			);
+		}
+
+		# just so people don't get confused and think their changes haven't taken 
+		# effect, we have to fake-populate the glomlet hash.
+
+		# wipe out the pre-existing glomlet refs
+		undef %{$e{glomlet}};
+
+		my $get_glomlets = $m_db->prepare("
+			select ident from $e{settings}{db}{tbls}{plugins} 
+			where forum = ? and user = ?
+		");
+
+		$core->bail(0,"get_glomlets: ".$m_db->errstr) unless (
+			$get_glomlets->execute($e{forum}{id},0)
+		);
+
+		my $glomlet;
+		$get_glomlets->bind_columns(\$glomlet);
+
+		while ($get_glomlets->fetch) {
+			$e{glomlet}{$glomlet} = 1;
+		}
+	}
+
+	print <<EOP;
+	$e{language}{manage_glomlets_rant}
+	<p>
+EOP
+
+	# we list all the glomlets in a three column table.  the left column 
+	# contains the glomlet name, the middle contains the description, and the 
+	# right contains on/off checkboxes.
+
+	my @data = ([
+		qq(<b>$e{language}{glomlet}</b>),
+		qq(<b>$e{language}{description}</b>),
+		qq(<b>$e{language}{on} -- $e{language}{off}</b>)
+	]);
+
+	foreach my $glomlet (keys %glomlets) {
+		my ($onchecked,$offchecked);
+		if ($e{glomlet}{$glomlet}) {
+			$onchecked = "checked selected";
+		} else {
+			$offchecked = "checked selected";
+		}
+
+		push @data, [$glomlets{$glomlet}{name},$glomlets{$glomlet}{descript},qq(
+			<input type=radio name="$glomlet" value="1" $onchecked> -- 
+			<input type=radio name="$glomlet" value="0" $offchecked>
+		)];
+	} 
+
+	push @data, [
+		qq(<b>$e{language}{submit}</b>),
+		qq(&nbsp;),
+		qq(<input type=submit name=submit value="$e{language}{manage_glomlets}">)
+	];
+
+	print qq(<form action="$e{forum}{path}/$e{script}/$input{forum}/manage_glomlets" method=get>);
+
+	$core->htmltable_3col(
+		title	=> $e{language}{manage_glomlets},
+		data	=> \@data,
+	);
+
+	print <<EOP;
+	<p>
+	<a href="$e{forum}{path}/$e{script}/$input{forum}/options">
+	Return to Options</a>
+EOP
+
+	$core->footer;
+}
+
+#----------
+
+sub modify_user {
+	my $error;	# yeah right...  i don't make errors
+	$input{user} =~ s/^, //;
+	$input{user} =~ s/, $//;
+
+	if ($input{user} && $input{modify}) {
+		if ($input{pass1}) {
+			$error = 1 unless ($input{pass1} eq"$input{pass2}");
+		}
+		
+		if ($input{o_user} ne"$input{user}") {
+			my $check_for_duplicates = $m_db->prepare("
+				select username from $e{settings}{db}{tbls}{users} where username='$input{user}'
+			");
+			$core->bail(0,$m_db->errstr) unless ($check_for_duplicates->execute);
+			$error = 2 if ($check_for_duplicates->rows);
+			$input{user} = $input{o_user};
+		}
+	}
+
+	$core->header("Modify User: $input{user}");
+
+	if (!$input{user}) {
+		print <<EOP;
+		Either select the user you wish to edit from the drop-down or type the username into the blank. You 
+		do not need to do both.
+		<form action="$e{forum}{path}/$e{script}/$input{forum}/modify_user" method=get>
+		<p>Username: <select name="user">
+		  <option value=""> --> Manual Username
+EOP
+		my $get_users = $m_db->prepare("
+			select username from $e{settings}{db}{tbls}{users} order by username
+		");
+		$core->bail(0,$m_db->errstr) unless ($get_users->execute);
+
+		while (my $user = $get_users->fetchrow_array) { print "<option value='$user'>$user\n"; }
+
+		print <<EOP;
+		</select>--  <input type=text name='user' size=20 value='$input{user}'>
+		-- <input type=submit value='Get User Information'>
+EOP
+	} elsif (!$input{modify} || $error) {
+		my $get_user_info = $m_db->prepare("
+			 select name,email from $e{settings}{db}{tbls}{users} where username=?
+		");
+		$core->bail(0,$m_db->errstr) unless ($get_user_info->execute($input{user}));
+		my ($name,$email) = $get_user_info->fetchrow_array;
+
+		if ($error == 1) {
+			print qq(<b>Your passwords do not match.  Please try again.</b><p>);
+		} elsif ($error == 2) {
+			print qq(<b>The username you selected is in use.  Please select another.</b><p>);
+		}
+
+		print <<EOP;
+		<i>leave password fields blank to keep existing password</i><p>
+
+		<form action="$e{forum}{path}/$e{script}/$input{forum}/modify_user" method=post>
+		<input type=hidden name=o_user value='$input{user}'>
+		Username: <input type=text name=user value='$input{user}' size=20>
+		<br>Password (2x): <input type=password name='pass1' size=10>
+		<input type=password name='pass2' size=10>
+		<p>Name: <input name='name' value='$name' size=10>
+		<br>Email: <input name='email'  value='$email' size=20>
+		<br>Submit: <input type=submit name='modify' value='Modify User'>
+EOP
+		
+	} else {
+		my $query = qq(
+			update $e{settings}{db}{tbls}{users} set username=?,name=?,email=?
+		);
+
+		my @values = ($input{user},$input{name},$input{email});
+
+		if ($input{pass1}) {
+			my $pass = crypt($input{pass1},$input{user});
+			$query .= ",password=?";
+			push @values, $pass;
+		}
+
+		my $update_user = $m_db->prepare("
+			$query where username=?
+		");
+
+		$core->bail(0,"update_user failure: ".$m_db->errstr) unless (
+			$update_user->execute(@values,$input{o_user})
+		);
+
+		print <<EOP;
+		User '$input{user}' was modified.
+		<p>
+		<a href="$e{forum}{path}/$e{script}/$input{forum}/modify_user">Modify Another User</a><br>
+		<a href="$e{forum}{path}/$e{script}/$input{forum}/options">Return to Options</a>
+EOP
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub create_user {
+	$core->header("Create User: $input{user}");
+	my $error;	# yeah right...  i don't make errors
+
+	if ($input{user}) {
+		$error = 1 unless ($input{pass1} eq"$input{pass2}");
+		
+		my $check_for_duplicates = $m_db->prepare("
+			select username from $e{settings}{db}{tbls}{users} where username='$input{user}'
+		");
+		$core->bail(0,$m_db->errstr) unless ($check_for_duplicates->execute);
+		$error = 2 if ($check_for_duplicates->rows);
+	}
+
+	if (!$input{user} || $error) {
+		if ($error == 1) {
+			print qq(<b>Your passwords do not match.  Please try again.</b><p>);
+		} elsif ($error == 2) {
+			print qq(<b>The username you selected is in use.  Please select another.</b><p>);
+		}
+
+		print <<EOP;
+		Please enter the applicable information for the user you wish to create.
+		<p>
+		<form action="$e{forum}{path}/$e{script}/$input{forum}/create_user" method=post>
+		Username: <input type=text name=user value='$input{user}' size=20>
+		<br>Password (2x): <input type=password name='pass1' size=10>
+		<input type=password name='pass2' size=10>
+		<p>Name: <input name='name' size=20>
+		<br>email: <input name='email' size=20>
+		<br>Submit: <input type=submit value='Sign Up'>
+		</form>
+EOP
+	} else {
+		my $pass = crypt($input{pass1},$input{user});
+		$core->auth::signup($input{user},$pass,$input{name},$input{email});
+
+		print <<EOP;
+		Your username, <i>$input{user}</i>, has been created.
+		<p><a href="$e{forum}{path}/$e{script}/$input{forum}/create_user">Create Another User</a>
+		<br><a href="$e{forum}{path}/$e{script}/$input{forum}/options">Return to Forum Options</a>
+EOP
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub edit_wordlist {
+	$core->header($e{language}{edit_rstrctd_w_list});
+
+	my %r_words = &load_r_words($e{forum}{id});
+
+	if ($input{submit}) {
+		my $changes;
+		# first check on all of our old words
+		foreach my $word (keys %r_words) {
+			if (($input{'SCORE'.$word} != $r_words{$word}) || (!$input{'SCORE'.$word})) {
+				my $allow_zero = '0';
+				if (!$input{'SCORE'.$word}) {
+					# no score...  hmmm...  if there's nothing defined higher 
+					# up for this word, we should delete it.
+
+					# first is us, so our parent is one up
+					my @tree = $core->build_forum_tree($e{forum}{id});
+					my %p_words = &load_r_words($tree[1]);
+
+					$allow_zero = ($p_words{$word}) ? '1' : '0';
+				}
+
+				$core->set_value(
+					tbl				=> $e{settings}{db}{tbls}{filter},
+					key_field		=> 'forum',
+					key				=> $e{forum}{id},
+					ident			=> $word,
+					value			=> $input{'SCORE'.$word},
+					set_zero_val	=> $allow_zero,
+				);
+
+				print "<b> -- updated entry for $word</b><br>";
+				$changes++;
+			} else {
+				# they didn't change it...  do nothing...
+			}
+		}
+
+		# now check if there's a new word
+		if ($input{newword} && $input{newscore}) {
+			$core->set_value(
+				tbl				=> $e{settings}{db}{tbls}{filter},
+				key_field		=> 'forum',
+				key				=> $e{forum}{id},
+				ident			=> $input{newword},
+				value			=> $input{newscore},
+			);
+			print "<b> -- created entry for $input{newword}</b><br>";
+			$changes++;
+		}
+
+		# if we've changed anything, we need to reload the wordlist
+		%r_words = &load_r_words($e{forum}{id}) if ($changes);
+	}
+
+	# what would happen if restricted word list actions were definable in the 
+	# glomule module?  would that be useful or pointless?  i'm too lazy 
+	# to actually think of applications right now.  Hmmm....  In any case, 
+	# the definitions will probably move there eventually.
+
+	my %options = (
+		'0'	=> $e{language}{do_nothing},
+		'1'	=> $e{language}{warn_admin},
+		'2'	=> $e{language}{replace_offending},
+		'3'	=> $e{language}{leave_unapproved},
+	);
+
+	my @data;
+	foreach my $word (sort keys %r_words) {
+		my $options = qq(
+			<select name="SCORE).$word.qq(">
+		);
+
+		# the default option is the option currently in use
+		$options .= qq(<option value="$r_words{$word}">$options{$r_words{$word}});
+
+		foreach my $option (sort keys %options) {
+			next if ($option == $r_words{$word});
+			$options .= qq(<option value="$option">$options{$option});
+		}
+
+		$options .= "</select>";
+
+		push @data, [$word,$options];
+	}
+
+	# push a blank for doing a new word
+
+	my $options;
+	foreach my $option (sort keys %options) {
+		$options .= qq(<option value="$option">$options{$option});
+	}
+
+	push @data, [
+		qq(
+			<input type=text name="newword" size=20>
+		),
+		qq(
+			<select name="newscore">
+			) . $options . qq(
+			</select>
+		)
+	];
+
+	# now push the submit button
+	push @data, [ "<b>$e{language}{submit}</b>", qq(
+		<input type=submit name="submit" value="$e{language}{update_wordlist}">
+	) ];
+
+	print "<p>$e{language}{rstrctd_w_list_rant}<p>";
+
+	print qq(<form action="$e{forum}{path}/$e{script}/$input{forum}/edit_wordlist" method=get>);
+
+	$core->htmltable_2col(
+		title	=> $e{language}{edit_rstrctd_w_list},
+		data	=> \@data,
+	);
+
+	print <<EOP;
+	</form>
+	<p><a href="$e{forum}{path}/$e{script}/$input{forum}/options">$e{language}{return_forum_opts}</a>
+EOP
+
+	$core->footer;
+}
+
+#----------
+
+sub load_r_words {
+	my $fid = shift;
+	# figure out which words are already restricted
+	my @tree = $core->build_forum_tree($fid);
+
+	my %words = $core->g_load_tbl(
+		tbl     => $e{settings}{db}{tbls}{filter},
+		ident   => 'forum',
+		ids     => \@tree,
+	);
+
+	my %r_words;
+	while (my $id = shift @tree) {
+		foreach my $word (keys %{$words{$id}}) {
+			if (!defined($r_words{$word})) {
+				$r_words{$word} = $words{$id}{$word};
+			}
+		}
+	}
+	return %r_words;
+}
+
+#----------
+
+sub modify_post {
+	$core->header("$e{language}{modify_post}: $input{id}");
+
+	if (!$input{body} && !$input{intro}) {
+		print qq(<form action="$e{forum}{path}/$e{script}/$input{forum}/modify" method=post>);
+		print qq(<input type=hidden name=id value='$input{id}'>);
+		$viewer->modify_post($input{id});
+		print qq(</form>);
+	} else {
+		$input{body} =~ s/\n/\n<br>/g;
+		$input{body} =~ s/\'/\\'/g;
+		$input{title} =~ s/\'/\\'/g;
+
+		$core->bail(0,$db->errstr) unless ($db->do("
+			update $e{forum}{main_tbl} set body='$input{body}', title='$input{title}' where id=$input{id}
+		"));
+
+		print <<EOP;
+		The post, <i>$input{title}</i>, was successfully modified.  
+		<a href="$e{forum}{path}/$e{script}/$input{forum}/view_post?id=$input{id}">View it here</a>.
+EOP
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub approve_post {
+	$core->header("Approve Post: $input{id}");
+
+	$core->bail(0,$db->errstr) unless ($db->do("
+		update $e{forum}{main_tbl} set status=1 where id=$input{id}
+	"));
+
+	$viewer->send_email_notification(
+		id		=> $input{id},
+		exists	=> 1,
+	);
+
+	print <<EOP;
+	The status of post $input{id} was successfully changed.
+	<p>
+	<a href="$e{forum}{path}/$e{script}/$input{forum}/">$e{language}{return_to_forum}</a>
+EOP
+
+	$core->footer;
+}
+
+#----------
+
+sub delete_post {
+	$core->header("$e{language}{delete_post}: $input{id}");
+	unless ($input{confirm}) {
+		print <<EOP;
+		$e{language}{confirm_delete_post}
+		<p>
+		<a href="delete?id=$input{id}&confirm=1">$e{language}{delete_post}</a>
+		- - <a href="view_post?id=$input{id}">$e{language}{cancel}</a></p>
+EOP
+	} else {
+		my $children = $db->prepare("
+			select id from $e{forum}{main_tbl} where child_of=?
+		");
+											# how brutal.  i'm ashamed.
+		$core->bail(0,$db->errstr) unless ($children->execute($input{id}));
+
+		if ($children->rows) {
+			unless ($input{children}) {
+				print <<EOP;
+				$e{language}{post_has_children}
+				<p>
+				<a href="delete?id=$input{id}&confirm=1&children=1">$e{language}{reparent_children}</a>
+				<p>
+				<a href="delete?id=$input{id}&confirm=1&children=2">$e{language}{delete_children}</a>
+EOP
+			} else {
+				# give child posts to the post which this post is a child of... obviously.
+				if ($input{children} == 1) {
+					my $parent = $db->prepare("
+						select child_of from $e{forum}{main_tbl} where id=?
+					");
+
+					$core->bail(0,$db->errstr) unless (
+						$parent->execute($input{id})
+					);
+
+					$parent = $parent->fetchrow_array;
+
+					$core->bail(0,$db->errstr) unless ($db->do("
+						update $e{forum}{main_tbl} set child_of=$parent 
+						where child_of=$input{id}
+					"));
+
+					&_delete_post($input{id});
+
+					# we should also delete bindings pointing to this id.  we 
+					# don't need to change any other bindings, just get rid 
+					# of these.
+
+					my $delete_bindings = $m_db->prepare("
+						delete from $e{settings}{db}{tbls}{bindings} 
+						where aid = ? and forum = ?
+					");
+
+					$delete_bindings->execute($input{id},$e{forum}{id});
+
+					print <<EOP;
+					Children of post #$input{id} were successfully given to 
+					post #$parent, and post #$input{id} was deleted.  Rest 
+					well, my friend.
+EOP
+				# let 'em die...  heh, heh, heh.
+				} elsif ($input{children} == 2) {
+					&delete_children($input{id});
+
+					print <<EOP;
+					Children of post #$input{id} were deleted, as was the post itself.
+EOP
+				} else {
+					$core->bail(0,$e{language}{bad_function});
+				}
+			}
+		} else {
+			&_delete_post($input{id});
+
+			print <<EOP;
+			Your post was successfully deleted.
+			<p><a href="$e{forum}{path}/$e{script}/$input{forum}/">Return to Forum</a></p>
+EOP
+		}
+	}
+	$core->footer;
+}
+
+#----------
+
+sub delete_children {
+	my $parent = shift;
+
+	#look for more children
+	my $children = $db->prepare("
+		select id from $e{forum}{main_tbl} where child_of=?
+	");
+									   # must be all that teenage rebellion
+	$core->bail(0,$db->errstr) unless ($children->execute($parent));
+	my $child;
+	$children->bind_columns(\$child);
+	while ($children->fetch) {
+		&delete_children($child);
+	}
+
+	# now delete
+	&_delete_post($parent);
+}
+
+#----------
+
+sub _delete_post {
+	my $id = shift;
+
+	# first delete the post
+	my $delete_post = $db->prepare("
+		delete from $e{forum}{main_tbl} where id=?
+	");
+	$core->bail(0,"delete_post: ".$db->errstr) unless (
+		$delete_post->execute($id)
+	);
+
+	# now delete the binding
+	my $delete_binding = $m_db->prepare("
+		delete from $e{settings}{db}{tbls}{bindings} where cid = ? and forum = ?
+	");
+	$delete_binding->execute($input{id},$e{forum}{id});
+}
+
+#----------
+
+sub modify_language {
+	$core->header("Modify Language Settings");
+
+	unless ($input{submit}) {
+		my $width = ($e{tweak}{htmlCOL3_LEFT} + $e{tweak}{htmlCOL3_MIDDLE} + $e{tweak}{htmlCOL3_RIGHT});
+		print <<EOP;
+		eThreads has always supported language modules that allow sites to host forums in several 
+		languages.  Now, with eThreadsIII, these capabilities are expanded to allow forum administrators 
+		to modify the wording for their forum without the need for creating a new module.
+		<p>
+		<table border=0 width=$width>
+		<tr bgcolor=#$e{tweak}{htmlTITLE_BAR_COLOR}>
+			<td width=$e{tweak}{htmlCOL3_LEFT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>Identifier:</b>
+				</font>
+			</td>
+			<td width=$e{tweak}{htmlCOL3_MIDDLE}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>Current Value:</b>
+				</font>
+			</td>
+			<td width=$e{tweak}{htmlCOL3_RIGHT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>New Value:</b>
+				</font>
+			</td>
+		</tr>
+		<form action="modify_language" method=get>
+EOP
+		my %color;
+		$color{0} = $e{tweak}{htmlROW1_COLOR};
+		$color{1} = $e{tweak}{htmlROW2_COLOR};
+
+		my @words = keys %{$e{language}};
+
+		my $l_count;
+		foreach my $word (sort keys %{$e{language}}) {
+			$e{language}{$word} =~ s/\t//g;
+			$e{language}{$word} =~ s/\n//g;
+			next if $word eq"i"; 	# language info shouldn't be touched here
+			my $color = $color{$l_count%2};
+			$l_count++;
+			print <<EOP;
+			<tr bgcolor=#$color>
+				<td>
+					$word
+				</td>
+				<td>
+					<font size=2>$e{language}{$word}</font>
+				</td>
+				<td>
+EOP
+			if (length($e{language}{$word}) < 20) {
+				print qq(<input type=text size=20 name="$word" value="$e{language}{$word}">);
+			} else {
+				print qq(<textarea rows=5 cols=20 name="$word" wrap=virtual>$e{language}{$word}</textarea>);
+			}
+			print <<EOP;
+				</td>
+			</tr>
+EOP
+		}
+		print <<EOP;
+		<tr bgcolor=#$e{tweak}{htmlTITLE_BAR_COLOR}>
+			<td width=$e{tweak}{htmlCOL3_LEFT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>Submit:</b>
+				</font>
+			</td>
+			<td width=$e{tweak}{htmlCOL3_MIDDLE}>
+				&nbsp;
+			</td>
+			<td width=$e{tweak}{htmlCOL3_RIGHT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<input type=submit value="$e{language}{update_forum_wordng}">
+				</font>
+			</td>
+		</tr>
+		</table>
+EOP
+	} else {
+		my %l_words = $core->language::words;
+
+		print <<EOP;
+		The following changes were performed:
+		<p>
+EOP
+		my $changes;
+		foreach my $word (keys %l_words) {
+			next if ($word eq"i");
+			# discount tabs
+			$e{language}{$word} =~ s/\t//g;
+			$e{language}{$word} =~ s/\n//g;
+			$l_words{$word} =~ s/\t//g;
+			$l_words{$word} =~ s/\n//g;
+
+			if ($input{$word} ne"$e{language}{$word}") {
+				# we'll leave the course of action up to $core->set_value
+
+				$core->set_value(
+					tbl			=> $e{settings}{db}{tbls}{words},
+					key_field	=> 'forum',
+					key			=> $e{forum}{id},
+					ident		=> $word,
+					value		=> $input{$word},
+				);
+
+				print "<i>$word</i> was altered.<br>";
+				$changes++;
+			} else {
+				# no change.  do nothing.
+			}
+		}
+	
+		if ($changes) {
+			# now update the timestamp
+			$core->update_glomule_timestamp(
+				tbl			=> $e{settings}{db}{tbls}{preset_headers},
+				flat		=> 1,
+				key			=> $e{forum}{id},
+				recursive	=> 1,
+				key_field	=> "id",
+			);
+		}
+		print qq(<p><a href="options">$e{language}{return_forum_opts}</a>);
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub modify_prefs {
+	$core->header("Change Forum Prefs");
+
+	print <<EOP;
+	eThreads forum prefs are behavior modifiers (much like tweaks). They are 
+	different from tweaks in that they can be modified by authenticated users.
+	<p>
+	<i>To revert to the default pref, leave the field blank</i>
+	<p>
+EOP
+
+	$viewer->change_forum_prefs(
+		user	=> '0',
+		forum	=> $e{forum}{id},
+	);
+
+	$core->footer;
+}
+
+#----------
+
+sub modify_tweaks {
+	$core->header("Change Forum Tweaks");
+
+	# load default tweaks 
+	my %d_tweaks = $core->settings::d_tweaks;
+
+	unless ($input{submit}) {
+		print <<EOP;
+		Forum tweaks allow you to change the very foundation of the look and feel 
+		of your eThreadsIII forum.  Any time HTML is printed, forum tweaks are used.  
+		<p>
+		<i>tweak documention is forthcoming...</i>
+		<p>
+		<table border=0>
+		<tr bgcolor=#$e{tweak}{htmlTITLE_BAR_COLOR}>
+			<td width=$e{tweak}{htmlCOL3_LEFT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>Tweak Name:</b>
+				</font>
+			</td>
+			<td width=$e{tweak}{htmlCOL3_MIDDLE}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>Current Value:</b>
+				</font>
+			</td>
+			<td width=$e{tweak}{htmlCOL3_RIGHT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>New Value:</b>
+				</font>
+			</td>
+		</tr>
+		<form action="modify_tweaks" method=get>
+EOP
+		my %color;
+		$color{0} = $e{tweak}{htmlROW1_COLOR};
+		$color{1} = $e{tweak}{htmlROW2_COLOR};
+
+		my $l_count;
+
+		foreach my $tweak (sort keys %d_tweaks) {
+			my $color = $color{$l_count%2};
+			$l_count++;
+			print <<EOP;
+			<tr bgcolor=#$color>
+				<td>
+					$tweak
+				</td>
+				<td>
+					$e{tweak}{$tweak}
+				</td>
+				<td>
+					<input type=text size=10 name="$tweak" value="$e{tweak}{$tweak}">
+				</td>
+			</tr>
+EOP
+		}
+		print <<EOP;
+		<tr bgcolor=#$e{tweak}{htmlTITLE_BAR_COLOR}>
+			<td width=$e{tweak}{htmlCOL3_LEFT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<b>Submit:</b>
+				</font>
+			</td>
+			<td width=$e{tweak}{htmlCOL3_MIDDLE}>
+				&nbsp;
+			</td>
+			<td width=$e{tweak}{htmlCOL3_RIGHT}>
+				<font color=#$e{tweak}{htmlTITLE_FONT_COLOR}>
+					<input type=submit name="submit" value="Modify Tweaks">
+				</font>
+			</td>
+		</tr>
+		</table>
+EOP
+
+	} else {
+		foreach my $tweak (keys %d_tweaks) {
+			if ($input{$tweak} ne $e{tweak}{$tweak}) {
+				$core->set_value(
+					tbl			=> $e{settings}{db}{tbls}{tweaks},
+					key_field	=> 'forum',
+					key			=> $e{forum}{id},
+					ident		=> $tweak,
+					value		=> $input{$tweak},
+				);
+			}
+		}
+
+		# now update the timestamp
+		$core->update_glomule_timestamp(
+			tbl			=> $e{settings}{db}{tbls}{tweaks},
+			key			=> $e{forum}{id},
+			recursive	=> 1,
+			key_field	=> "forum",
+		);
+		
+		print <<EOP;
+		Your new tweak settings have been put into place.  Please browse around your forum 
+		to observe the changes.
+		<p>
+		<a href="options">$e{language}{return_forum_opts}</a>
+EOP
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub change_look {
+	if (!$input{look} && !$input{create}) {
+		# select or create look
+		$core->header("Select a Look Theme");
+
+		# laod class info
+		require "module.glomule.registry";
+		my $registry = eThreads::glomule::registry->init;
+		my %registry = $registry->main;
+
+		print <<EOP;
+		Select the look theme you would like to modify:
+EOP
+		my $get_look_themes = $m_db->prepare("
+			select name,id,class from $e{settings}{db}{tbls}{theme_headers} 
+			where forum=$e{forum}{id} order by name
+		");
+
+		$core->bail(0,$m_db->errstr) unless ($get_look_themes->execute);
+
+		my %existing;
+
+		while (my ($name,$id,$class) = $get_look_themes->fetchrow_array) {
+			print qq(
+				<br> - <a href="change_look?look=$id">$name</a> 
+				($registry{$class}{title})
+			);
+			$existing{$class} = 1;
+		}
+
+		if ($e{forum}{type} == 1) {
+			# this is a directory...  directories can have one look per 
+			# glomule class
+
+			print <<EOP;
+			<p><b>Create New Theme:</b><br>
+			<form action="change_look" method=post>
+			Theme Name: <input type=text name=name size=40>
+			<br>Description: 
+			<br><textarea name=descript wrap=virtual rows=3 cols=50></textarea>
+			<br><select name="class"><option value="">Select a Glomule Class
+EOP
+
+			foreach my $class (keys %registry) {
+				print qq(<option value="$class">$registry{$class}{title}) 
+					unless ($existing{$class});
+			}
+
+			print <<EOP;
+			</select>
+			<br><input type=submit name=create value="Create Theme">
+			</form>
+EOP
+		}
+
+		$core->footer;
+	} elsif (!$input{look}) {
+		# create new look
+		$core->header("Create Look Theme: $input{descript}");
+		
+		# we'll use the data they provided in order to create the theme headers
+
+		my $create_theme_headers = $m_db->prepare("
+			insert into $e{settings}{db}{tbls}{theme_headers}(
+				id,forum,name,descript,updated,class
+			) values (0,?,?,?,?,?)
+		");
+
+		$core->bail(0,"create_theme_headers: ".$m_db->errstr) unless (
+			$create_theme_headers->execute(
+				$e{forum}{id},$input{name},$input{descript},time,$input{class}
+			)
+		);
+
+		# we need to know what id was given to this look
+		my $id = $core->db::get_message_id($create_theme_headers);
+
+		print <<EOP;
+		Your theme was created.  
+		<p><a href="$e{forum}{path}/$e{script}/$input{forum}/change_look?look=$id">Edit New Theme</a>
+		<br><a href="$e{forum}{path}/$e{script}/$input{forum}/options">Return to Options</a>
+EOP
+
+		$core->footer;
+	} else {
+		my %theme;
+
+		{
+			my %ttheme;
+			my $get_look_header = $m_db->prepare("
+				select name,descript,class 
+				from $e{settings}{db}{tbls}{theme_headers} where id=?
+			");	
+	
+			$core->bail(0,"get_look_header: ".$m_db->errstr) unless (
+				$get_look_header->execute($input{look})
+			);
+	
+			(
+				$ttheme{name},$ttheme{descript},$ttheme{class}
+			) = $get_look_header->fetchrow_array;
+
+			%theme = $core->load_theme(
+				$e{forum}{id},$input{look},$ttheme{class}
+			);
+
+			$theme{name} 		= $ttheme{name};
+			$theme{descript} 	= $ttheme{descript};
+			$theme{class} 		= $ttheme{class};
+	
+		}
+
+		unless ($input{change_look}) {
+			$core->header($e{language}{change_forum_look});
+
+			print <<EOP;
+			$e{language}{look_rant}		
+			<p>
+			<a href="change_icontheme?look=$input{look}">Change Icon Theme</a> 
+			(Currently: $theme{images})
+			<p>
+			<form action="change_look" method=post>
+	
+			<b>Theme Name:</b>
+			<br><input type=text name=name value='$theme{name}' size=60>
+			<input type=hidden name="look" value="$input{look}">
+			<br>Description:
+			<br><textarea name=descript wrap=virtual rows=3 cols=50>$theme{descript}</textarea>
+	
+EOP
+			require "module.glomule.$theme{class}";
+			my $package = "eThreads::glomule::$theme{class}";
+			my $glomhandle = $package->init();
+			my @fields = $glomhandle->theme_fields;
+
+			while (my $field = shift(@fields)) {
+				$theme{$field} =~ s/<textarea/<#textarea/g;
+				$theme{$field} =~ s!</textarea!<#/textarea!g;
+				$theme{$field} =~ s/\&nbsp;/\&nnbsp;/g;
+				print <<EOP;
+				<p><b>$field</b>
+				<br><textarea name='$field' cols=50 rows=10 wrap=virtual>$theme{$field}</textarea>
+EOP
+			}
+
+			print <<EOP;
+			<p><b>Submit: 
+			<input type=submit name="change_look" value='Update Theme'></p>
+			</form>
+EOP
+
+			$core->footer;
+		} else {
+			if (!$e{status}{content_type}) {
+				print "Content-type: text/html\n\n";
+				$e{status}{content_type} = 1;
+			}
+
+			# we have to do the same de-escaping of header here that we do to 
+			# all fields later, since we print header before that later 
+			# de-escape code is called
+
+			$input{header} =~ s/<#textarea/<textarea/g;
+			$input{header} =~ s!<#/textarea!</textarea!g;
+			$input{header} =~ s/\&nnbsp;/\&nbsp;/g;
+
+			print $input{header};
+			
+			# first update the theme header
+
+			my $update_theme_header = $m_db->prepare("
+				update $e{settings}{db}{tbls}{theme_headers} set name=?, 
+				descript=? where id=?
+			");
+			$core->bail(0,"update_theme_header: ".$m_db->errstr) unless (
+				$update_theme_header->execute(
+					$input{name},$input{descript},$input{look}
+				)
+			);
+
+			$core->update_glomule_timestamp(
+				tbl			=> $e{settings}{db}{tbls}{theme_headers},
+				recursive	=> 1,
+				flat		=> 1,
+				key_field	=> "forum",
+				key			=> $e{forum}{id},
+				skey_opts	=> {
+					skey_field	=> "class",
+					skey		=> $theme{class},
+				},
+			);
+
+			# now update the theme data
+
+			require "module.glomule.$theme{class}";
+			my $package = "eThreads::glomule::$theme{class}";
+			my $glomhandle = $package->init();
+			my @fields = $glomhandle->theme_fields;
+
+			my @values;
+			while (my $field = shift(@fields)) {
+				$input{$field} =~ s/<#textarea/<textarea/g;
+				$input{$field} =~ s!<#/textarea!</textarea!g;
+				$input{$field} =~ s/\&nnbsp;/\&nbsp;/g;
+
+				$core->set_value(
+					tbl			=> $e{settings}{db}{tbls}{theme_data},
+					key_field	=> 'id',
+					key			=> $input{look},
+					ident		=> $field,
+					value		=> $input{$field}
+				) if ($input{$field} ne $theme{$field});
+			}
+
+			print <<EOP;
+			$e{language}{look_changes_done}
+			<p>
+			<a href="options">$e{language}{return_forum_opts}</a>
+EOP
+
+			print $input{footer};
+		}
+	}
+
+}
+
+#----------
+
+sub change_intro {
+	$core->header($e{language}{change_forum_intro});
+	unless ($input{intro}) {
+		print <<EOP;
+		$e{language}{intro_descript}
+		<p>
+		<b>$e{language}{current_intro}:</b> $e{forum}{intro}
+		<p>
+		<b>$e{language}{new_intro}:</b><br>
+		<form action="$e{forum}{path}/$e{script}/$input{forum}/change_intro" method=post>
+		<textarea cols=60 rows=3 wrap=virtual name="intro">$e{forum}{intro}</textarea>
+		<br><input type=submit value="$e{language}{change_forum_intro}"></form>
+EOP
+	} else {
+		$core->set_value(
+			tbl			=> $e{settings}{db}{tbls}{preset_data},
+			key_field	=> 'id',
+			key			=> $e{forum}{id},
+			ident		=> 'intro',
+			value		=> $input{intro},
+		);
+
+		$core->update_glomule_timestamp(
+			tbl			=> $e{settings}{db}{tbls}{preset_headers},
+			key_field	=> 'id',
+			key			=> $e{forum}{id},
+			flat		=> 1,
+			recursive	=> 0,
+		);
+
+		print <<EOP;
+		<b>$e{language}{new_intro}:</b> $input{intro}
+		<p>
+		<a href="options">$e{language}{return_forum_opts}</a>
+EOP
+	}
+	$core->footer;
+}
+
+#----------
+
+sub change_icontheme {
+	$core->header("$e{language}{change_imageset}: $input{imageset}");
+
+	# first we make sure they're editing a theme that belongs to this forum
+	my $get_owner = $m_db->prepare("
+		select id from $e{settings}{db}{tbls}{theme_headers} 
+		where id = ? and forum = ?
+	");
+	$core->bail(0,"get_owner failure: ".$m_db->errstr) unless (
+		$get_owner->execute($input{look},$e{forum}{id})
+	);
+
+	$core->bail(0,"You must own a look in order to edit it.") unless (
+		$get_owner->rows
+	);
+
+	if (!$input{theme}) {
+		# get a list of icon themes
+		my $get_themes = $m_db->prepare("
+			select distinct theme from $e{settings}{db}{tbls}{iconthemes} 
+			order by theme
+		");
+
+		$core->bail(0,"get_themes failure: ".$m_db->errstr) unless (
+			$get_themes->execute
+		);
+
+		my $width = ($e{tweak}{htmlCOL3_LEFT} + $e{tweak}{htmlCOL3_MIDDLE} + $e{tweak}{htmlCOL3_RIGHT});
+
+		print <<EOP;
+		Please view the following icon themes and then select which one 
+		you would like to use for your forum.
+		<p>
+		<table border=0 width=$width>
+EOP
+
+		while (my $theme = $get_themes->fetchrow_array) {
+			print <<EOP;
+			<tr bgcolor=#EEEEEE>
+				<td width=$e{tweak}{htmlCOL3_LEFT}><b>$theme</b></td>
+				<td width=$e{tweak}{htmlCOL3_MIDDLE}>
+					<a href="view_icontheme?theme=$theme&look=$input{look}">View Theme</a>
+				</td>
+				<td width=$e{tweak}{htmlCOL3_RIGHT}>
+					<a href="change_icontheme?theme=$theme&look=$input{look}">Use Theme</a>
+				</td>
+			</tr>
+EOP
+		}
+
+		print <<EOP;
+		</table>
+		<p>
+		<a href="options">Return to Forum Options</a>
+EOP
+	} else {
+		# set this theme as the forum's new icon theme
+		$core->set_value(
+			tbl			=> $e{settings}{db}{tbls}{theme_data},
+			key_field	=> 'id',
+			key			=> $input{look},
+			ident		=> 'images',
+			value		=> $input{theme}
+		);
+
+		# get the theme's class
+		my $get_class = $m_db->prepare("
+			select class from $e{settings}{db}{tbls}{theme_headers} 
+			where id = ?
+		");
+
+		$core->bail(0,"get_class: ".$m_db->errstr) unless (
+			$get_class->execute($input{look})
+		);
+
+		$core->update_glomule_timestamp(
+			tbl			=> $e{settings}{db}{tbls}{theme_headers},
+			recursive	=> 1,
+			flat		=> 1,
+			key_field	=> "forum",
+			key			=> $e{forum}{id},
+			skey_opts	=> {
+				skey_field	=> "class",
+				skey		=> $get_class->fetchrow_array,
+			},
+		);
+
+		print <<EOP;
+		The icontheme for the look with id '$input{look}' was successfully set 
+		to '$input{theme}'.
+		<p>
+		<a href="change_look?id=$input{look}">Return to Look Modification</a>
+		<br><a href="options">Return to Forum Options</a>
+EOP
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub view_icontheme {
+	$core->header("View Image Set: $input{theme}");
+
+	# first load the icon theme out of the db
+	my $load_icontheme = $m_db->prepare("
+		select ident,value from $e{settings}{db}{tbls}{iconthemes} 
+		where theme = ?
+	");
+
+	$core->bail(0,"load_icontheme failure: ".$m_db->errstr) unless (
+		$load_icontheme->execute($input{theme})
+	);
+
+	my (%icons,%buttons);
+	while (my ($ident,$value) = $load_icontheme->fetchrow_array) {
+		$icons{$ident} = $value;
+		$buttons{$ident} = $value if ($ident =~ /button/);
+	}
+
+	# i can't think of a really clean way to display the theme while 
+	# not hardcoding fields, so for now this'll just be hardcoded.  If 
+	# that bugs anyone, they're completely free to write better code to 
+	# take its place.
+
+	print <<EOP;
+	<b>Theme: $input{theme}</b>
+	<p>$icons{descript}
+	<p>
+	<b>Button Bar:</b>
+	<br>$icons{bar_top}
+EOP
+
+	foreach my $button (keys %buttons) {
+		$buttons{$button} =~ s/#LINK//gi;
+		$buttons{$button} =~ s/#E_LINK//gi;
+		print $buttons{$button};
+	}
+
+	print <<EOP;
+	$icons{bar_bottom}
+	<p>
+	Message Icons:
+	<table border=0>
+	<tr><td>$icons{no_response_bar}</td><td>No Response</td></tr>
+	<tr><td>$icons{response_bar}</td><td>Response Bar</td></tr>
+	<tr><td>$icons{split_response_bar}</td><td>Split Response Bar</td></tr>
+	<tr><td>$icons{dropped_response}</td><td>Dropped Response</td></tr>
+	</table>
+	<p><a href="change_icontheme?look=$input{look}">Return to Icon Theme Selector</a>
+EOP
+	$core->footer;
+}
+
+#---------------------------#
+# Generic Viewer Type Stuff #
+#---------------------------#
+
+sub view_post {
+
+	my %post = $core->get_post($input{id});
+	$core->header("$e{language}{view_post}: $post{title}");
+	my $options = qq(
+		<font size=2>
+		<a href="delete?id=$post{id}">$e{language}{delete_post}</a> - - 
+		<a href="modify?id=$post{id}">$e{language}{modify_post}</a></font> ||
+	);
+	$options .= qq(
+		<font size=2><a href="approve?id=$post{id}&parent=$post{child_of}">Approve Post</a> || 
+	) if (!$post{status});
+	my $other_options;
+
+	$viewer->view_post($options,$other_options,%post);
+
+	print "<p>";
+	$core->buttons("post",$post{child_of});
+	print "</p>";
+
+	if ($post{children}) {
+		$core->get_posts(0,$input{id});
+		$viewer->thread_table_top;
+		$viewer->print_threads($input{id},1,0);
+		$viewer->thread_table_bottom;
+	}
+
+	$core->footer;
+}
+
+#----------
+
+sub post {
+	if ($input{preview}) {
+		$core->header("Previewing '$input{title}':");
+		$viewer->preview_post;
+		$core->footer;
+	} elsif ($input{submit}) {
+		$core->header("Posting '$input{title}':");
+		$viewer->post;
+		$core->footer;
+	} else {
+		$core->header("Compose Post");
+		$viewer->compose_post;
+		$core->footer;
+	}
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: admin,v $
+# Revision 1.27  2000/07/12 01:51:26  eric
+# * fixed change_intro code
+# * made update_glomule_timestamp documentation more clear
+#
+# Revision 1.26  2000/07/11 18:53:26  eric
+# * ummm...  i did stuff...  good stuff, i think.
+#   (WTF do you expect?!?!?  It's a 1000+ line diff)
+#
+# Revision 1.25  2000/07/10 20:54:21  eric
+# * merged BCI and tgp devel trees
+# * cleaned up some code in forum_info and cache
+#
+# Revision 1.24  2000/06/07 18:14:49  eric
+# * glomule creation fixes
+# * glomule deletion fixes
+# * fixed all old references to presets
+# * domain rooting work
+# * glomule module work
+# * assorted other fixes
+#
+# Revision 1.23  2000/06/06 00:01:15  eric
+# * finished integrating look classes and the preset_headers/preset_data
+#
+# Revision 1.22  2000/06/01 00:32:04  eric
+# * monster commit
+# * initial glomlet support
+# * started hacking presets into something more flexible
+# * started hacking glomule class and inheritance support directly into
+#   look themes
+#
+# Revision 1.21  2000/05/01 21:10:57  eric
+# * a little domain rooting work
+# * some fixes for Netscape's sucky CSS handling
+#
+# Revision 1.20  2000/05/01 19:04:10  eric
+# * more work on domain rooting
+#
+# Revision 1.19  2000/04/29 16:39:19  eric
+# * merging eThreads1_2-devel tree back into main eThreads tree
+#
+# Revision 1.18.4.10.2.1.2.25  2000/04/21 23:24:39  eric
+# * fixed some problems with inherited looks
+#
+# Revision 1.18.4.10.2.1.2.24  2000/04/21 22:19:03  eric
+# * admin: fixed create_user reference to old style f_name l_name
+# * core.pm: changed browse_child_forums to not show glomule if it didn't
+#   have a description
+#
+# Revision 1.18.4.10.2.1.2.23  2000/04/16 21:49:22  eric
+# * fixes in the email calling with regards to moderation
+#
+# Revision 1.18.4.10.2.1.2.22  2000/04/15 22:49:22  eric
+# * made an exception in $core->start to not authenticate if its the
+#   view script
+# * moved all user notification to the remailer
+#
+# Revision 1.18.4.10.2.1.2.21  2000/04/11 01:12:11  eric
+# * merging changes after apparently doing some CVS screwing up...
+#
+# Revision 1.18.4.10.2.1.2.20  2000/03/11 18:51:17  eric
+# * misc. tweaks in the road towards 1.2-stable
+#
+# Revision 1.18.4.10.2.1.2.19  2000/03/07 23:29:42  eric
+# * just making the moderator's life a little easier
+#
+# Revision 1.18.4.10.2.1.2.18  2000/03/07 22:33:39  eric
+# * rewrote restricted wordlist editor to build in support for recursion
+#
+# Revision 1.18.4.10.2.1.2.17  2000/03/06 22:14:42  eric
+# * fixed modify_language function
+#
+# Revision 1.18.4.10.2.1.2.16  2000/02/26 15:33:49  eric
+# * fixed some quotation mark bugs in the preview->post stuff
+#
+# Revision 1.18.4.10.2.1.2.15  2000/02/25 16:40:02  eric
+# * fixed some look changing features to correlate with new recursive
+#   caching
+#
+# Revision 1.18.4.10.2.1.2.14  2000/02/24 15:53:02  eric
+# * fixed rights loading
+#
+# Revision 1.18.4.10.2.1.2.13  2000/02/24 15:26:31  eric
+# * fixed some rights loading
+# * fixed user pref caching
+#
+# Revision 1.18.4.10.2.1.2.12  2000/02/23 18:07:18  eric
+# * fixed tweak editing
+#
+# Revision 1.18.4.10.2.1.2.11  2000/02/23 06:51:25  eric
+# * ummm...  i did stuff.  lots of stuff.
+#
+# Revision 1.18.4.10.2.1.2.10  2000/02/22 20:58:11  eric
+# * rewrote core::start function and changed arg style
+# * wrote forum finder
+# * redid browse_child_forum backend to be generic
+#
+# Revision 1.18.4.10.2.1.2.9  2000/02/21 19:09:02  eric
+# * updated user information to use new user tbl structure
+#
+# Revision 1.18.4.10.2.1.2.8  2000/02/18 18:20:22  eric
+# * rewrote change_icontheme (formerly change_imageset)
+# * rewrote view_icontheme (formerly view_imageset)
+# * abstracted some value setting code out to a core sub
+#
+# Revision 1.18.4.10.2.1.2.7  2000/02/16 17:44:36  eric
+# * rewrote most of the search engine matching code
+# * fixed post modification
+#
+# Revision 1.18.4.10.2.1.2.6  2000/01/17 22:39:29  eric
+# * message preview is now functional
+#
+# Revision 1.18.4.10.2.1.2.5  2000/01/13 22:46:57  eric
+# * rewrote theme modification code
+# * rewrote theme creation code
+# * changed theme database structure to split tables with ident,value pair
+#
+# Revision 1.18.4.10.2.1.2.4  1999/12/22 21:28:51  eric
+# * drop to new posts now works
+# * renamed router function to function_finder
+#
+# Revision 1.18.4.10.2.1.2.3  1999/12/22 18:41:14  eric
+# * new post code
+# * schema work
+#
+# Revision 1.18.4.10.2.1.2.2  1999/11/23 02:13:06  eric
+# * misc changes in the process towards 1.2
+#
+# Revision 1.18.4.10.2.1.2.1  1999/11/10 18:43:45  eric
+# * more function map work
+# * changed admin permissions code to utilize function unmapping
+# * created calendar module
+#
+# Revision 1.18.4.10.2.1  1999/09/21 00:30:43  eric
+# * fixed forum modification code
+# * fixed typo in post modification code
+#
+# Revision 1.18.4.10  1999/09/03 12:25:03  eric
+# * rolled $u_db into $m_db
+#
+# Revision 1.18.4.9  1999/08/26 14:04:24  eric
+# * updated all headers to conform to standard eThreads header
+#
+# Revision 1.18.4.8  1999/08/24 20:08:11  eric
+# * merging in changes from BCI tree
+#
+# Revision 1.18.4.7  1999/08/24 19:39:21  eric
+# * fixed typo in modify_user
+#
+# Revision 1.18.4.6  1999/08/24 19:35:26  eric
+# * added modify_user function
+#
+# Revision 1.18.4.5  1999/08/24 18:24:46  eric
+# * added create_user function to admin
+#
+# Revision 1.18.4.4  1999/08/23 16:41:08  eric
+# * changed assorted method=get's to method=post
+#
+# Revision 1.18.4.3  1999/08/18 06:30:52  eric
+# * forum_type modules and code
+# * first revision of instamailer (subscription notifier)
+# * some subscription code in members
+#
+# Revision 1.18.4.2  1999/06/25 20:27:50  eric
+# * pointers to search code
+#
+# Revision 1.18.4.1  1999/06/22 20:02:18  eric
+# * fixes for invitation only forums
+#
+# Revision 1.18  1999/05/27 00:19:01  eric
+# * various changes to get ready for eThreads 0.9
+#
+# Revision 1.17  1999/05/20 22:51:05  eric
+# * tweak to allow admins HTML posting, even when normal users can't
+#
+# Revision 1.16  1999/05/14 02:35:01  eric
+# * wordlist editor code functional
+#
+# Revision 1.15  1999/05/06 23:06:06  eric
+# * removed unnedded table close in main_menu
+# * converted child display under view_post to new format
+#
+# Revision 1.14  1999/04/29 22:45:39  eric
+# * fix for writing textareas in textareas
+#
+# Revision 1.13  1999/04/13 23:41:27  eric
+# * updated imageset code to work with looks
+#
+# Revision 1.12  1999/04/13 23:12:14  eric
+# * new rights code
+#
+# Revision 1.11  1999/04/09 06:06:30  eric
+# * code for modifying profiles is in and functional
+# * profile viewer code is in as well
+#
+# Revision 1.10  1999/04/07 02:42:24  eric
+# * post modification now works
+#
+# Revision 1.9  1999/04/06 21:33:03  eric
+# * modified forum_look code to support forumset themes
+# * abstracted thread display table structure to look themes
+#
+# Revision 1.8  1999/03/24 01:05:52  eric
+# * changed modify_wordlist to display less verbage
+# * added return to options link
+#
+# Revision 1.7  1999/03/24 01:00:02  eric
+# * language mod interface functional
+# * WARNING:  bug with language{forum} : gets value of $input{forum}
+#
+# Revision 1.6  1999/03/23 23:11:25  eric
+# * language updates
+# * tweak editing code
+#
+# Revision 1.5  1999/03/22 00:42:09  eric
+# * moved content-type to core
+#
+# Revision 1.4  1999/03/07 17:53:01  eric
+# * code for deleting posts is functional.  needs to be cleaned up, but
+#   it works.
+#
+# Revision 1.3  1999/03/07 00:39:06  eric
+# * imageset changing is now functional
+# * intro changing is now functional
+# * some fixes for changing info for .BROWSER
+#
+# Revision 1.2  1999/02/27 21:00:07  eric
+# * fixed links in option menu
+# * added browse call for directories (since I disabled core auto-browsing)
+#
+# Revision 1.1  1999/02/26 21:46:21  eric
+# * administrative shell
+# * look modifications functional (header & footer)
+#
+
+#---------------#
+# End of Script #
+#---------------#

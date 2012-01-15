@@ -1,0 +1,56 @@
+# MySQL dump 7.1
+#
+# Host: mysql    Database: eThreadsIII
+#--------------------------------------------------------
+# Server version	3.23.18-alpha
+
+#
+# Dumping data for table 'icons'
+#
+
+INSERT INTO icons VALUES ('bar_bottom','pale_blue','');
+INSERT INTO icons VALUES ('updated','pale_blue','927240450');
+INSERT INTO icons VALUES ('split_response_bar','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/quotes-split.gif\" width=20 height=10 alt=\"-&gt;\" border=0 usemap=##{map}><map name=\"#{map}\"><area shape=\"rect\" coords=\"0,0,10,9\" href=\"#{new_drop}\" alt=\"New Posts\"><area shape=\"rect\" coords=\"10,0,20,10\" href=\"#{drop}\" alt=\"Normal Drop\"></map>');
+INSERT INTO icons VALUES ('post_button','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/post.gif\" width=60 height=15 alt=\"Post\" border=0>');
+INSERT INTO icons VALUES ('options_button','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/settings.gif\" width=60 height=15 alt=\"Settings\" border=0>');
+INSERT INTO icons VALUES ('reply_button','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/reply.gif\" width=60 height=15 alt=\"Reply\" border=0>');
+INSERT INTO icons VALUES ('up_button','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/back.gif\" width=60 height=15 alt=\"Back\" border=0>');
+INSERT INTO icons VALUES ('signup_button','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/register.gif\" width=60 height=15 alt=\"Register\" border=0>');
+INSERT INTO icons VALUES ('login_button','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/login.gif\" width=60 height=15 alt=\"Log In\" border=0>');
+INSERT INTO icons VALUES ('bar_top','pale_blue','');
+INSERT INTO icons VALUES ('spacer','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/transpixel.gif\" width=20 height=10 alt=\"\" border=0>');
+INSERT INTO icons VALUES ('descript','blue','A Blue Image Theme');
+INSERT INTO icons VALUES ('response_bar','blue','<img src=\"http://ethreads.com/themes/blue/quotes.gif\" width=20 height=10 alt=\"-&gt;\" border=0>');
+INSERT INTO icons VALUES ('no_response_bar','blue','<img src=\"http://ethreads.com/themes/blue/quotes-pale.gif\" width=20 height=10 alt=\"--\" border=0>');
+INSERT INTO icons VALUES ('dropped_response','blue','<img src=\"http://ethreads.com/themes/blue/down.gif\" width=20 height=10 alt=\"V\" border=0>');
+INSERT INTO icons VALUES ('spacer','blue','<img src=\"http://ethreads.com/themes/blue/transpixel.gif\" width=20 height=10 alt=\"\" border=0>');
+INSERT INTO icons VALUES ('bar_top','blue','');
+INSERT INTO icons VALUES ('login_button','blue','<img src=\"http://ethreads.com/themes/blue/login.gif\" width=60 height=15 alt=\"Log In\" border=0>');
+INSERT INTO icons VALUES ('signup_button','blue','<img src=\"http://ethreads.com/themes/blue/register.gif\" width=60 height=15 alt=\"Register\" border=0>');
+INSERT INTO icons VALUES ('reply_button','blue','<img src=\"http://ethreads.com/themes/blue/reply.gif\" width=60 height=15 alt=\"Reply\" border=0>');
+INSERT INTO icons VALUES ('up_button','blue','<img src=\"http://ethreads.com/themes/blue/back.gif\" width=60 height=15 alt=\"Back\" border=0>');
+INSERT INTO icons VALUES ('options_button','blue','<img src=\"http://ethreads.com/themes/blue/settings.gif\" width=60 height=15 alt=\"Settings\" border=0>');
+INSERT INTO icons VALUES ('post_button','blue','<img src=\"http://ethreads.com/themes/blue/post.gif\" width=60 height=15 alt=\"Post\" border=0>');
+INSERT INTO icons VALUES ('bar_bottom','blue','');
+INSERT INTO icons VALUES ('updated','blue','927240452');
+INSERT INTO icons VALUES ('descript','html','An icontheme with no images');
+INSERT INTO icons VALUES ('response_bar','html','-->');
+INSERT INTO icons VALUES ('no_response_bar','html','---');
+INSERT INTO icons VALUES ('dropped_response','html','-V-');
+INSERT INTO icons VALUES ('spacer','html','&nbsp;&nbsp;');
+INSERT INTO icons VALUES ('bar_top','html','<table border=0><tr bgcolor=#DDDDDD>');
+INSERT INTO icons VALUES ('login_button','html','<td width=50><b>#LINKLog In#E_LINK</b></td>');
+INSERT INTO icons VALUES ('signup_button','html','<td width=50><b>#LINKRegister#E_LINK</b></td>');
+INSERT INTO icons VALUES ('reply_button','html','<td width=50><b>#LINKReply#E_LINK</b></td>');
+INSERT INTO icons VALUES ('up_button','html','<td width=50><b>#LINKBack#E_LINK</b></td>');
+INSERT INTO icons VALUES ('options_button','html','<td width=50><b>#LINKSettings#E_LINK</b></td>');
+INSERT INTO icons VALUES ('post_button','html','<td width=50><b>#LINKPost#E_LINK</b></td>');
+INSERT INTO icons VALUES ('bar_bottom','html','</tr></table>');
+INSERT INTO icons VALUES ('updated','html','927240444');
+INSERT INTO icons VALUES ('dropped_response','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/down.gif\" width=20 height=10 alt=\"V\" border=0>');
+INSERT INTO icons VALUES ('descript','pale_blue','A Pale Blue Image Theme');
+INSERT INTO icons VALUES ('response_bar','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/quotes.gif\" width=20 height=10 alt=\"-&gt;\" border=0>');
+INSERT INTO icons VALUES ('no_response_bar','pale_blue','<img src=\"http://ethreads.com/themes/pale_blue/quotes-pale.gif\" width=20 height=10 alt=\"--\" border=0>');
+INSERT INTO icons VALUES ('split_response_bar','html','<a href=\"#{new_drop}\">N</a>-<a href=\"#{drop}\">&gt;</a>');
+INSERT INTO icons VALUES ('split_response_bar','blue','<img src=\"http://ethreads.com/themes/blue/quotes-split.gif\" width=20 height=10 alt=\"-&gt;\" border=0 usemap=##{map}><map name=\"#{map}\"><area shape=\"rect\" coords=\"0,0,10,9\" href=\"#{new_drop}\" alt=\"New Posts\"><area shape=\"rect\" coords=\"10,0,20,10\" href=\"#{drop}\" alt=\"Normal Drop\"></map>');
+

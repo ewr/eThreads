@@ -1,0 +1,275 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+#  $Id: module.db.mysql,v 1.14 2000/07/11 18:53:26 eric Exp $
+#
+#  eThreads - revolutionizing forums... again.
+#  Copyright (C) 1999 Eric Richardson
+#
+#     This program is free software; you can redistribute it and/or
+#     modify it under the terms of the GNU General Public License
+#     as published by the Free Software Foundation; either version 2
+#     of the License, or (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program; if not, write to the Free Software
+#     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  
+#     02111-1307, USA.
+#
+#     For information, contact eThreads:
+#         ethreads@ethreads.com
+#         http://ethreads.com
+#
+#  This is the database module for MySQL.  It contains MySQL code for
+#  specific database functions.
+#
+#---------------------------------------------------------------------
+
+use strict;
+use vars qw($core $m_db $db);
+
+#----------------------#
+# Database Information #
+#----------------------#
+
+sub db_info {
+	my %db = (
+		supports_searching			=> "1",
+		supports_body_searching		=> "1",
+		supports_title_searching	=> "1",
+		supports_name_searching		=> "1",
+		supports_email_searching	=> "1",
+	);
+	return %db;
+}
+
+sub db::fields::preset_headers {
+	my @order = (
+		'name','descript','path','child_of','admin_email','type','updated'
+	);
+
+	my %fields = (
+		name			=> {
+			visible 	=> 1,
+			descript	=> 
+				"The name which will identify your forum (one word, no spaces)",
+		}, 
+		descript		=> {
+			visible		=> 1,
+			descript	=> 
+				"Description of your forum",
+		}, 
+		path			=> {
+			visible		=> $e{settings}{allow_admin_to_change_path},
+			descript	=> 
+				"Path for accessing your forum",
+			d_value		=> $e{settings}{d_path},
+		}, 
+		child_of		=> {
+			d_value		=> $e{forum}{id},
+		},
+		admin_email		=> {
+			visible		=> 1,
+			descript	=> 
+				"Address for people to contact in case of problems (will be 
+				displayed)",
+		}, 
+		type			=> {},
+		updated			=> {
+			d_value		=> time,
+		},
+	);
+	return (\@order,\%fields);
+}
+
+sub db::fields::presets {my @f = (
+        'id','descript','intro','main_db','main_tbl','path','user','passwd',
+        'is_moderated','updated','child_of','admin_email','type','d_look'
+);return @f;}
+
+sub db::fields::theme_data {my @f = (
+	'header','footer','thread_table_top','thread_html','thread_table_bottom',
+	'post_html','c_post_html','profile_html','search_box','search_results_top',
+	'search_results_html','search_results_bottom'
+);return @f;}
+
+#-------------------------------#
+# Database Specific Subroutines #
+#-------------------------------#
+
+sub db::connect_mdb {
+	eThreads::core->bail(0,"mdb connect failed: $!") unless (my $m_db = DBI->connect(
+		"DBI:$e{settings}{db}{type}:$e{settings}{db}{main}:$e{settings}{db}{host}", 
+		$e{settings}{db}{user},$e{settings}{db}{pass}
+	));
+
+	return $m_db;
+}
+
+#----------
+
+sub db::get_next_id {
+	my $next_id = 0;
+	return $next_id;
+}
+
+#----------
+
+sub db::get_message_id {
+	my $class = shift;
+	my $sth = shift;
+	my $next_id = $sth->{'mysql_insertid'};
+	return $next_id;
+}
+
+#----------
+
+sub db::create_table {
+	my $class = shift;
+	my $database = shift;
+	my $table_name = shift;
+	my $user = shift;
+	my $passwd = shift;
+
+	eThreads::core->bail(0,"Could Not Connect t_db: $!") unless (
+		my $t_db = DBI->connect(
+			"DBI:$e{settings}{db}{type}:$database:$e{settings}{db}{host}", 
+			"$user","$passwd"
+		)
+	);
+
+	eThreads::core->bail(0,$t_db->errstr) unless ($t_db->do("
+		CREATE TABLE $table_name (
+			id int(11) DEFAULT '0' NOT NULL auto_increment,
+			title varchar(100) DEFAULT '' NOT NULL,
+			poster text,
+			poster_email text,
+			timestamp int(11),
+			child_of int(11),
+			body text,
+			status tinyint(3) unsigned,
+			username varchar(20),
+			children int(11),
+			PRIMARY KEY (id)
+		)
+	"));
+	$t_db->disconnect;
+}
+
+#-------------#
+# Change Logs #
+#-------------#
+
+# $Log: module.db.mysql,v $
+# Revision 1.14  2000/07/11 18:53:26  eric
+# * ummm...  i did stuff...  good stuff, i think.
+#   (WTF do you expect?!?!?  It's a 1000+ line diff)
+#
+# Revision 1.13  2000/06/06 00:01:15  eric
+# * finished integrating look classes and the preset_headers/preset_data
+#
+# Revision 1.12  2000/04/29 16:39:19  eric
+# * merging eThreads1_2-devel tree back into main eThreads tree
+#
+# Revision 1.11.4.8.4.5  2000/02/17 22:05:51  eric
+# * fixed forum creation and updated it to new db structure
+#
+# Revision 1.11.4.8.4.4  2000/02/12 02:45:52  eric
+# * commiting changes from hosehead
+#
+# Revision 1.11.4.8.4.3  2000/01/13 22:46:57  eric
+# * rewrote theme modification code
+# * rewrote theme creation code
+# * changed theme database structure to split tables with ident,value pair
+#
+# Revision 1.11.4.8.4.2  2000/01/13 19:15:02  eric
+# * fixed presets caching
+# * moved preset fields to db module
+# * fixed r_drop with forum ids
+#
+# Revision 1.11.4.8.4.1  1999/11/23 02:13:06  eric
+# * misc changes in the process towards 1.2
+#
+# Revision 1.11.4.8  1999/09/03 12:25:03  eric
+# * rolled $u_db into $m_db
+#
+# Revision 1.11.4.7  1999/08/26 14:04:25  eric
+# * updated all headers to conform to standard eThreads header
+#
+# Revision 1.11.4.6  1999/08/25 18:51:25  eric
+# * some changes to forum creation code
+# * removed some hardcoded html table widths
+#
+# Revision 1.11.4.5  1999/08/18 06:30:53  eric
+# * forum_type modules and code
+# * first revision of instamailer (subscription notifier)
+# * some subscription code in members
+#
+# Revision 1.11.4.4  1999/08/17 21:55:40  eric
+# * small db call changes
+#
+# Revision 1.11.4.3  1999/07/27 15:39:24  eric
+# * added option to put child forums in main database
+#
+# Revision 1.11.4.2  1999/06/24 13:47:35  eric
+# * added bail calls on db connects
+#
+# Revision 1.11.4.1  1999/06/22 20:02:18  eric
+# * fixes for invitation only forums
+#
+# Revision 1.11  1999/05/27 00:19:01  eric
+# * various changes to get ready for eThreads 0.9
+#
+# Revision 1.10  1999/04/29 23:53:20  eric
+# * fixed field list for type 1's
+#
+# Revision 1.9  1999/04/29 22:48:11  eric
+# * removed preset fields no longer used
+#
+# Revision 1.8  1999/04/13 23:14:44  eric
+# * db::connect_udb now uses system-wide user tbl
+#
+# Revision 1.7  1999/03/22 00:44:11  eric
+# * renamed db_connect_udb to db::connect_udb
+#
+# Revision 1.6  1999/03/07 00:39:52  eric
+# * added some database structure info for imagesets
+#
+# Revision 1.5  1999/02/27 20:56:08  eric
+# * database structures for use in maintenance
+# * renamed and fixed the old db_create_forum_table (now db::create_table)
+#
+# Revision 1.4  1999/02/27 17:45:27  eric
+# * spelling correction
+#
+# Revision 1.3  1999/02/19 20:53:02  eric
+# * changed some names to make them accessible from viewer
+#
+# Revision 1.2  1999/01/20 19:59:34  eric
+# * fixed typo in connect_db
+#
+# Revision 1.1.1.1  1999/01/20 02:48:04  eric
+# * e import
+#
+# Revision 1.4  1998/11/07 17:59:24  eric
+# * added children to forum table creation code
+#
+# Revision 1.3  1998/10/24 21:41:52  eric
+# * added db_create_forum_table
+#
+# Revision 1.2  1998/09/28 23:16:23  eric
+# * added db_dbu_connect for connecting to users database
+#
+# Revision 1.1  1998/09/19 16:48:46  eric
+# * Support for MySQL now up to speed.
+#
+
+#---------------#
+# End of Module #
+#---------------#
+
+1;
